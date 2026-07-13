@@ -13,11 +13,9 @@ import {
   Plug,
   Settings as SettingsIcon,
   Info,
-  Cloud,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
-import { useAuthStore } from "@/store/auth-store";
 import { ModelBadge } from "./model-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
@@ -31,7 +29,6 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
   { view: "chat", label: "Chat", icon: MessageCircle },
   { view: "integrations", label: "Integrations", icon: Plug },
   { view: "settings", label: "Settings", icon: SettingsIcon },
-  { view: "auth", label: "Account", icon: Cloud },
   { view: "about", label: "About", icon: Info },
 ];
 

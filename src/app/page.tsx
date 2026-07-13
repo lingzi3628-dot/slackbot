@@ -17,9 +17,6 @@ import {
 import { IntegrationsPage } from "@/components/spyro/pages/integrations-page";
 import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
-import { AuthPage } from "@/components/spyro/pages/auth-page";
-import { useAuthStore } from "@/store/auth-store";
-import { useSupabaseSync } from "@/hooks/use-supabase-sync";
 
 export default function Home() {
   const { send, stop, regenerate, generateImage, webSearch, setWebSearch } = useSpyroChat();
@@ -31,11 +28,6 @@ export default function Home() {
   const inputFocusRef = React.useRef<() => void>(() => {});
 
   React.useEffect(() => setMounted(true), []);
-
-  // Init Supabase auth (no-op if not configured) + cloud sync.
-  const initAuth = useAuthStore((s) => s.init);
-  React.useEffect(() => { void initAuth(); }, [initAuth]);
-  useSupabaseSync();
 
   const handleSend = (text: string) => {
     void send(text, { webSearch });
@@ -139,7 +131,6 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto">
               {activeView === "integrations" && <IntegrationsPage />}
               {activeView === "settings" && <SettingsPage />}
-              {activeView === "auth" && <AuthPage />}
               {activeView === "about" && <AboutPage />}
             </div>
           </>

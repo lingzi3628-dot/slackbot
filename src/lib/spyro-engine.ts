@@ -8,6 +8,29 @@ import { SPYRO_SYSTEM_PROMPT } from "./spyro-persona";
 
 const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
+/**
+ * Strip Pollinations attribution / promotional text that may be appended
+ * to responses. The persona prompt already forbids it, but this is a
+ * belt-and-suspenders server-side filter.
+ */
+function stripAttribution(text: string): string {
+  let out = text;
+  // Remove common Pollinations promo lines (case-insensitive, anywhere).
+  const patterns = [
+    /\s*\[?\s*powered by\s+pollinations\.ai\s*\]?\s*$/i,
+    /\s*—\s*pollinations\.ai\s*$/i,
+    /\s*pollinations\.ai\s*$/i,
+    /\s*\n+https?:\/\/pollinations\.ai\/?\s*$/i,
+    /\s*\n+\*\*powered by.*pollinations.*\*\*\s*$/i,
+    /\s*\n+image\s+by\s+pollinations.*$/i,
+    /\s*\n+generated\s+(?:by|with)\s+pollinations.*$/i,
+  ];
+  for (const p of patterns) {
+    out = out.replace(p, "");
+  }
+  return out;
+}
+
 export interface SpyroMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -74,10 +97,11 @@ export async function getSpyroReply(
   }
 
   const data = await res.json();
-  const content =
+  const rawContent =
     data?.choices?.[0]?.message?.content ??
     data?.choices?.[0]?.delta?.content ??
     "";
+  const content = stripAttribution(rawContent);
 
   if (typeof content === "string" && content.length > 0) {
     options.onToken?.(content, content);
@@ -154,5 +178,5 @@ async function getSpyroReplyStreaming(
   if (buffer.length > 0) flushLine(buffer);
 
   if (!acc) throw new Error("Empty streaming response");
-  return acc;
+  return stripAttribution(acc);
 }
