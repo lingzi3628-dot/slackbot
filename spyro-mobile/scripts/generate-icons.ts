@@ -53,19 +53,26 @@ const SPLASH_SVG = `<svg width="1242" height="2436" viewBox="0 0 1242 2436" xmln
   <text x="621" y="1510" font-family="sans-serif" font-size="28" fill="#a99c87" text-anchor="middle">Dragon-powered AI</text>
 </svg>`;
 
-const outDir = path.join(process.cwd(), "assets");
-await mkdir(outDir, { recursive: true });
+// Wrap in an async IIFE so this runs under both `bun` (top-level await OK)
+// and `npx tsx` (CJS mode, no top-level await).
+(async () => {
+  const outDir = path.join(process.cwd(), "assets");
+  await mkdir(outDir, { recursive: true });
 
-await sharp(Buffer.from(ICON_SVG)).png().toFile(path.join(outDir, "icon.png"));
-console.log("✓ assets/icon.png (1024x1024)");
+  await sharp(Buffer.from(ICON_SVG)).png().toFile(path.join(outDir, "icon.png"));
+  console.log("✓ assets/icon.png (1024x1024)");
 
-await sharp(Buffer.from(ICON_SVG)).png().toFile(path.join(outDir, "adaptive-icon.png"));
-console.log("✓ assets/adaptive-icon.png");
+  await sharp(Buffer.from(ICON_SVG)).png().toFile(path.join(outDir, "adaptive-icon.png"));
+  console.log("✓ assets/adaptive-icon.png");
 
-await sharp(Buffer.from(SPLASH_SVG)).png().toFile(path.join(outDir, "splash.png"));
-console.log("✓ assets/splash.png (1242x2436)");
+  await sharp(Buffer.from(SPLASH_SVG)).png().toFile(path.join(outDir, "splash.png"));
+  console.log("✓ assets/splash.png (1242x2436)");
 
-await sharp(Buffer.from(ICON_SVG)).resize(48, 48).png().toFile(path.join(outDir, "favicon.png"));
-console.log("✓ assets/favicon.png (48x48)");
+  await sharp(Buffer.from(ICON_SVG)).resize(48, 48).png().toFile(path.join(outDir, "favicon.png"));
+  console.log("✓ assets/favicon.png (48x48)");
 
-console.log("\nDone. Make sure assets/ is referenced in app.config.ts.");
+  console.log("\nDone. Make sure assets/ is referenced in app.config.ts.");
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
