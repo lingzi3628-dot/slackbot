@@ -1,7 +1,7 @@
 /**
  * Flame-flicker typing indicator — three ember dots that pulse.
  */
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import Animated, {
   useSharedValue,
@@ -28,11 +28,9 @@ export function TypingIndicator() {
 
 function Dot({ delay, color }: { delay: number; color: string }) {
   const sv = useSharedValue(0);
-  const ref = useRef(false);
 
   useEffect(() => {
-    if (ref.current) return;
-    ref.current = true;
+    // Start the flicker loop once on mount.
     sv.value = withDelay(
       delay,
       withRepeat(
@@ -43,7 +41,8 @@ function Dot({ delay, color }: { delay: number; color: string }) {
         -1
       )
     );
-  }, [sv, delay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const style = useAnimatedStyle(() => ({
     opacity: 0.6 + sv.value * 0.4,

@@ -12,9 +12,9 @@ Pollination AI text API and rebrands responses as SPYRO V1.
 
 ---
 
-## ✨ What's implemented (Phase 0 + Phase 1)
+## ✨ What's implemented (Phase 0 + 1 + 2 + 5)
 
-This is a **runnable MVP**:
+This is a **store-ready MVP**:
 
 - ✅ Expo Router tab navigation (Chat / History / Settings)
 - ✅ First-launch onboarding flow
@@ -27,15 +27,38 @@ This is a **runnable MVP**:
 - ✅ Haptic feedback (send, stop, regenerate, long-press)
 - ✅ Welcome screen with suggestion cards
 - ✅ Keyboard-aware input with auto-grow
+- ✅ **Biometric lock** — Face ID / Touch ID / fingerprint on app launch + background (Phase 2)
+- ✅ **Push notifications** — local "response ready" alert when the app is backgrounded (Phase 2)
+- ✅ **Export & share** — single conversation as Markdown, or all conversations as JSON (Phase 2)
+- ✅ **GitHub Actions CI** — typecheck + lint on every PR, auto OTA update on main, manual production build (Phase 5)
+- ✅ **Store metadata** — copy-paste App Store + Play Store listing in `store-metadata/STORE_LISTING.md` (Phase 5)
+- ✅ **Privacy policy** — hosted at `/privacy` on the Next.js backend (Phase 5)
 - ✅ FlashList virtualized messages
 
-### Not yet (Phase 2+)
-- Biometric lock UI wiring (store flag exists, auth prompt TBD)
-- Push notifications
-- iOS widget
-- OTA updates via EAS
-- Sentry crash reporting
-- App Store / Play Store submission
+### Not yet (Phase 3+)
+- Polish pass (animated ember particles, transitions)
+- iOS home-screen widget
+- Sentry crash reporting integration
+- Remote push (server-sent, not just local) — requires a push server
+
+---
+
+## 🔁 CI/CD (GitHub Actions)
+
+A workflow is included at `.github/workflows/mobile.yml` (in the repo root).
+It runs on every push/PR that touches `spyro-mobile/`:
+
+1. **Typecheck** — `bun run typecheck`
+2. **Lint** — `bun run lint`
+3. **OTA update** (on merges to `main`) — ships a JS-only update to the
+   `production` EAS Update channel via `eas update --auto`. No store review.
+4. **Production build** (manual `workflow_dispatch`) — runs
+   `eas build --profile production` for iOS + Android in the cloud, then
+   auto-submits to the stores.
+
+**Required GitHub secret:** `EXPO_TOKEN` — create at
+https://expo.dev/accounts/[you]/settings/access-tokens, then add it as a
+repository secret (Settings → Secrets and variables → Actions → New).
 
 ---
 

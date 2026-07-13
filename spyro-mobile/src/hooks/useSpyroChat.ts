@@ -4,9 +4,11 @@
  * Direct port of the web app's src/hooks/use-spyro-chat.ts.
  */
 import { useCallback, useRef } from "react";
+import { AppState } from "react-native";
 import { useChatStore } from "@/store/chat-store";
 import { streamChat } from "@/lib/api";
 import { useHaptics } from "./useHaptics";
+import { notifyResponseReady } from "./useNotifications";
 
 export function useSpyroChat() {
   const abortRef = useRef<AbortController | null>(null);
@@ -76,6 +78,15 @@ export function useSpyroChat() {
             });
             useChatStore.getState().setGenerating(false);
             haptics.notify();
+            // If the app is backgrounded, fire a local push so the user
+            // knows their answer is ready.
+            if (AppState.currentState !== "active" && acc.trim().length > 0) {
+              const convo = useChatStore.getState().getActive();
+              notifyResponseReady(
+                convo?.title ?? "New chat",
+                acc.replace(/[#*`>]/g, "").trim()
+              );
+            }
             abortRef.current = null;
           },
           onError: (err) => {

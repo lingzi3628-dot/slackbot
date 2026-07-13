@@ -1,0 +1,79 @@
+name: Mobile CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "spyro-mobile/**"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "spyro-mobile/**"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: spyro-mobile
+
+jobs:
+  # ---------------------------------------------------------------- quality
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
+  lint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+
+  # ------------------------------------------------------------- OTA update
+  # On every merge to main, ship a JS-only OTA update to the production
+  # channel — no app store review required. Requires EXPO_TOKEN secret.
+  ota-update:
+    name: EAS Update (production)
+    needs: [typecheck, lint]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas update --branch production --auto --non-interactive --message "${{ github.event.head_commit.message }}"
+        continue-on-error: true # OTA is best-effort; don't block PRs
+
+  # ----------------------------------------------------- production build
+  # Triggered manually (workflow_dispatch) to build store-ready binaries
+  # in the cloud via EAS Build. Requires EXPO_TOKEN secret.
+  build-production:
+    name: EAS Build (production)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    needs: [typecheck, lint]
+    strategy:
+      matrix:
+        platform: [ios, android]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: eas build --platform ${{ matrix.platform }} --profile production --non-interactive --auto-submit

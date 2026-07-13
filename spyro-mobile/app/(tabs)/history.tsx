@@ -18,6 +18,7 @@ import { useChatStore } from "@/store/chat-store";
 import { useTheme } from "@/hooks/useTheme";
 import { useHaptics } from "@/hooks/useHaptics";
 import { ModelBadge } from "@/components/ModelBadge";
+import { exportConversationAsMarkdown } from "@/lib/export";
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -127,6 +128,10 @@ export default function HistoryScreen() {
                   haptics.impact();
                   Alert.alert(item.title, undefined, [
                     { text: "Rename", onPress: () => onRename(item.id, item.title) },
+                    {
+                      text: "Export as Markdown",
+                      onPress: () => exportConversationAsMarkdown(item),
+                    },
                     { text: "Delete", style: "destructive", onPress: () => onDelete(item.id, item.title) },
                     { text: "Cancel", style: "cancel" },
                   ]);

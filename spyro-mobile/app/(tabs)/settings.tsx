@@ -7,8 +7,11 @@ import { useTheme, useThemeMode } from "@/hooks/useTheme";
 import { useSettingsStore, type ThemeMode } from "@/store/settings-store";
 import { useChatStore } from "@/store/chat-store";
 import { useHaptics } from "@/hooks/useHaptics";
+import { useBiometricLock } from "@/hooks/useBiometricLock";
+import { useNotifications } from "@/hooks/useNotifications";
 import { ModelBadge } from "@/components/ModelBadge";
 import { API_BASE_URL } from "@/lib/constants";
+import { lockStore } from "@/app/lock";
 
 function Row({
   icon,
@@ -63,6 +66,32 @@ export default function SettingsScreen() {
   const biometricLock = useSettingsStore((s) => s.biometricLock);
   const setBiometricLock = useSettingsStore((s) => s.setBiometricLock);
   const conversations = useChatStore((s) => s.conversations);
+  const bio = useBiometricLock();
+  const notif = useNotifications();
+
+  const toggleBiometric = async () => {
+    haptics.impact();
+    if (!biometricLock) {
+      // Turning on — require a successful auth first.
+      if (!bio.available || !bio.enrolled) {
+        Alert.alert(
+          "Biometrics unavailable",
+          "Set up Face ID, Touch ID, or a fingerprint/passcode in your device settings first."
+        );
+        return;
+      }
+      const ok = await bio.authenticate("Enable biometric lock");
+      if (ok) setBiometricLock(true);
+    } else {
+      setBiometricLock(false);
+      lockStore.disarm();
+    }
+  };
+
+  const toggleNotifications = async () => {
+    haptics.impact();
+    await notif.toggle();
+  };
 
   const themeOptions: { key: ThemeMode; label: string }[] = [
     { key: "system", label: "System" },
@@ -145,8 +174,16 @@ export default function SettingsScreen() {
       <Row
         icon="lock-closed-outline"
         title="Biometric lock"
-        subtitle={biometricLock ? "On — Face ID / fingerprint" : "Off"}
-        onPress={() => { haptics.impact(); setBiometricLock(!biometricLock); }}
+        subtitle={
+          !bio.available
+            ? "Unavailable on this device"
+            : biometricLock
+              ? "On — Face ID / fingerprint"
+              : bio.enrolled
+                ? "Off"
+                : "Not set up on device"
+        }
+        onPress={toggleBiometric}
         right={
           <Ionicons
             name={biometricLock ? "toggle" : "toggle-outline"}
@@ -154,6 +191,35 @@ export default function SettingsScreen() {
             color={biometricLock ? theme.primary : theme.textMuted}
           />
         }
+      />
+      <Row
+        icon="notifications-outline"
+        title="Push notifications"
+        subtitle={
+          notif.permissionStatus === "granted"
+            ? "On — alerts when responses finish in background"
+            : notif.permissionStatus === "undetermined"
+              ? "Tap to enable"
+              : "Denied — enable in Settings"
+        }
+        onPress={toggleNotifications}
+        right={
+          <Ionicons
+            name={notif.permissionStatus === "granted" ? "toggle" : "toggle-outline"}
+            size={28}
+            color={notif.permissionStatus === "granted" ? theme.primary : theme.textMuted}
+          />
+        }
+      />
+      <Row
+        icon="share-outline"
+        title="Export all conversations"
+        subtitle={`${conversations.length} conversation${conversations.length === 1 ? "" : "s"} → JSON`}
+        onPress={async () => {
+          haptics.impact();
+          const { exportAllConversations } = await import("@/lib/export");
+          await exportAllConversations(conversations);
+        }}
       />
       <Row
         icon="trash-outline"
@@ -172,7 +238,7 @@ export default function SettingsScreen() {
         onPress={() => Linking.openURL("https://github.com/meshmusic2836-lab/slackbot")}
         right={<Ionicons name="open-outline" size={18} color={theme.textMuted} />}
       />
-      <Row icon="document-text-outline" title="Version" subtitle="1.0.0 (Phase 0+1)" />
+      <Row icon="document-text-outline" title="Version" subtitle="1.1.0 (Phase 0–2 + 5)" />
 
       <Text style={[styles.footer, { color: theme.textMuted }]}>
         Built with fire by SPYRO Labs. 🐉🔥

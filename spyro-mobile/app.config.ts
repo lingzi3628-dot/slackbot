@@ -42,6 +42,19 @@ export default {
     "expo-secure-store",
     "expo-local-authentication",
     "expo-clipboard",
+    "expo-file-system",
+    "expo-sharing",
+    [
+      "expo-notifications",
+      {
+        icons: [
+          {
+            icon: "./assets/icon.png",
+            color: "#16110d",
+          },
+        ],
+      },
+    ],
     [
       "expo-updates",
       { username: "spyrolabs" },
