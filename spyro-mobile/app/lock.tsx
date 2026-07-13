@@ -15,7 +15,8 @@ import { SpyroLogo } from "@/components/SpyroLogo";
 /**
  * In-memory lock flag. Set to true when the app backgrounds. The root
  * _layout reads this to decide whether to show the lock screen.
- * (Kept out of MMKV so a freshly-launched app always requires auth.)
+ * (Kept in memory only — not persisted — so a freshly-launched app always
+ * requires auth.)
  */
 export const lockStore = (() => {
   let armed = false;

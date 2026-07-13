@@ -68,6 +68,8 @@ export default {
       projectId: "REPLACE_WITH_YOUR_EAS_PROJECT_ID",
     },
     // The deployed SPYRO V1 Next.js backend (the /api/chat endpoint).
+    // Deploy the Next.js app (repo root) to Vercel/Netlify, then paste the
+    // HTTPS URL here. Must be HTTPS — mobile apps can't call plain HTTP.
     apiUrl: "https://your-spyro-v1-backend.vercel.app",
   },
 };

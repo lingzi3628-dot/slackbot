@@ -1,11 +1,12 @@
 /**
- * SPYRO V1 chat store (Zustand + MMKV).
+ * SPYRO V1 chat store (Zustand + AsyncStorage).
  * Direct port of the web app's src/store/chat-store.ts — same shape, same
- * actions, only the persistence backend changes (localStorage → MMKV).
+ * actions. Uses AsyncStorage so the app runs in Expo Go out of the box.
+ * Swap to react-native-mmkv for production (sync + encrypted).
  */
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { MMKV } from "react-native-mmkv";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { v4 as uuid } from "uuid";
 
 export type Role = "user" | "assistant";
@@ -45,8 +46,6 @@ interface ChatState {
   clearMessages: (conversationId: string) => void;
   setGenerating: (v: boolean) => void;
 }
-
-const mmkv = new MMKV({ id: "spyro-v1-chat" });
 
 const newConversation = (): Conversation => ({
   id: uuid(),
@@ -150,11 +149,7 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: "spyro-v1-chat",
-      storage: createJSONStorage(() => ({
-        getItem: (k) => (mmkv.getString(k) as string | null) ?? null,
-        setItem: (k, v) => mmkv.set(k, v),
-        removeItem: (k) => mmkv.delete(k),
-      })),
+      storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         conversations: s.conversations.map((c) => ({
           ...c,

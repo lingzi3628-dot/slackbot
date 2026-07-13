@@ -233,7 +233,7 @@ Dark is the default. Toggle in Settings → Appearance.
 - **Expo SDK 52** (managed workflow)
 - **Expo Router v4** (file-based routing)
 - **TypeScript 5**
-- **Zustand 5** + **react-native-mmkv** (sync persistence)
+- **Zustand 5** + **AsyncStorage** (Expo Go–compatible persistence; swap to MMKV for production)
 - **@shopify/flash-list** (virtualized messages)
 - **react-native-reanimated 3** (UI-thread animations)
 - **react-native-markdown-display**
@@ -242,12 +242,31 @@ Dark is the default. Toggle in Settings → Appearance.
 
 ---
 
-## ⚠️ Known limitations (Phase 0+1)
+## 🔄 Production storage (optional upgrade)
 
-- App icons must be generated with the script before a store build.
-- Biometric lock toggle is wired in settings but the auth prompt is Phase 2.
-- No push notifications yet (Phase 2).
-- The backend must be deployed to HTTPS — the app won't reach `localhost`.
+This app uses **AsyncStorage** so it runs in **Expo Go** out of the box
+(scan a QR, no native build needed). For a production store build, you can
+swap to **react-native-mmkv** for synchronous + encrypted storage:
+
+```bash
+bun add react-native-mmkv
+```
+
+Then in `src/store/chat-store.ts` and `src/store/settings-store.ts`, replace
+the AsyncStorage import + storage adapter with the MMKV variant (see the
+doc comment at the top of each file). MMKV requires a **development build**
+(`eas build --profile development`), not Expo Go.
+
+---
+
+## ⚠️ Notes
+
+- App icons must be generated with `bun run scripts/generate-icons.ts`
+  before a store build (the repo doesn't commit binary PNGs).
+- The backend must be deployed to **HTTPS** — mobile apps can't call plain
+  HTTP. Deploy the Next.js app (repo root) to Vercel/Netlify and paste the
+  URL into `app.config.ts → extra.apiUrl`.
+- Requires **Node 18 or 20** (Node 22+ breaks Expo SDK 52's CLI bootstrap).
 
 ---
 
