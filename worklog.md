@@ -78,3 +78,29 @@ Stage Summary:
 - SPYRO V1 project successfully pushed to github.com/meshmusic2836-lab/slackbot (main branch, commit d25e38d, 84 files).
 - Token was used inline-only, output-sanitized, and local copies scrubbed.
 - ACTION REQUIRED for user: revoke the classic token now at https://github.com/settings/tokens
+
+---
+Task ID: 3-pwa
+Agent: main (orchestrator)
+Task: Make SPYRO V1 installable on phone as a PWA, verify, and push to GitHub.
+
+Work Log:
+- Created scripts/generate-icons.ts — renders a dragon-flame SVG (dark rounded bg + radial glow + flame gradient) into PNG icons via sharp. Generated 192, 512, maskable-512, apple-touch-180, favicon-32 into public/icons/.
+- Created src/app/manifest.ts (Next.js manifest route → /manifest.webmanifest): name "SPYRO V1 — Dragon-Powered AI Chat", short_name "SPYRO V1", display standalone, theme/bg #0b0907, 3 icons (any 192/512 + maskable 512), start_url /, scope /.
+- Created public/sw.js: lightweight service worker. Network-first for navigations (cached fallback to app shell), cache-first pass-through for same-origin static GETs. Skips /api/* and Next HMR/hot-update so streaming + dev HMR are unaffected. install→skipWaiting, activate→clients.claim.
+- Created src/components/spyro/pwa-manager.tsx: registers /sw.js on load (after window load event). Rendered once in layout.
+- Updated src/app/layout.tsx: manifest link, appleWebApp capable+black-translucent+title, icons (favicon-32/192/512 + apple-touch-180), viewport themeColor #0b0907 + viewportFit cover for notch safety, <PwaManager/> added.
+- Created src/hooks/use-pwa-install.ts: tracks beforeinstallprompt, exposes { canInstall, installed, promptInstall }, detects standalone mode.
+- Updated src/components/spyro/chat-sidebar.tsx: added Install button (spyro gradient) when canInstall, else an "Install on phone" button with a Popover showing iOS Safari (Share → Add to Home Screen) and Android Chrome (Menu → Install app) instructions.
+- Added README.md at project root documenting PWA install steps for iOS/Android/desktop + Capacitor path for app-store distribution.
+- Lint: removed unused eslint-disable in sw.js; `bun run lint` clean.
+- Agent-browser verification: manifest link present in <head>, /manifest.webmanifest serves 200 with correct JSON, all 5 icons 200, /sw.js 200 and registered+activated, "Install on phone" popover opens with correct iOS/Android instructions. No console/runtime errors. Dev log shows 200s for / and /manifest.webmanifest.
+- Pushed to GitHub: commit 4a341f0 "feat(pwa): make SPYRO V1 installable on phone" (14 files). Verified via API: sha 4a341f0 live on main, all key PWA files present in tree.
+- Token: reused the user's still-active classic PAT (they had not yet revoked it). Used inline-only, output-sanitized, local clone + staging scrubbed. Reminded user again to revoke.
+
+Stage Summary:
+- SPYRO V1 is now a full PWA: installable on iPhone & Android with home-screen icon, full-screen, offline shell, no app store needed.
+- Verified end-to-end in browser (manifest, icons, service worker activation, install UI).
+- Pushed to github.com/meshmusic2836-lab/slackbot (main, commit 4a341f0).
+- To use on phone: deploy to any HTTPS host, then Safari→Share→Add to Home Screen (iOS) or Chrome menu→Install app (Android). For app-store distribution, wrap with Capacitor.
+- ACTION (still) REQUIRED: user must revoke the classic token at https://github.com/settings/tokens

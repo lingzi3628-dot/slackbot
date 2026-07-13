@@ -10,12 +10,20 @@ import {
   X,
   Github,
   Flame,
+  Download,
+  Smartphone,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { ModelBadge } from "./model-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface SidebarContentProps {
   onNavigate?: () => void;
@@ -40,6 +48,8 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
   const setActive = useChatStore((s) => s.setActive);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
   const renameConversation = useChatStore((s) => s.renameConversation);
+
+  const { canInstall, promptInstall } = usePwaInstall();
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState("");
@@ -189,6 +199,49 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
 
       {/* Footer */}
       <div className="border-t border-border p-3">
+        {canInstall ? (
+          <Button
+            onClick={promptInstall}
+            className="mb-2 w-full justify-center gap-2 spyro-bg-gradient text-primary-foreground hover:spyro-glow"
+          >
+            <Download className="h-4 w-4" />
+            Install app
+          </Button>
+        ) : (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="How to install SPYRO V1 on your phone"
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                Install on phone
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align="center"
+              className="w-[260px] text-sm"
+            >
+              <div className="space-y-2">
+                <p className="font-semibold text-foreground">
+                  Install SPYRO V1 on your phone
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">iPhone (Safari):</span>{" "}
+                  Tap the Share icon → <em>Add to Home Screen</em>.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Android (Chrome):</span>{" "}
+                  Menu (⋮) → <em>Install app</em> / <em>Add to Home screen</em>.
+                </p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  Works offline once installed. No app store needed.
+                </p>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
         <div className="flex items-center justify-between">
           <a
             href="https://github.com/meshmusic2836-lab/slackbot"

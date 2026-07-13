@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PwaManager } from "@/components/spyro/pwa-manager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,8 +21,19 @@ export const metadata: Metadata = {
     "SPYRO V1 is a blazing-fast AI chat assistant powered by the Spyro dragon engine. Chat, create, and explore with fire.",
   keywords: ["SPYRO V1", "AI chat", "chatbot", "Spyro", "AI assistant"],
   authors: [{ name: "SPYRO Labs" }],
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "SPYRO V1",
+  },
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
   openGraph: {
     title: "SPYRO V1 — Dragon-Powered AI Chat",
@@ -32,10 +44,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0f",
+  themeColor: "#0b0907",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -56,6 +69,7 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
+          <PwaManager />
         </ThemeProvider>
       </body>
     </html>
