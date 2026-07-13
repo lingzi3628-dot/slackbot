@@ -7,12 +7,36 @@ export const dynamic = "force-dynamic";
 interface ChatRequestBody {
   messages: SpyroMessage[];
   temperature?: number;
+  webSearch?: boolean;
+}
+
+/**
+ * Web search helper — searches the web and returns formatted context.
+ * Uses z-ai-web-dev-sdk. Only called when webSearch mode is on.
+ */
+async function searchWeb(query: string): Promise<string> {
+  try {
+    const ZAI = (await import("z-ai-web-dev-sdk")).default;
+    const zai = await ZAI.create();
+    const results = await zai.functions.invoke("web_search", {
+      query,
+      num: 5,
+    });
+    if (!Array.isArray(results) || results.length === 0) return "";
+    return results
+      .map(
+        (r: { name: string; url: string; snippet: string; date?: string }, i: number) =>
+          `[${i + 1}] ${r.name}\n${r.snippet}\nURL: ${r.url}`
+      )
+      .join("\n\n");
+  } catch {
+    return "";
+  }
 }
 
 /**
  * Web streaming endpoint — streams a SPYRO V1 reply token-by-token.
- * Delegates to the shared spyro-engine so all surfaces (web, Telegram,
- * future integrations) share one persona.
+ * Supports optional web search mode.
  */
 export async function POST(req: NextRequest) {
   let body: ChatRequestBody;
@@ -33,15 +57,38 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  let messages = userMessages;
+
+  // If web search is enabled, search for the latest user message and inject
+  // the results as context.
+  if (body.webSearch) {
+    const lastUser = [...userMessages].reverse().find((m) => m.role === "user");
+    if (lastUser) {
+      const searchContext = await searchWeb(lastUser.content);
+      if (searchContext) {
+        messages = [
+          {
+            role: "system",
+            content:
+              "Here are relevant web search results for the user's question. " +
+              "Use them to ground your answer with current information. " +
+              "Cite sources by number [1], [2], etc. when relevant.\n\n" +
+              searchContext,
+          },
+          ...userMessages,
+        ];
+      }
+    }
+  }
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        await getSpyroReply(userMessages, {
+        await getSpyroReply(messages, {
           temperature: body.temperature,
           onToken: (token) => {
-            // Emit the delta — the web client accumulates chunks itself.
             controller.enqueue(encoder.encode(token));
           },
         });
@@ -57,7 +104,7 @@ export async function POST(req: NextRequest) {
       controller.close();
     },
     cancel() {
-      /* client disconnected — engine's fetch will be GC'd */
+      /* client disconnected */
     },
   });
 
@@ -76,6 +123,6 @@ export async function GET() {
     model: "SPYRO V1",
     status: "online",
     description:
-      "Dragon-powered AI chat. POST { messages: [{role, content}] } to stream a response.",
+      "Dragon-powered AI chat. POST { messages, webSearch? } to stream a response.",
   });
 }

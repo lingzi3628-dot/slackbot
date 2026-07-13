@@ -3,12 +3,17 @@ import { persist } from "zustand/middleware";
 import { v4 as uuid } from "uuid";
 
 export type Role = "user" | "assistant";
+export type MessageType = "text" | "image";
 
 export interface Message {
   id: string;
   role: Role;
   content: string;
   createdAt: number;
+  /** "text" (default) or "image" (for generated images). */
+  type?: MessageType;
+  /** For image messages: a data URL or remote URL of the generated image. */
+  imageUrl?: string;
   /** True while an assistant message is still being streamed in. */
   streaming?: boolean;
   /** Set when the request failed; used to show a retry affordance. */

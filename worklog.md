@@ -319,3 +319,30 @@ Stage Summary:
 - GitHub repo links removed from the sidebar, header, and settings. Only remaining GitHub reference is in the privacy policy (support contact link).
 - Telegram client refactored to accept tokens as parameters — works for both user bots and the legacy env-var bot.
 - Both repos pushed → Vercel auto-deploying.
+
+---
+Task ID: 12-multimodal
+Agent: main (orchestrator)
+Task: Plan + execute next upgrades. Built multi-modal SPYRO V1: voice input (ASR), voice output (TTS), web search, image generation.
+
+Work Log:
+- Loaded 4 skill APIs: ASR, TTS, web-search, image-generation (all use z-ai-web-dev-sdk, backend only).
+- Built /api/transcribe (ASR): accepts { audio: base64 }, calls zai.audio.asr.create, returns { text }.
+- Built /api/tts: accepts { text, voice, speed }, calls zai.audio.tts.create, returns WAV audio (non-streaming, max 1000 chars).
+- Built /api/image-gen: accepts { prompt, size }, calls zai.images.generations.create, returns { image: data URL }.
+- Updated /api/chat: accepts webSearch flag. When on, searches the web (zai.functions.invoke web_search, top 5 results), injects as system context, SPYRO answers with citations.
+- Updated chat-store: Message type now supports type='image' + imageUrl for image messages.
+- Updated use-spyro-chat hook: added webSearch state + setWebSearch, generateImage() method, /imagine command parsing in send().
+- Updated chat-input: added mic button (MediaRecorder → base64 → /api/transcribe → fills input), image button (prompts for prompt → generateImage), placeholder updated to mention /imagine.
+- Updated message-bubble: added Speak button on assistant messages (fetches /api/tts, plays WAV via Audio element, stop button while playing). Added image message rendering (img tag + caption).
+- Updated chat-header: added web search toggle (Globe icon, ember-tinted when on).
+- Updated page.tsx: wired webSearch + onImagine props to ChatHeader + ChatInput.
+- Verified via Agent Browser: mic/image/search buttons render, chat streams correctly, speak button appears on completed responses. Tested all 3 new APIs: image-gen returned base64 PNG (30s), TTS returned 108KB WAV, transcribe rejected empty audio with 400.
+- bun run lint clean.
+- Pushed to BOTH repos: meshmusic2836-lab (9de7615) + lingzi3628-dot (fec3b19). Both auto-deploy to Vercel.
+
+Stage Summary:
+- SPYRO V1 is now multi-modal: voice in (ASR), voice out (TTS), web search (real-time info), image generation (text-to-image).
+- All 4 capabilities powered by z-ai-web-dev-sdk on the backend; frontend has mic button, speak button, search toggle, image button + /imagine command.
+- Both repos pushed → Vercel auto-deploying.
+- ACTION (still) REQUIRED: revoke both classic tokens.

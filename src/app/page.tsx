@@ -19,7 +19,7 @@ import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
 
 export default function Home() {
-  const { send, stop, regenerate } = useSpyroChat();
+  const { send, stop, regenerate, generateImage, webSearch, setWebSearch } = useSpyroChat();
   const createConversation = useChatStore((s) => s.createConversation);
   const activeView = useUIStore((s) => s.activeView);
   const setView = useUIStore((s) => s.setView);
@@ -30,7 +30,7 @@ export default function Home() {
   React.useEffect(() => setMounted(true), []);
 
   const handleSend = (text: string) => {
-    void send(text);
+    void send(text, { webSearch });
   };
 
   const handleNewChat = () => {
@@ -44,6 +44,10 @@ export default function Home() {
     if (active && active.messages.length > 0) {
       exportConversationAsMarkdown(active);
     }
+  };
+
+  const handleImagine = (prompt: string) => {
+    void generateImage(prompt);
   };
 
   useKeyboardShortcuts({
@@ -82,6 +86,8 @@ export default function Home() {
               onOpenSidebar={() => setMobileOpen(true)}
               onNewChat={handleNewChat}
               onExport={handleExport}
+              webSearch={webSearch}
+              onToggleWebSearch={() => setWebSearch(!webSearch)}
             />
             {mounted ? (
               <ChatMessages
@@ -99,6 +105,7 @@ export default function Home() {
             <ChatInput
               onSend={handleSend}
               onStop={stop}
+              onImagine={handleImagine}
               registerFocus={(fn) => (inputFocusRef.current = fn)}
             />
           </>

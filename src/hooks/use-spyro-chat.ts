@@ -1,20 +1,25 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useChatStore, type Message } from "@/store/chat-store";
 
 interface SendOptions {
-  /** Force a different conversation id (used by "regenerate"). */
   conversationId?: string;
+  webSearch?: boolean;
 }
 
 /**
  * Drives a SPYRO V1 conversation: sends the message history to /api/chat and
  * streams the assistant reply token-by-token into the store.
+ *
+ * Also supports:
+ *  - web search mode (injects live web results into context)
+ *  - image generation (via generateImage())
  */
 export function useSpyroChat() {
   const abortRef = useRef<AbortController | null>(null);
   const store = useChatStore;
+  const [webSearch, setWebSearch] = useState(false);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -27,26 +32,29 @@ export function useSpyroChat() {
       const trimmed = text.trim();
       if (!trimmed) return;
 
+      // Handle /imagine command → image generation
+      const imagineMatch = trimmed.match(/^\/imagine\s+(.+)/i);
+      if (imagineMatch) {
+        await generateImage(imagineMatch[1], opts?.conversationId);
+        return;
+      }
+
       let conversationId = opts?.conversationId ?? store.getState().activeId;
       if (!conversationId) {
         conversationId = store.getState().createConversation();
       }
 
-      // 1. Persist the user message.
       store.getState().addMessage(conversationId, {
         role: "user",
         content: trimmed,
       });
 
-      // 2. Create a placeholder assistant message that we will stream into.
       const assistantId = store.getState().addMessage(conversationId, {
         role: "assistant",
         content: "",
         streaming: true,
       });
 
-      // 3. Build the message payload from the conversation (excluding the
-      //    empty placeholder we just added).
       const convo = store
         .getState()
         .conversations.find((c) => c.id === conversationId);
@@ -56,6 +64,8 @@ export function useSpyroChat() {
             .map((m) => ({ role: m.role, content: m.content }))
         : [];
 
+      const useWebSearch = opts?.webSearch ?? webSearch;
+
       store.getState().setGenerating(true);
       const controller = new AbortController();
       abortRef.current = controller;
@@ -64,7 +74,7 @@ export function useSpyroChat() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages: history }),
+          body: JSON.stringify({ messages: history, webSearch: useWebSearch }),
           signal: controller.signal,
         });
 
@@ -91,8 +101,6 @@ export function useSpyroChat() {
           const { done, value } = await reader.read();
           if (done) break;
           acc += decoder.decode(value, { stream: true });
-          store.getState().appendToMessage(assistantId, acc.slice(0));
-          // Re-place full accumulated content (avoids ordering issues):
           store.getState().setMessage(assistantId, {
             content: acc,
             streaming: true,
@@ -131,14 +139,76 @@ export function useSpyroChat() {
         abortRef.current = null;
       }
     },
+    [store, webSearch]
+  );
+
+  /** Generate an image from a prompt and add it to the conversation. */
+  const generateImage = useCallback(
+    async (prompt: string, conversationId?: string) => {
+      const trimmed = prompt.trim();
+      if (!trimmed) return;
+
+      let convoId = conversationId ?? store.getState().activeId;
+      if (!convoId) {
+        convoId = store.getState().createConversation();
+      }
+
+      // Add the user's /imagine prompt as a user message.
+      store.getState().addMessage(convoId, {
+        role: "user",
+        content: `/imagine ${trimmed}`,
+      });
+
+      // Add a placeholder assistant image message.
+      const msgId = store.getState().addMessage(convoId, {
+        role: "assistant",
+        content: `Generating image: "${trimmed}"…`,
+        type: "image",
+        streaming: true,
+      });
+
+      store.getState().setGenerating(true);
+
+      try {
+        const res = await fetch("/api/image-gen", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ prompt: trimmed }),
+        });
+        const data = await res.json();
+        if (data.image) {
+          store.getState().setMessage(msgId, {
+            content: `🎨 **${trimmed}**`,
+            imageUrl: data.image,
+            streaming: false,
+          });
+        } else {
+          store.getState().setMessage(msgId, {
+            content: `**Image generation failed.** ${data.error ?? "Unknown error"}`,
+            streaming: false,
+            error: true,
+            type: "text",
+          });
+        }
+      } catch (err) {
+        store.getState().setMessage(msgId, {
+          content: `**Image generation failed.** ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`,
+          streaming: false,
+          error: true,
+          type: "text",
+        });
+      } finally {
+        store.getState().setGenerating(false);
+      }
+    },
     [store]
   );
 
-  /** Regenerate the last assistant reply in the active conversation. */
   const regenerate = useCallback(async () => {
     const active = store.getState().getActive();
     if (!active) return;
-    // Find the last assistant message and the user message before it.
     const msgs = active.messages;
     let lastUserIndex = -1;
     for (let i = msgs.length - 1; i >= 0; i--) {
@@ -149,10 +219,7 @@ export function useSpyroChat() {
     }
     if (lastUserIndex === -1) return;
     const userText = msgs[lastUserIndex].content;
-    // Drop everything after (and including) the last user message so we can
-    // resend it cleanly.
     const keep = msgs.slice(0, lastUserIndex);
-    // Rewrite the conversation messages directly.
     useChatStore.setState((s) => ({
       conversations: s.conversations.map((c) =>
         c.id === active.id ? { ...c, messages: keep } : c
@@ -161,7 +228,7 @@ export function useSpyroChat() {
     await send(userText, { conversationId: active.id });
   }, [send, store]);
 
-  return { send, stop, regenerate };
+  return { send, stop, regenerate, generateImage, webSearch, setWebSearch };
 }
 
 export type SpyroChatApi = ReturnType<typeof useSpyroChat>;

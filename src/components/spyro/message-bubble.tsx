@@ -2,7 +2,16 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Check, Copy, RefreshCw, RotateCw, User, AlertTriangle } from "lucide-react";
+import {
+  Check,
+  Copy,
+  RefreshCw,
+  RotateCw,
+  User,
+  AlertTriangle,
+  Volume2,
+  Square,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SpyroLogo } from "./spyro-logo";
 import { Markdown } from "./markdown";
@@ -23,7 +32,10 @@ export function MessageBubble({
   onRegenerate,
 }: MessageBubbleProps) {
   const [copied, setCopied] = React.useState(false);
+  const [playing, setPlaying] = React.useState(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const isUser = message.role === "user";
+  const isImage = message.type === "image";
 
   const copy = async () => {
     try {
@@ -35,8 +47,39 @@ export function MessageBubble({
     }
   };
 
+  const speak = async () => {
+    // If already playing, stop.
+    if (playing && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setPlaying(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: message.content }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const audio = new Audio(url);
+      audio.onended = () => setPlaying(false);
+      audio.onerror = () => setPlaying(false);
+      audioRef.current = audio;
+      audio.play();
+      setPlaying(true);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const showTyping =
-    !isUser && message.streaming && message.content.length === 0;
+    !isUser && message.streaming && message.content.length === 0 && !isImage;
 
   return (
     <motion.div
@@ -49,7 +92,6 @@ export function MessageBubble({
         isUser ? "flex-row-reverse" : "flex-row"
       )}
     >
-      {/* Avatar */}
       <div
         className={cn(
           "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
@@ -65,7 +107,6 @@ export function MessageBubble({
         )}
       </div>
 
-      {/* Bubble */}
       <div
         className={cn(
           "flex max-w-[85%] flex-col gap-1 sm:max-w-[78%]",
@@ -95,6 +136,29 @@ export function MessageBubble({
         >
           {showTyping ? (
             <TypingIndicator />
+          ) : isImage ? (
+            <div className="break-words">
+              {message.imageUrl ? (
+                <div className="space-y-2">
+                  <img
+                    src={message.imageUrl}
+                    alt={message.content}
+                    className="max-w-full rounded-lg"
+                    style={{ maxHeight: 400 }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {message.content}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {message.content}
+                </p>
+              )}
+              {message.streaming && (
+                <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-primary spyro-glow" />
+              )}
+            </div>
           ) : isUser ? (
             <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
               {message.content}
@@ -109,7 +173,7 @@ export function MessageBubble({
           )}
         </div>
 
-        {/* Hover/touch actions — always visible on error or touch devices */}
+        {/* Actions */}
         {!message.streaming && message.content.length > 0 && (
           <div
             className={cn(
@@ -134,6 +198,24 @@ export function MessageBubble({
                 </>
               )}
             </button>
+            {/* TTS — only for assistant text messages */}
+            {!isUser && !isImage && (
+              <button
+                onClick={speak}
+                className="touch-target inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label={playing ? "Stop speaking" : "Speak message"}
+              >
+                {playing ? (
+                  <>
+                    <Square className="h-3 w-3" /> Stop
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="h-3 w-3" /> Speak
+                  </>
+                )}
+              </button>
+            )}
             {!isUser && isLast && !isGenerating && (
               <button
                 onClick={onRegenerate}

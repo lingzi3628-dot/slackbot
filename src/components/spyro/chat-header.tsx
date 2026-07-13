@@ -1,17 +1,26 @@
 "use client";
 
-import { Menu, Plus, Eraser, Download } from "lucide-react";
+import { Menu, Plus, Eraser, Download, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelBadge } from "./model-badge";
 import { useChatStore } from "@/store/chat-store";
+import { cn } from "@/lib/utils";
 
 interface ChatHeaderProps {
   onOpenSidebar: () => void;
   onNewChat: () => void;
   onExport?: () => void;
+  webSearch?: boolean;
+  onToggleWebSearch?: () => void;
 }
 
-export function ChatHeader({ onOpenSidebar, onNewChat, onExport }: ChatHeaderProps) {
+export function ChatHeader({
+  onOpenSidebar,
+  onNewChat,
+  onExport,
+  webSearch,
+  onToggleWebSearch,
+}: ChatHeaderProps) {
   const activeId = useChatStore((s) => s.activeId);
   const clearMessages = useChatStore((s) => s.clearMessages);
   const conversations = useChatStore((s) => s.conversations);
@@ -35,6 +44,23 @@ export function ChatHeader({ onOpenSidebar, onNewChat, onExport }: ChatHeaderPro
       </div>
 
       <div className="flex items-center gap-0.5 sm:gap-1">
+        {/* Web search toggle */}
+        {onToggleWebSearch && (
+          <button
+            onClick={onToggleWebSearch}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+              webSearch
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+            aria-label="Toggle web search"
+            title={webSearch ? "Web search ON" : "Web search OFF"}
+          >
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">Search</span>
+          </button>
+        )}
         {canExport && onExport && (
           <Button
             variant="ghost"

@@ -2,23 +2,28 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Square, Sparkles } from "lucide-react";
+import { ArrowUp, Square, Sparkles, Mic, Image as ImageIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
 
 interface ChatInputProps {
   onSend: (text: string) => void;
   onStop: () => void;
-  /** Register a function that focuses the textarea (used by keyboard shortcuts). */
+  onImagine?: (prompt: string) => void;
   registerFocus?: (fn: () => void) => void;
 }
 
-export function ChatInput({ onSend, onStop, registerFocus }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInputProps) {
   const isGenerating = useChatStore((s) => s.isGenerating);
   const [value, setValue] = React.useState("");
   const taRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // Expose a focus function to the parent (for the "/" shortcut).
+  // Voice recording state
+  const [recording, setRecording] = React.useState(false);
+  const [transcribing, setTranscribing] = React.useState(false);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const chunksRef = React.useRef<Blob[]>([]);
+
   React.useEffect(() => {
     if (registerFocus) {
       registerFocus(() => {
@@ -31,7 +36,6 @@ export function ChatInput({ onSend, onStop, registerFocus }: ChatInputProps) {
     }
   }, [registerFocus]);
 
-  // Auto-resize the textarea up to a max height.
   React.useEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
@@ -44,15 +48,67 @@ export function ChatInput({ onSend, onStop, registerFocus }: ChatInputProps) {
     if (!text || isGenerating) return;
     onSend(text);
     setValue("");
-    requestAnimationFrame(() => {
-      taRef.current?.focus();
-    });
+    requestAnimationFrame(() => taRef.current?.focus());
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       submit();
+    }
+  };
+
+  // ── Voice recording ──────────────────────────────────────────────
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        await transcribe(blob);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+    } catch {
+      alert("Microphone access denied or unavailable.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+    }
+  };
+
+  const transcribe = async (blob: Blob) => {
+    setTranscribing(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(",")[1];
+        const res = await fetch("/api/transcribe", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ audio: base64 }),
+        });
+        const data = await res.json();
+        if (data.text) {
+          setValue((v) => (v ? v + " " : "") + data.text);
+          requestAnimationFrame(() => taRef.current?.focus());
+        }
+      };
+      reader.readAsDataURL(blob);
+    } catch {
+      alert("Transcription failed.");
+    } finally {
+      setTranscribing(false);
     }
   };
 
@@ -70,7 +126,7 @@ export function ChatInput({ onSend, onStop, registerFocus }: ChatInputProps) {
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          placeholder="Message SPYRO V1…"
+          placeholder="Message SPYRO V1…  (or /imagine <prompt>)"
           className={cn(
             "max-h-[200px] min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5",
             "text-[16px] leading-relaxed text-foreground placeholder:text-muted-foreground",
@@ -80,7 +136,47 @@ export function ChatInput({ onSend, onStop, registerFocus }: ChatInputProps) {
           enterKeyHint="send"
         />
 
-        <div className="flex items-center gap-1.5 pb-1 pr-1">
+        <div className="flex items-center gap-1 pb-1 pr-1">
+          {/* Image generation button */}
+          {onImagine && (
+            <button
+              onClick={() => {
+                const prompt = value.trim() || window.prompt("Describe the image to generate:");
+                if (prompt) {
+                  onImagine(prompt);
+                  setValue("");
+                }
+              }}
+              disabled={isGenerating}
+              className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground disabled:opacity-40"
+              aria-label="Generate image"
+              title="Generate image"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Mic button */}
+          <button
+            onClick={recording ? stopRecording : startRecording}
+            disabled={transcribing || isGenerating}
+            className={cn(
+              "grid h-11 w-11 place-items-center rounded-xl transition-colors disabled:opacity-40",
+              recording
+                ? "bg-destructive text-white animate-pulse"
+                : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+            )}
+            aria-label={recording ? "Stop recording" : "Start voice input"}
+            title={recording ? "Stop recording" : "Voice input"}
+          >
+            {transcribing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Mic className="h-4 w-4" />
+            )}
+          </button>
+
+          {/* Send / Stop */}
           <AnimatePresence mode="wait" initial={false}>
             {isGenerating ? (
               <motion.button
