@@ -261,3 +261,33 @@ Stage Summary:
 - Full SPYRO V1 project now mirrored at https://github.com/lingzi3628-dot/slackbot (main branch, 8 commits, complete history) — identical to meshmusic2836-lab/slackbot.
 - The lingzi3628-dot repo is now a complete copy: web app + PWA + spyro-mobile (SDK 53) + docs + CI workflow + store metadata + privacy policy.
 - ACTION REQUIRED: revoke BOTH classic tokens now (meshmusic2836-lab's ghp_blOl... and lingzi3628-dot's ghp_CjNj...) — both have been pasted in chat logs. Use fine-grained tokens in future.
+
+---
+Task ID: 10-telegram-integration
+Agent: main (orchestrator)
+Task: Add Telegram bot integration + integration framework + push to both repos (triggers Vercel auto-deploy).
+
+Work Log:
+- Built shared SPYRO engine (src/lib/spyro-engine.ts) — getSpyroReply() with streaming + onToken callback. Single source of truth for all surfaces.
+- Extracted persona into src/lib/spyro-persona.ts (shared by web route + all integrations). Added platform-aware note (keep replies concise on chat platforms).
+- Refactored /api/chat to delegate to the shared engine (no behavior change — verified chat still streams "Hello, I'm SPYRO V1, here today!").
+- Built integration framework: src/lib/integrations/registry.ts returns all integrations (Telegram/Discord/Slack) with live status based on env vars.
+- Built Telegram bot:
+  - src/lib/integrations/telegram-client.ts — minimal Bot API client (sendMessage, editMessageText, sendChatAction, setWebhook, deleteWebhook, getWebhookInfo, getMe) via direct fetch, no SDK.
+  - src/lib/integrations/telegram-store.ts — in-memory per-chat history (max 20 turns, max 200 chats).
+  - src/app/api/telegram/webhook/route.ts — receives updates, handles /start, /new, /help commands, sends placeholder "SPYRO V1 is breathing fire…", streams via progressive message edits (throttled to 1.5s), saves history. nodejs runtime, 60s maxDuration.
+  - src/app/api/telegram/set-webhook/route.ts — one-time setup, returns bot info + webhook status.
+  - src/app/api/telegram/unset-webhook/route.ts — teardown.
+- Built /api/integrations status endpoint.
+- Built IntegrationsPanel web component (sidebar) — shows live status of Telegram/Discord/Slack with setup links.
+- Wrote docs/INTEGRATIONS.md — full Telegram setup guide (BotFather → Vercel env var → set-webhook → chat), commands, how-it-works diagram, troubleshooting, framework docs for adding new integrations.
+- Verified locally: /api/integrations returns 3 integrations (Telegram=needs_config, Discord/Slack=disconnected); set-webhook + webhook return 503 without token with helpful messages; IntegrationsPanel renders in sidebar; chat still streams correctly; bun run lint clean.
+- Pushed to BOTH repos: meshmusic2836-lab/slackbot (commit e76347b) and lingzi3628-dot/slackbot (commit 24c5712). Both will auto-deploy to Vercel.
+
+Stage Summary:
+- SPYRO V1 now has a full integration framework with Telegram as the first live connector.
+- The bot supports /start, /new, /help + free-text chat with progressive message editing (simulates streaming).
+- To activate on Telegram: user creates a bot via @BotFather → sets TELEGRAM_BOT_TOKEN env var on Vercel → redeploys → calls /api/telegram/set-webhook → messages their bot.
+- The sidebar shows a live Integrations panel with connection status.
+- Discord + Slack are scaffolded in the registry (marked "coming soon") — the framework makes adding them straightforward.
+- ACTION (still) REQUIRED: revoke both classic tokens (ghp_blOl... + ghp_CjNj...) at https://github.com/settings/tokens

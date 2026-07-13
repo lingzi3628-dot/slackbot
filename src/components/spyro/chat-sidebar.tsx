@@ -17,6 +17,7 @@ import { useChatStore } from "@/store/chat-store";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { exportAllConversationsAsJson } from "@/lib/export";
 import { ModelBadge } from "./model-badge";
+import { IntegrationsPanel } from "./integrations-panel";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -197,6 +198,9 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
           </ul>
         )}
       </div>
+
+      {/* Integrations panel */}
+      <IntegrationsPanel />
 
       {/* Footer */}
       <div className="border-t border-border p-3">
