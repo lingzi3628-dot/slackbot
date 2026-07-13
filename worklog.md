@@ -378,3 +378,35 @@ Stage Summary:
 - Image gen uses Pollinations free API (no key, no cost, URL-based).
 - Code preview: HTML/CSS/JS blocks get a live Preview iframe.
 - Both repos pushed → Vercel auto-deploying.
+
+---
+Task ID: 14-upstash-supabase-aisdk
+Agent: main (orchestrator)
+Task: Implement all three recommended upgrades: Upstash Redis (Telegram persistence), Supabase (multi-user auth + cloud sync), Vercel AI SDK (cleaner streaming).
+
+Work Log:
+- Installed packages: ai@7, @ai-sdk/openai@4, @supabase/supabase-js@2 (17 packages total).
+- Upstash Redis:
+  - src/lib/upstash.ts: REST-based Redis client using fetch directly (no @upstash/redis package needed). Uses UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN env vars.
+  - telegram-store.ts: rewritten as async. Uses Redis when configured (7-day TTL per chat), falls back to in-memory. History now survives Vercel cold starts.
+  - webhook route: all store calls (getHistory, pushMessage, clearHistory) now awaited.
+- Supabase (multi-user auth + cloud sync):
+  - src/lib/supabase-client.ts: browser client, isSupabaseConfigured flag, graceful degradation when env vars missing.
+  - src/store/auth-store.ts: Zustand auth state with init/signIn/signUp/signOut.
+  - src/hooks/use-supabase-sync.ts: loads conversations from Supabase on login, debounced save (1.5s) on changes. Falls back to localStorage when not logged in.
+  - auth-page.tsx: sign in/sign up UI (email + password). Shows "not configured" message when Supabase env vars absent. Shows user email + sign out when logged in.
+  - sidebar: added "Account" nav item (Cloud icon).
+  - ui-store: added "auth" view.
+  - page.tsx: inits auth on mount, calls useSupabaseSync, renders AuthPage.
+  - docs/SUPABASE_SCHEMA.sql: conversations + messages tables with RLS policies (users only see their own data).
+- Vercel AI SDK:
+  - Tested streamText with @ai-sdk/openai pointed at Pollinations. Pollinations' streaming format doesn't include delta.content in a way the AI SDK parser expects — stream returned empty.
+  - Reverted /api/chat to the proven spyro-engine (direct fetch + manual SSE parsing). Packages remain installed for future tool-calling enhancements.
+- Verified: chat streams correctly ("Greetings, fellow traveler!"), all 5 nav items render (Chat/Integrations/Settings/Account/About), Account page shows "not configured" when Supabase env vars absent. Lint + typecheck clean.
+- Pushed to BOTH repos: meshmusic2836-lab (a2d2d2f) + lingzi3628-dot (cd98129). Vercel auto-deploying.
+
+Stage Summary:
+- Upstash Redis: Telegram bot history now persists across cold starts (when env vars configured). Falls back to in-memory.
+- Supabase: full auth system (sign in/up/out) + cloud conversation sync. Gracefully degrades to localStorage when not configured. SQL schema included.
+- AI SDK: installed + tested. Pollinations streaming not compatible with AI SDK's parser. Reverted to working spyro-engine. Packages available for future tool-calling.
+- To enable: set UPSTASH_REDIS_REST_URL/TOKEN + NEXT_PUBLIC_SUPABASE_URL/ANON_KEY on Vercel. Run docs/SUPABASE_SCHEMA.sql in Supabase SQL editor.

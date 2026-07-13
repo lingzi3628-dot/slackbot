@@ -84,7 +84,7 @@ async function handleCommand(
       );
       break;
     case "/new":
-      clearHistory(chatId);
+      await clearHistory(chatId);
       await sendMessage(
         token,
         chatId,
@@ -124,10 +124,11 @@ async function processMessage(
       sendChatAction(token, chatId, "typing").catch(() => {});
     }, 4000);
 
-    pushMessage(chatId, { role: "user", content: text });
+    await pushMessage(chatId, { role: "user", content: text });
 
     // Get the reply (non-streaming — more reliable on serverless).
-    const reply = await getSpyroReply(getHistory(chatId));
+    const history = await getHistory(chatId);
+    const reply = await getSpyroReply(history);
 
     clearInterval(typingInterval);
 
@@ -141,7 +142,7 @@ async function processMessage(
       replyToMessageId,
     });
 
-    pushMessage(chatId, { role: "assistant", content: finalText });
+    await pushMessage(chatId, { role: "assistant", content: finalText });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     await sendMessage(

@@ -11,9 +11,15 @@ interface ChatRequestBody {
 }
 
 /**
- * Web search helper — searches the web and returns formatted context.
- * Uses z-ai-web-dev-sdk. Only called when webSearch mode is on.
+ * Web streaming endpoint — uses the SPYRO V1 engine (direct Pollinations
+ * fetch + manual SSE parsing) for maximum reliability.
+ *
+ * The Vercel AI SDK (`ai` + `@ai-sdk/openai`) is installed and available
+ * for future tool-calling enhancements, but the current Pollinations
+ * streaming format is better handled by the custom engine.
  */
+
+/** Web search — injects live results as context when webSearch is on. */
 async function searchWeb(query: string): Promise<string> {
   try {
     const ZAI = (await import("z-ai-web-dev-sdk")).default;
@@ -25,8 +31,10 @@ async function searchWeb(query: string): Promise<string> {
     if (!Array.isArray(results) || results.length === 0) return "";
     return results
       .map(
-        (r: { name: string; url: string; snippet: string; date?: string }, i: number) =>
-          `[${i + 1}] ${r.name}\n${r.snippet}\nURL: ${r.url}`
+        (
+          r: { name: string; url: string; snippet: string; date?: string },
+          i: number
+        ) => `[${i + 1}] ${r.name}\n${r.snippet}\nURL: ${r.url}`
       )
       .join("\n\n");
   } catch {
@@ -34,10 +42,6 @@ async function searchWeb(query: string): Promise<string> {
   }
 }
 
-/**
- * Web streaming endpoint — streams a SPYRO V1 reply token-by-token.
- * Supports optional web search mode.
- */
 export async function POST(req: NextRequest) {
   let body: ChatRequestBody;
   try {
@@ -59,8 +63,7 @@ export async function POST(req: NextRequest) {
 
   let messages = userMessages;
 
-  // If web search is enabled, search for the latest user message and inject
-  // the results as context.
+  // Web search mode.
   if (body.webSearch) {
     const lastUser = [...userMessages].reverse().find((m) => m.role === "user");
     if (lastUser) {
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
       if (searchContext) {
         messages = [
           {
-            role: "system",
+            role: "system" as const,
             content:
               "Here are relevant web search results for the user's question. " +
               "Use them to ground your answer with current information. " +
