@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useSpyroChat } from "@/hooks/use-spyro-chat";
 import { useChatStore } from "@/store/chat-store";
+import { useUIStore } from "@/store/ui-store";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { exportConversationAsMarkdown } from "@/lib/export";
 import { ChatHeader } from "@/components/spyro/chat-header";
@@ -13,15 +14,19 @@ import {
   SidebarContent,
   SidebarCloseButton,
 } from "@/components/spyro/chat-sidebar";
+import { IntegrationsPage } from "@/components/spyro/pages/integrations-page";
+import { SettingsPage } from "@/components/spyro/pages/settings-page";
+import { AboutPage } from "@/components/spyro/pages/about-page";
 
 export default function Home() {
   const { send, stop, regenerate } = useSpyroChat();
   const createConversation = useChatStore((s) => s.createConversation);
+  const activeView = useUIStore((s) => s.activeView);
+  const setView = useUIStore((s) => s.setView);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const inputFocusRef = React.useRef<() => void>(() => {});
 
-  // Avoid hydration mismatch with the persisted zustand store.
   React.useEffect(() => setMounted(true), []);
 
   const handleSend = (text: string) => {
@@ -30,6 +35,7 @@ export default function Home() {
 
   const handleNewChat = () => {
     createConversation();
+    setView("chat");
     setMobileOpen(false);
   };
 
@@ -40,21 +46,15 @@ export default function Home() {
     }
   };
 
-  // Keyboard shortcuts
   useKeyboardShortcuts({
     onNewChat: handleNewChat,
     onFocusInput: () => inputFocusRef.current(),
-    onToggleSidebar: () => {
-      // Only meaningful on desktop where the sidebar is always visible;
-      // on mobile we open the sheet.
-      setMobileOpen((v) => !v);
-    },
+    onToggleSidebar: () => setMobileOpen((v) => !v),
     onCloseSidebar: () => setMobileOpen(false),
   });
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
-      {/* Ambient ember background */}
       <EmberBackground />
 
       {/* Desktop sidebar */}
@@ -68,7 +68,7 @@ export default function Home() {
           side="left"
           className="w-[300px] border-border bg-sidebar p-0"
         >
-          <SheetTitle className="sr-only">Conversations</SheetTitle>
+          <SheetTitle className="sr-only">Menu</SheetTitle>
           <SidebarCloseButton onClose={() => setMobileOpen(false)} />
           <SidebarContent onNavigate={() => setMobileOpen(false)} />
         </SheetContent>
@@ -76,37 +76,63 @@ export default function Home() {
 
       {/* Main column */}
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-        <ChatHeader
-          onOpenSidebar={() => setMobileOpen(true)}
-          onNewChat={handleNewChat}
-          onExport={handleExport}
-        />
-
-        {mounted ? (
-          <ChatMessages
-            onPickSuggestion={handleSend}
-            onRegenerate={() => void regenerate()}
-          />
+        {activeView === "chat" ? (
+          <>
+            <ChatHeader
+              onOpenSidebar={() => setMobileOpen(true)}
+              onNewChat={handleNewChat}
+              onExport={handleExport}
+            />
+            {mounted ? (
+              <ChatMessages
+                onPickSuggestion={handleSend}
+                onRegenerate={() => void regenerate()}
+              />
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                  <span className="text-sm">Waking the dragon…</span>
+                </div>
+              </div>
+            )}
+            <ChatInput
+              onSend={handleSend}
+              onStop={stop}
+              registerFocus={(fn) => (inputFocusRef.current = fn)}
+            />
+          </>
         ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-              <span className="text-sm">Waking the dragon…</span>
+          <>
+            {/* Mobile header for non-chat views */}
+            <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/80 pl-safe pr-safe pt-safe backdrop-blur-xl sm:px-4">
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+                aria-label="Open menu"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+              <h1 className="flex-1 text-base font-semibold capitalize">
+                {activeView}
+              </h1>
+            </header>
+            <div className="flex-1 overflow-y-auto">
+              {activeView === "integrations" && <IntegrationsPage />}
+              {activeView === "settings" && <SettingsPage />}
+              {activeView === "about" && <AboutPage />}
             </div>
-          </div>
+          </>
         )}
-
-        <ChatInput
-          onSend={handleSend}
-          onStop={stop}
-          registerFocus={(fn) => (inputFocusRef.current = fn)}
-        />
       </div>
     </div>
   );
 }
 
-/** Subtle floating ember particles for atmosphere. */
 function EmberBackground() {
   const embers = React.useMemo(
     () =>
@@ -124,7 +150,6 @@ function EmberBackground() {
       className="pointer-events-none absolute inset-0 overflow-hidden"
       aria-hidden="true"
     >
-      {/* Radial warm glow at the top */}
       <div
         className="absolute -top-1/3 left-1/2 h-[60vh] w-[80vw] -translate-x-1/2 rounded-full opacity-50"
         style={{
@@ -132,7 +157,6 @@ function EmberBackground() {
             "radial-gradient(ellipse at center, color-mix(in oklch, var(--primary) 22%, transparent) 0%, transparent 70%)",
         }}
       />
-      {/* Floating embers */}
       {embers.map((e) => (
         <span
           key={e.id}

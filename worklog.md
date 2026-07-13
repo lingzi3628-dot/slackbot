@@ -291,3 +291,31 @@ Stage Summary:
 - The sidebar shows a live Integrations panel with connection status.
 - Discord + Slack are scaffolded in the registry (marked "coming soon") — the framework makes adding them straightforward.
 - ACTION (still) REQUIRED: revoke both classic tokens (ghp_blOl... + ghp_CjNj...) at https://github.com/settings/tokens
+
+---
+Task ID: 11-multi-page-user-integrations
+Agent: main (orchestrator)
+Task: User wants: (1) users create their own integrations from the UI, (2) separate pages not all in one, (3) remove GitHub repo links from frontend.
+
+Work Log:
+- Refactored telegram-client.ts: all functions now accept `token` as first param (was env-var-only). Added encodeToken/decodeToken (base64url) for webhook URL embedding.
+- Webhook route: reads token from `?t=<base64url>` query param, decodes it, uses it for that request. No server-side storage needed — each bot's webhook URL encodes its own token. Falls back to env var for backward compat.
+- set-webhook route: accepts POST { token } — validates via getMe, generates webhook URL with encoded token, registers with Telegram. Returns bot info. GET kept for backward compat.
+- unset-webhook route: accepts POST { token } — calls deleteWebhook.
+- Created UI store (src/store/ui-store.ts): activeView state (chat/integrations/settings/about). Uses view-state rather than routes so everything stays on / (preview-visible) while feeling like separate pages.
+- Created integrations store (src/store/integrations-store.ts): user-configured integrations (id, platform, label, token, botUsername, connected) persisted to localStorage. add/update/remove.
+- Built IntegrationsPage: users add their own Telegram bot (label + token form with @BotFather link), connect/disconnect (calls set-webhook/unset-webhook), delete. Shows live status per bot. Discord + Slack sections marked "coming soon".
+- Built SettingsPage: theme picker (system/dark/light via next-themes), export all conversations, clear all, install app, version.
+- Built AboutPage: branded hero, what it does, how it works, privacy link.
+- Rewrote sidebar: nav items at top (Chat/Integrations/Settings/About), conversation list only shows in chat view, removed GitHub repo link, removed old IntegrationsPanel (replaced by dedicated page). Footer has only theme toggle.
+- Updated page.tsx: renders active view — chat view shows header+messages+input; other views show a mobile header + scrollable page content.
+- Fixed SettingsPage: was importing @/store/settings-store (mobile-only); switched to next-themes useTheme.
+- Verified via Agent Browser: all 4 pages render correctly, nav switches views, chat still streams, 0 GitHub links on frontend, lint clean, no errors.
+- Pushed to BOTH repos: meshmusic2836-lab (commit bb6fe0b) + lingzi3628-dot (commit 86455e7). Both auto-deploy to Vercel.
+
+Stage Summary:
+- Multi-page UI: Chat / Integrations / Settings / About via view-state navigation in the sidebar.
+- User-managed integrations: users add their own Telegram bot from the Integrations page — enter label + token from @BotFather, click Connect. Token stored in localStorage; webhook URL encodes token (base64url) so the server knows which bot to reply with. No server-side storage or env vars needed for user bots.
+- GitHub repo links removed from the sidebar, header, and settings. Only remaining GitHub reference is in the privacy policy (support contact link).
+- Telegram client refactored to accept tokens as parameters — works for both user bots and the legacy env-var bot.
+- Both repos pushed → Vercel auto-deploying.
