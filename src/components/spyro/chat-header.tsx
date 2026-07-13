@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Plus, Eraser } from "lucide-react";
+import { Menu, Plus, Eraser, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelBadge } from "./model-badge";
 import { useChatStore } from "@/store/chat-store";
@@ -8,14 +8,18 @@ import { useChatStore } from "@/store/chat-store";
 interface ChatHeaderProps {
   onOpenSidebar: () => void;
   onNewChat: () => void;
+  onExport?: () => void;
 }
 
-export function ChatHeader({ onOpenSidebar, onNewChat }: ChatHeaderProps) {
+export function ChatHeader({ onOpenSidebar, onNewChat, onExport }: ChatHeaderProps) {
   const activeId = useChatStore((s) => s.activeId);
   const clearMessages = useChatStore((s) => s.clearMessages);
+  const conversations = useChatStore((s) => s.conversations);
+  const active = conversations.find((c) => c.id === activeId);
+  const canExport = !!active && active.messages.length > 0;
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/80 px-2 backdrop-blur-xl sm:px-4">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-1 border-b border-border bg-background/80 pl-safe pr-safe pt-safe backdrop-blur-xl sm:gap-2 sm:px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -30,16 +34,27 @@ export function ChatHeader({ onOpenSidebar, onNewChat }: ChatHeaderProps) {
         <ModelBadge size="sm" />
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 sm:gap-1">
+        {canExport && onExport && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onExport}
+            aria-label="Export conversation"
+            title="Export conversation"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+        )}
         {activeId && (
           <Button
             variant="ghost"
-            size="sm"
-            className="hidden gap-1.5 sm:inline-flex"
+            size="icon"
             onClick={() => clearMessages(activeId)}
+            aria-label="Clear conversation"
+            title="Clear conversation"
           >
             <Eraser className="h-4 w-4" />
-            Clear
           </Button>
         )}
         <Button

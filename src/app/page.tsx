@@ -4,6 +4,8 @@ import * as React from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useSpyroChat } from "@/hooks/use-spyro-chat";
 import { useChatStore } from "@/store/chat-store";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { exportConversationAsMarkdown } from "@/lib/export";
 import { ChatHeader } from "@/components/spyro/chat-header";
 import { ChatInput } from "@/components/spyro/chat-input";
 import { ChatMessages } from "@/components/spyro/chat-messages";
@@ -17,6 +19,7 @@ export default function Home() {
   const createConversation = useChatStore((s) => s.createConversation);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const inputFocusRef = React.useRef<() => void>(() => {});
 
   // Avoid hydration mismatch with the persisted zustand store.
   React.useEffect(() => setMounted(true), []);
@@ -29,6 +32,25 @@ export default function Home() {
     createConversation();
     setMobileOpen(false);
   };
+
+  const handleExport = () => {
+    const active = useChatStore.getState().getActive();
+    if (active && active.messages.length > 0) {
+      exportConversationAsMarkdown(active);
+    }
+  };
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onNewChat: handleNewChat,
+    onFocusInput: () => inputFocusRef.current(),
+    onToggleSidebar: () => {
+      // Only meaningful on desktop where the sidebar is always visible;
+      // on mobile we open the sheet.
+      setMobileOpen((v) => !v);
+    },
+    onCloseSidebar: () => setMobileOpen(false),
+  });
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
@@ -57,6 +79,7 @@ export default function Home() {
         <ChatHeader
           onOpenSidebar={() => setMobileOpen(true)}
           onNewChat={handleNewChat}
+          onExport={handleExport}
         />
 
         {mounted ? (
@@ -73,7 +96,11 @@ export default function Home() {
           </div>
         )}
 
-        <ChatInput onSend={handleSend} onStop={stop} />
+        <ChatInput
+          onSend={handleSend}
+          onStop={stop}
+          registerFocus={(fn) => (inputFocusRef.current = fn)}
+        />
       </div>
     </div>
   );

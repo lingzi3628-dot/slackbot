@@ -262,4 +262,30 @@
       transform: translateY(0) scale(1);
     }
   }
+
+  /* Safe-area helpers for notch / dynamic-island / home-indicator phones.
+     Requires viewport-fit=cover (set in layout.tsx). */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .h-safe-bottom {
+    height: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Tap target sizing for touch devices (44px minimum per Apple HIG) */
+  @media (pointer: coarse) {
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 }

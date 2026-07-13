@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion } from "framer-motion";
-import { Check, Copy, RefreshCw, User, AlertTriangle } from "lucide-react";
+import { Check, Copy, RefreshCw, RotateCw, User, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SpyroLogo } from "./spyro-logo";
 import { Markdown } from "./markdown";
@@ -109,12 +109,19 @@ export function MessageBubble({
           )}
         </div>
 
-        {/* Hover actions */}
+        {/* Hover/touch actions — always visible on error or touch devices */}
         {!message.streaming && message.content.length > 0 && (
-          <div className="flex items-center gap-1 px-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <div
+            className={cn(
+              "flex items-center gap-1 px-1 transition-opacity",
+              message.error
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100"
+            )}
+          >
             <button
               onClick={copy}
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="touch-target inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Copy message"
             >
               {copied ? (
@@ -130,10 +137,18 @@ export function MessageBubble({
             {!isUser && isLast && !isGenerating && (
               <button
                 onClick={onRegenerate}
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="touch-target inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Regenerate response"
               >
-                <RefreshCw className="h-3 w-3" /> Regenerate
+                {message.error ? (
+                  <>
+                    <RotateCw className="h-3 w-3" /> Retry
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-3 w-3" /> Regenerate
+                  </>
+                )}
               </button>
             )}
           </div>

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
+import { exportAllConversationsAsJson } from "@/lib/export";
 import { ModelBadge } from "./model-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
@@ -199,6 +200,16 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
 
       {/* Footer */}
       <div className="border-t border-border p-3">
+        {conversations.length > 0 && (
+          <button
+            onClick={() => exportAllConversationsAsJson(conversations)}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Export all conversations as JSON"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export all ({conversations.length})
+          </button>
+        )}
         {canInstall ? (
           <Button
             onClick={promptInstall}
