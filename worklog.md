@@ -346,3 +346,35 @@ Stage Summary:
 - All 4 capabilities powered by z-ai-web-dev-sdk on the backend; frontend has mic button, speak button, search toggle, image button + /imagine command.
 - Both repos pushed → Vercel auto-deploying.
 - ACTION (still) REQUIRED: revoke both classic tokens.
+
+---
+Task ID: 13-telegram-fix-pollinations-preview
+Agent: main (orchestrator)
+Task: Fix Telegram bot (connects but doesn't reply), switch image gen to Pollinations free API, add live code preview, research open-source upgrades.
+
+Work Log:
+- ROOT CAUSE of Telegram not replying: webhook route returned { ok: true } immediately then did AI work with `void processMessage(...)`. On Vercel serverless, background work after the response is sent gets KILLED. Fix: `await processMessage(...)` before returning.
+- Simplified processMessage: removed fragile streaming message edits (editMessageText every 1.5s). Now: typing indicator (refreshed every 4s via setInterval) → single final sendMessage. Much more reliable on serverless.
+- spyro-engine upgrade: added non-streaming fallback. getSpyroReply now tries streaming first (if onToken provided), falls back to stream:false JSON response if streaming fails. More robust on Vercel Node.js runtime.
+- Removed unused editMessageText import from webhook route.
+- Image generation → Pollinations AI (free, no API key):
+  - Rewrote /api/image-gen to build a URL: https://image.pollinations.ai/prompt/{prompt}?width&height&nologo&referrer
+  - Returns the URL (not base64) — image loads lazily in browser.
+  - Edge runtime (instant cold start, no SDK needed).
+  - Verified: returns 108KB JPEG for "dragon" prompt.
+- Live code preview in Markdown component:
+  - Detects HTML/CSS/JS code blocks.
+  - Adds a "Preview" button (Eye icon) next to Copy.
+  - Clicking renders the code in a sandboxed iframe (sandbox="allow-scripts").
+  - HTML: wraps fragment in a full doc with dark theme.
+  - CSS: applies to a demo page (headings, buttons, inputs, lists).
+  - JS: executes in iframe, catches errors and displays them.
+  - Verified: Preview button appears on HTML blocks, iframe renders correctly.
+- Lint clean, typecheck clean (exit 0).
+- Pushed to BOTH repos: meshmusic2836-lab (c69112d) + lingzi3628-dot (7a309c0). Vercel auto-deploying.
+
+Stage Summary:
+- Telegram bot FIXED: was killing background work; now awaits the full AI reply before responding. Typing indicator shows while waiting.
+- Image gen uses Pollinations free API (no key, no cost, URL-based).
+- Code preview: HTML/CSS/JS blocks get a live Preview iframe.
+- Both repos pushed → Vercel auto-deploying.

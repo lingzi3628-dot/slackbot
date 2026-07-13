@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSpyroReply } from "@/lib/spyro-engine";
 import {
   sendMessage,
-  editMessageText,
   sendChatAction,
   decodeToken,
   type TelegramUpdate,
@@ -57,8 +56,9 @@ export async function POST(req: NextRequest) {
     return handleCommand(token, chatId, text, firstName);
   }
 
-  // Regular message — process in background, acknowledge immediately.
-  void processMessage(token, chatId, text, msg.message_id);
+  // Regular message — MUST await before returning. On Vercel serverless,
+  // background work after the response is sent gets killed.
+  await processMessage(token, chatId, text, msg.message_id);
   return NextResponse.json({ ok: true });
 }
 
@@ -118,45 +118,28 @@ async function processMessage(
   replyToMessageId: number
 ): Promise<void> {
   try {
+    // Show typing indicator (refreshes every ~5s; Telegram shows it for ~5s).
     await sendChatAction(token, chatId, "typing");
+    const typingInterval = setInterval(() => {
+      sendChatAction(token, chatId, "typing").catch(() => {});
+    }, 4000);
+
     pushMessage(chatId, { role: "user", content: text });
 
-    const placeholder = await sendMessage(
-      token,
-      chatId,
-      "🐉 _SPYRO V1 is breathing fire…_",
-      { parseMode: "Markdown", replyToMessageId }
-    );
+    // Get the reply (non-streaming — more reliable on serverless).
+    const reply = await getSpyroReply(getHistory(chatId));
 
-    let lastEdit = 0;
-    let lastText = "";
-    let fullText = "";
-    const EDIT_INTERVAL_MS = 1500;
-    const MAX_MESSAGE_LENGTH = 4096;
-
-    await getSpyroReply(getHistory(chatId), {
-      onToken: (_token, acc) => {
-        fullText = acc;
-        const now = Date.now();
-        if (now - lastEdit > EDIT_INTERVAL_MS && acc.length > lastText.length + 20) {
-          lastEdit = now;
-          lastText = acc;
-          void editMessageText(token, chatId, placeholder.message_id, truncateForTelegram(acc)).catch(() => {});
-        }
-      },
-    });
+    clearInterval(typingInterval);
 
     const finalText =
-      fullText.trim().length > 0
-        ? fullText
+      reply.trim().length > 0
+        ? reply
         : "SPYRO V1 returned an empty response. Try rephrasing your prompt. 🐉";
 
-    await editMessageText(
-      token,
-      chatId,
-      placeholder.message_id,
-      truncateForTelegram(finalText).slice(0, MAX_MESSAGE_LENGTH)
-    );
+    // Send the final reply.
+    await sendMessage(token, chatId, truncateForTelegram(finalText), {
+      replyToMessageId,
+    });
 
     pushMessage(chatId, { role: "assistant", content: finalText });
   } catch (err) {

@@ -3,17 +3,41 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * Markdown renderer tuned for SPYRO V1 assistant replies.
  * - GitHub-flavoured (tables, strikethrough, task lists)
  * - Code blocks get a language label + copy button
+ * - HTML/CSS/JS code blocks get a live Preview button (renders in an iframe)
  * - Inline code is ember-tinted
  */
+
+/** Languages that can be previewed live in an iframe. */
+const PREVIEWABLE = new Set(["html", "css", "javascript", "js"]);
+
+/** Build a full HTML document from a code block, combining HTML/CSS/JS. */
+function buildPreviewDoc(code: string, lang: string): string {
+  if (lang === "html") {
+    // If it's a full HTML doc, use as-is. Otherwise wrap a fragment.
+    if (/<html[\s>]/i.test(code)) return code;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:16px;background:#16110d;color:#f5ecd9;margin:0}</style></head><body>${code}</body></html>`;
+  }
+  if (lang === "css") {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${code}</style></head><body><div style="padding:16px"><h1>CSS Preview</h1><p>Style applied to this page.</p><button>Button</button><input placeholder="Input"/><ul><li>Item 1</li><li>Item 2</li></ul></div></body></html>`;
+  }
+  if (lang === "javascript" || lang === "js") {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:16px;background:#16110d;color:#f5ecd9;margin:0}</style></head><body><div id="root"></div><script>try{${code}}catch(e){document.body.innerHTML+='<pre style="color:#e85a3c">'+e+'</pre>'}</script></body></html>`;
+  }
+  return code;
+}
+
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = React.useState(false);
+  const [showPreview, setShowPreview] = React.useState(false);
+  const canPreview = PREVIEWABLE.has(language.toLowerCase());
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(code);
@@ -23,28 +47,63 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
       /* ignore */
     }
   };
+
+  const previewDoc = React.useMemo(
+    () => (canPreview ? buildPreviewDoc(code, language.toLowerCase()) : ""),
+    [code, language, canPreview]
+  );
+
   return (
     <div className="group/code my-3 overflow-hidden rounded-lg border border-border bg-black/40">
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-1.5">
         <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
           {language || "code"}
         </span>
-        <button
-          onClick={copy}
-          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
-          aria-label="Copy code"
-        >
-          {copied ? (
-            <>
-              <Check className="h-3 w-3" /> Copied
-            </>
-          ) : (
-            <>
-              <Copy className="h-3 w-3" /> Copy
-            </>
+        <div className="flex items-center gap-1">
+          {canPreview && (
+            <button
+              onClick={() => setShowPreview((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-white/5 hover:text-primary"
+              aria-label={showPreview ? "Hide preview" : "Live preview"}
+            >
+              {showPreview ? (
+                <>
+                  <EyeOff className="h-3 w-3" /> Hide
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3" /> Preview
+                </>
+              )}
+            </button>
           )}
-        </button>
+          <button
+            onClick={copy}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+            aria-label="Copy code"
+          >
+            {copied ? (
+              <>
+                <Check className="h-3 w-3" /> Copied
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" /> Copy
+              </>
+            )}
+          </button>
+        </div>
       </div>
+      {showPreview && canPreview && (
+        <div className="border-b border-border/70 bg-white">
+          <iframe
+            srcDoc={previewDoc}
+            title="Code preview"
+            sandbox="allow-scripts"
+            className="h-64 w-full border-0"
+          />
+        </div>
+      )}
       <pre className="overflow-x-auto p-3 text-[13px] leading-relaxed">
         <code className="font-mono text-foreground/90">{code}</code>
       </pre>

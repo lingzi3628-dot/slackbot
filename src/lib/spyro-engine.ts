@@ -2,9 +2,7 @@
  * SPYRO V1 shared engine — used by all integrations (Telegram, Discord, etc.)
  * and the web streaming endpoint.
  *
- * This is the single source of truth for the SPYRO V1 persona. Every
- * integration calls getReply() with the conversation history and gets back
- * the full SPYRO V1 response.
+ * Single source of truth for the SPYRO V1 persona.
  */
 import { SPYRO_SYSTEM_PROMPT } from "./spyro-persona";
 
@@ -23,9 +21,11 @@ export interface SpyroReplyOptions {
 }
 
 /**
- * Get a full SPYRO V1 reply. Streams internally; resolves with the complete
- * text when done. Integrations can use onToken to progressively edit a
- * message (e.g. Telegram "typing" → edit).
+ * Get a full SPYRO V1 reply (non-streaming). Best for integrations like
+ * Telegram where we need the complete text before replying.
+ *
+ * Uses stream:false to get the full response in one shot — more reliable
+ * on serverless runtimes (Vercel Node.js) where streaming can be flaky.
  */
 export async function getSpyroReply(
   messages: SpyroMessage[],
@@ -40,6 +40,60 @@ export async function getSpyroReply(
 
   const temperature = options.temperature ?? 0.7;
 
+  // First try streaming (for the onToken callback), fall back to non-streaming.
+  if (options.onToken) {
+    try {
+      return await getSpyroReplyStreaming(fullMessages, temperature, options);
+    } catch (err) {
+      // Streaming failed — fall through to non-streaming.
+      console.error("[spyro-engine] streaming failed, falling back:", err);
+    }
+  }
+
+  // Non-streaming fallback — more reliable on serverless.
+  const res = await fetch(POLLINATIONS_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      model: "openai",
+      messages: fullMessages,
+      temperature,
+      stream: false,
+      private: true,
+      referrer: "spyro-v1-app",
+    }),
+    signal: options.signal,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`SPYRO V1 engine error: ${res.status} ${text.slice(0, 200)}`);
+  }
+
+  const data = await res.json();
+  const content =
+    data?.choices?.[0]?.message?.content ??
+    data?.choices?.[0]?.delta?.content ??
+    "";
+
+  if (typeof content === "string" && content.length > 0) {
+    options.onToken?.(content, content);
+  }
+
+  return content;
+}
+
+/**
+ * Streaming variant — used when onToken is provided and streaming works.
+ */
+async function getSpyroReplyStreaming(
+  fullMessages: SpyroMessage[],
+  temperature: number,
+  options: SpyroReplyOptions
+): Promise<string> {
   const res = await fetch(POLLINATIONS_URL, {
     method: "POST",
     headers: {
@@ -99,5 +153,6 @@ export async function getSpyroReply(
   }
   if (buffer.length > 0) flushLine(buffer);
 
+  if (!acc) throw new Error("Empty streaming response");
   return acc;
 }
