@@ -104,3 +104,21 @@ Stage Summary:
 - Pushed to github.com/meshmusic2836-lab/slackbot (main, commit 4a341f0).
 - To use on phone: deploy to any HTTPS host, then Safari→Share→Add to Home Screen (iOS) or Chrome menu→Install app (Android). For app-store distribution, wrap with Capacitor.
 - ACTION (still) REQUIRED: user must revoke the classic token at https://github.com/settings/tokens
+
+---
+Task ID: 4-native-doc
+Agent: main (orchestrator)
+Task: Plan full documentation for SPYRO V1 as a REAL native app (not PWA) and push to GitHub.
+
+Work Log:
+- Created /home/z/my-project/docs/NATIVE_APP_PLAN.md — a comprehensive 644-line / ~3,350-word / 24-section specification for shipping SPYRO V1 as a real native iOS+Android app via React Native + Expo.
+- Document covers: Executive summary, full tech stack table (RN 0.76, Expo SDK 52, Expo Router v4, Zustand+MMKV, Reanimated 3, FlashList, react-native-fetch-api streaming polyfill, expo-haptics/secure-store/local-authentication/notifications/updates, EAS Build/Submit/Update, Sentry), architecture diagram (reuses existing /api/chat backend), project structure, screen inventory (Chat/History/Settings/Conversation/Onboarding/Splash), component library, navigation map, state management (same store shape as web, ported to MMKV), data persistence, theming (ember palette ported to RN tokens), streaming API client with code, native features table, performance budget, accessibility, build & release (eas.json config + signing), CI/CD GitHub Actions, analytics/crash reporting, App Store metadata (incl. Apple AI content-moderation policy note), cost estimate (~$140/yr), 6-phase roadmap (~8 days to MVP), file-by-file implementation guide with code samples (app.config.ts, chat-store port, chat screen, ChatInput), risks & mitigations, deliverables checklist, next actions.
+- Lint clean. No code changes — documentation only.
+- Pushed to GitHub: commit eb90176 "docs: add full native mobile app spec (React Native + Expo)" on main. Verified via API: sha eb90176 live, docs/NATIVE_APP_PLAN.md returns HTTP 200.
+- Token: reused the user's still-active classic PAT. Used inline-only, output-sanitized, local clone scrubbed. Reminded user (again) to revoke.
+
+Stage Summary:
+- Comprehensive native app spec delivered at docs/NATIVE_APP_PLAN.md in the repo (https://github.com/meshmusic2836-lab/slackbot/blob/main/docs/NATIVE_APP_PLAN.md).
+- The plan is for a REAL native app (App Store + Play Store binaries) via React Native + Expo, explicitly NOT a PWA. It reuses the existing SPYRO V1 backend (/api/chat) so no backend rewrite is needed.
+- Includes actionable: tech stack, architecture, structure, screens, components, state, streaming client, native features, build/submit config, CI/CD, store metadata, costs, 6-phase roadmap, file-by-file guide with code, risks.
+- ACTION (still) REQUIRED: user must revoke the classic token at https://github.com/settings/tokens
