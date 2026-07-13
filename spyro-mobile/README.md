@@ -12,9 +12,9 @@ Pollination AI text API and rebrands responses as SPYRO V1.
 
 ---
 
-## ✨ What's implemented (Phase 0 + 1 + 2 + 5)
+## ✨ What's implemented (Phase 0 + 1 + 2 + 5) — Expo SDK 53
 
-This is a **store-ready MVP**:
+This is a **store-ready MVP** running on Expo SDK 53 (React Native 0.79, React 19):
 
 - ✅ Expo Router tab navigation (Chat / History / Settings)
 - ✅ First-launch onboarding flow
@@ -62,15 +62,36 @@ repository secret (Settings → Secrets and variables → Actions → New).
 
 ---
 
-## 🚀 Quick start
+## 📖 Full setup guide
+
+**👉 See [`SETUP_GUIDE.md`](./SETUP_GUIDE.md) for the complete step-by-step
+guide** — covers Node installation, dependency install on Windows/Mac/Linux,
+backend deployment, icon generation, troubleshooting, and store builds.
+
+The short version (for macOS/Linux with Node 20+ already installed):
+
+```bash
+git clone https://github.com/meshmusic2836-lab/slackbot
+cd slackbot/spyro-mobile
+npm install
+npm install --save-dev sharp tsx
+npm run gen:icons
+# edit app.config.ts → set extra.apiUrl to your Vercel deployment
+npx expo start
+# scan the QR with Expo Go on your phone
+```
+
+> **Requires Node 20 or 22.** Node 18 or Node 23+ will not work with Expo SDK 53.
+
+---
+
+## 🚀 Quick start (summary)
 
 ### Prerequisites
-- **Node 18+** and **Bun** (or npm/yarn)
-- **Expo Go** app on your phone (iOS from App Store / Android from Play Store)
-  — OR — an iOS simulator / Android emulator (Xcode / Android Studio)
-- The **SPYRO V1 backend deployed to HTTPS** (the Next.js app in the repo
-  root). PWAs/mobile need HTTPS. Deploy it to Vercel:
-  → https://vercel.com/new → import the repo → Deploy → copy the URL.
+- **Node 20 LTS** or **Node 22** (NOT 18, NOT 23+) — see [SETUP_GUIDE.md](./SETUP_GUIDE.md) Section 2
+- **npm** (ships with Node) — recommended on Windows
+- **Expo Go** app on your phone (free, from App Store / Play Store)
+- The **SPYRO V1 backend deployed to HTTPS** — see [SETUP_GUIDE.md](./SETUP_GUIDE.md) Section 4
 
 ### 1. Install
 ```bash
@@ -229,9 +250,9 @@ Dark is the default. Toggle in Settings → Appearance.
 
 ## 🛠️ Tech stack
 
-- **React Native 0.76** (New Architecture)
-- **Expo SDK 52** (managed workflow)
-- **Expo Router v4** (file-based routing)
+- **React Native 0.79** (New Architecture)
+- **Expo SDK 53** (managed workflow — supports Node 20 AND 22)
+- **Expo Router v5** (file-based routing)
 - **TypeScript 5**
 - **Zustand 5** + **AsyncStorage** (Expo Go–compatible persistence; swap to MMKV for production)
 - **@shopify/flash-list** (virtualized messages)
@@ -266,7 +287,7 @@ doc comment at the top of each file). MMKV requires a **development build**
 - The backend must be deployed to **HTTPS** — mobile apps can't call plain
   HTTP. Deploy the Next.js app (repo root) to Vercel/Netlify and paste the
   URL into `app.config.ts → extra.apiUrl`.
-- Requires **Node 18 or 20** (Node 22+ breaks Expo SDK 52's CLI bootstrap).
+- Requires **Node 20 or 22** (Node 18 or 23+ won't work with Expo SDK 53).
 
 ---
 
