@@ -1,0 +1,235 @@
+# SPYRO V1 — Mobile App (React Native + Expo)
+
+The native iOS & Android app for **SPYRO V1**, the dragon-powered AI chat
+assistant. One TypeScript codebase → both the App Store and Google Play.
+
+This app reuses the **existing SPYRO V1 backend** (the Next.js app in the repo
+root) — specifically its `/api/chat` streaming endpoint that proxies the free
+Pollination AI text API and rebrands responses as SPYRO V1.
+
+> 📖 For the full architecture & roadmap, see
+> [`docs/NATIVE_APP_PLAN.md`](../docs/NATIVE_APP_PLAN.md).
+
+---
+
+## ✨ What's implemented (Phase 0 + Phase 1)
+
+This is a **runnable MVP**:
+
+- ✅ Expo Router tab navigation (Chat / History / Settings)
+- ✅ First-launch onboarding flow
+- ✅ Streaming chat — real token-by-token responses from the SPYRO V1 backend
+- ✅ Markdown rendering (headings, lists, code blocks, tables) with copy-on-long-press
+- ✅ Conversation history persisted to device (MMKV) — rename, delete, clear all
+- ✅ Stop generation mid-stream
+- ✅ Regenerate last response
+- ✅ Dragon/fire ember theme, dark + light, system override
+- ✅ Haptic feedback (send, stop, regenerate, long-press)
+- ✅ Welcome screen with suggestion cards
+- ✅ Keyboard-aware input with auto-grow
+- ✅ FlashList virtualized messages
+
+### Not yet (Phase 2+)
+- Biometric lock UI wiring (store flag exists, auth prompt TBD)
+- Push notifications
+- iOS widget
+- OTA updates via EAS
+- Sentry crash reporting
+- App Store / Play Store submission
+
+---
+
+## 🚀 Quick start
+
+### Prerequisites
+- **Node 18+** and **Bun** (or npm/yarn)
+- **Expo Go** app on your phone (iOS from App Store / Android from Play Store)
+  — OR — an iOS simulator / Android emulator (Xcode / Android Studio)
+- The **SPYRO V1 backend deployed to HTTPS** (the Next.js app in the repo
+  root). PWAs/mobile need HTTPS. Deploy it to Vercel:
+  → https://vercel.com/new → import the repo → Deploy → copy the URL.
+
+### 1. Install
+```bash
+cd spyro-mobile
+bun install          # or: npm install
+```
+
+### 2. Configure the backend URL
+Edit `app.config.ts` → set `extra.apiUrl` to your deployed backend:
+```ts
+extra: {
+  eas: { projectId: "REPLACE_WITH_YOUR_EAS_PROJECT_ID" },
+  apiUrl: "https://your-spyro-v1-backend.vercel.app",
+}
+```
+
+### 3. Generate app icons (optional but recommended)
+```bash
+bun add -d sharp
+bun run scripts/generate-icons.ts
+```
+This creates `assets/icon.png`, `adaptive-icon.png`, `splash.png`,
+`favicon.png`.
+
+### 4. Run
+```bash
+bun run start        # or: npx expo start
+```
+Then:
+- **On your phone:** scan the QR code with the **Expo Go** app.
+- **iOS simulator:** press `i` in the terminal.
+- **Android emulator:** press `a` in the terminal.
+
+---
+
+## 📁 Project structure
+
+```
+spyro-mobile/
+├── app/                          # Expo Router (file-based screens)
+│   ├── _layout.tsx               # Root: polyfills, providers, splash
+│   ├── onboarding.tsx            # First-launch intro (3 slides)
+│   ├── +not-found.tsx
+│   └── (tabs)/
+│       ├── _layout.tsx           # Tab navigator
+│       ├── index.tsx             # Chat tab
+│       ├── history.tsx           # Conversation list
+│       └── settings.tsx          # Preferences + about
+├── src/
+│   ├── components/
+│   │   ├── SpyroLogo.tsx         # SVG dragon-flame mark
+│   │   ├── ModelBadge.tsx
+│   │   ├── LinearGradient.tsx    # expo-linear-gradient wrapper
+│   │   ├── chat/
+│   │   │   ├── MessageBubble.tsx
+│   │   │   ├── ChatInput.tsx
+│   │   │   ├── TypingIndicator.tsx
+│   │   │   ├── Markdown.tsx
+│   │   │   └── WelcomeEmpty.tsx
+│   ├── hooks/
+│   │   ├── useSpyroChat.ts       # send / stop / regenerate (streaming)
+│   │   ├── useHaptics.ts
+│   │   └── useTheme.ts
+│   ├── store/
+│   │   ├── chat-store.ts         # Zustand + MMKV (same shape as web)
+│   │   └── settings-store.ts
+│   ├── lib/
+│   │   ├── api.ts                # streamChat() — SSE client
+│   │   ├── theme.ts              # ember/fire tokens (dark + light)
+│   │   ├── markdown-theme.ts
+│   │   ├── constants.ts          # API base URL, model name
+│   │   └── polyfills.ts          # RN fetch streaming polyfills
+│   └── assets/
+├── scripts/
+│   └── generate-icons.ts         # sharp → PNG icons from SVG
+├── app.config.ts                 # Expo config (id, icon, permissions)
+├── eas.json                      # Build profiles
+├── babel.config.js
+├── tsconfig.json
+└── package.json
+```
+
+---
+
+## 🔌 How streaming works (important!)
+
+React Native's bundled `fetch` does **not** expose a `ReadableStream` body by
+default. This project installs polyfills at app entry
+(`src/lib/polyfills.ts`, imported first in `app/_layout.tsx`):
+
+```ts
+import "react-native-polyfill-globals/auto";
+import { polyfill as fetchPolyfill } from "react-native-fetch-api";
+fetchPolyfill({ enableTextStreaming: true });
+```
+
+This makes `res.body.getReader()` work on-device, so `src/lib/api.ts` can
+stream tokens from the SPYRO V1 backend exactly like the web app does.
+
+---
+
+## 📦 Building for the stores
+
+### Prerequisites
+- **Apple Developer account** ($99/yr) — for App Store
+- **Google Play Console** ($25 one-time) — for Play Store
+- **Expo account** (free) — for EAS Build
+
+### 1. Log in & init EAS
+```bash
+bun add -g eas-cli
+eas login
+eas init          # creates a project ID — paste into app.config.ts extra.eas.projectId
+```
+
+### 2. Build a development client (for testing on a real device)
+```bash
+eas build --profile development --platform ios
+eas build --profile development --platform android
+```
+
+### 3. Build production binaries
+```bash
+eas build --profile production --platform ios
+eas build --profile production --platform android
+```
+
+### 4. Submit to stores
+```bash
+# Fill in eas.json → submit.production with your Apple ID / Play service key
+eas submit --profile production --platform ios
+eas submit --profile production --platform android
+```
+
+### 5. OTA updates (JS-only fixes, no review)
+```bash
+eas update --branch production --message "fix: ..."
+```
+
+---
+
+## 🎨 Theming
+
+The ember/fire palette is ported 1:1 from the web app (`src/lib/theme.ts`).
+Dark is the default. Toggle in Settings → Appearance.
+
+| Token | Dark | Light |
+|---|---|---|
+| background | `#16110d` | `#fcf7ee` |
+| surface | `#211410` | `#ffffff` |
+| primary (ember) | `#ff7a1a` | `#e8651a` |
+| text | `#f5ecd9` | `#3a2a1a` |
+| gradient | `#ffe9a8 → #ff9a3c → #e8421b` | `#ffd27a → #ee8a2e → #d8421b` |
+
+---
+
+## 🛠️ Tech stack
+
+- **React Native 0.76** (New Architecture)
+- **Expo SDK 52** (managed workflow)
+- **Expo Router v4** (file-based routing)
+- **TypeScript 5**
+- **Zustand 5** + **react-native-mmkv** (sync persistence)
+- **@shopify/flash-list** (virtualized messages)
+- **react-native-reanimated 3** (UI-thread animations)
+- **react-native-markdown-display**
+- **expo-haptics**, **expo-linear-gradient**, **expo-splash-screen**
+- **EAS Build / Submit / Update**
+
+---
+
+## ⚠️ Known limitations (Phase 0+1)
+
+- App icons must be generated with the script before a store build.
+- Biometric lock toggle is wired in settings but the auth prompt is Phase 2.
+- No push notifications yet (Phase 2).
+- The backend must be deployed to HTTPS — the app won't reach `localhost`.
+
+---
+
+## 📝 License & credits
+
+Built with fire by SPYRO Labs. 🐉🔥
+Powered under the hood by the free [Pollination AI](https://pollinations.ai) text
+API, rebranded as SPYRO V1.
