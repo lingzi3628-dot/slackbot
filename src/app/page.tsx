@@ -19,6 +19,7 @@ import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
 import { DashboardPage } from "@/components/spyro/pages/dashboard-page";
 import { LoginPage } from "@/components/spyro/pages/login-page";
+import { RegisterPage } from "@/components/spyro/pages/register-page";
 import { ProfilePage } from "@/components/spyro/pages/profile-page";
 
 export default function Home() {
@@ -62,9 +63,9 @@ export default function Home() {
     onCloseSidebar: () => setMobileOpen(false),
   });
 
-  // Login view is full-screen (no sidebar, no header) — must be after all hooks.
-  if (activeView === "login") {
-    return <LoginPage />;
+  // Register/Login views are full-screen (no sidebar, no header) — must be after all hooks.
+  if (activeView === "register" || activeView === "login") {
+    return activeView === "login" ? <LoginPage /> : <RegisterPage />;
   }
 
   return (

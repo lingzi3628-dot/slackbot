@@ -39,6 +39,7 @@ import { VoiceStudio } from "./voice-studio-page";
 import { WebScout } from "./web-scout-page";
 import { PhotoEditor } from "./photo-editor-page";
 import { BackgroundRemover } from "./bg-remover-page";
+import { useLocalAuth, isGuest, canAccessTool } from "@/store/local-auth";
 
 // ── Greeting based on time ────────────────────────────────────────────
 function getGreeting() {
@@ -468,8 +469,8 @@ function Hub({ onOpenApp }: { onOpenApp: (id: string) => void }) {
   const conversations = useChatStore((s) => s.conversations);
   const isGenerating = useChatStore((s) => s.isGenerating);
   const greeting = getGreeting();
-  const hour = new Date().getHours();
-
+  const localUser = useLocalAuth((s) => s.user);
+  const guest = isGuest(localUser);
   const allMessages = conversations.flatMap((c) => c.messages);
 
   return (
@@ -518,13 +519,15 @@ function Hub({ onOpenApp }: { onOpenApp: (id: string) => void }) {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 + i * 0.05 }}
-            onClick={() => app.status === "live" && onOpenApp(app.id)}
-            disabled={app.status === "soon"}
+            onClick={() => app.status === "live" && canAccessTool(app.id, localUser) && onOpenApp(app.id)}
+            disabled={app.status === "soon" || (guest && !canAccessTool(app.id, localUser))}
             className={cn(
               "group relative overflow-hidden rounded-2xl border p-5 text-left transition-all",
-              app.status === "live"
+              app.status === "live" && canAccessTool(app.id, localUser)
                 ? "surface-elevated hover:spyro-glow cursor-pointer"
-                : "border-border/30 opacity-60 cursor-not-allowed"
+                : app.status === "live" && guest
+                  ? "border-border/30 opacity-50 cursor-not-allowed"
+                  : "border-border/30 opacity-60 cursor-not-allowed"
             )}
           >
             {/* Gradient glow on hover */}
@@ -550,6 +553,11 @@ function Hub({ onOpenApp }: { onOpenApp: (id: string) => void }) {
               {app.status === "soon" && (
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                   Soon
+                </span>
+              )}
+              {app.status === "live" && guest && !canAccessTool(app.id, localUser) && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  🔒 Sign up
                 </span>
               )}
             </div>

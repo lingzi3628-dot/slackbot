@@ -5,7 +5,7 @@
  */
 import { create } from "zustand";
 
-export type View = "chat" | "dashboard" | "integrations" | "settings" | "about" | "login" | "profile";
+export type View = "chat" | "dashboard" | "integrations" | "settings" | "about" | "login" | "register" | "profile";
 
 interface UIState {
   activeView: View;
@@ -13,6 +13,6 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  activeView: "chat",
+  activeView: "register",
   setView: (v) => set({ activeView: v }),
 }));

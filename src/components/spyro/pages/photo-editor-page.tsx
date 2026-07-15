@@ -51,6 +51,12 @@ const EDIT_OPS: EditOp[] = [
   { id: "warm", label: "Warm", icon: Sparkles, category: "filter" },
   { id: "dramatic", label: "Dramatic", icon: Sparkles, category: "filter" },
   { id: "noir", label: "Noir", icon: Sparkles, category: "filter" },
+  { id: "vignette", label: "Vignette", icon: Sparkles, category: "filter" },
+  { id: "noise", label: "Film Grain", icon: Sparkles, category: "filter" },
+  { id: "fade", label: "Fade", icon: Sparkles, category: "filter" },
+  { id: "boost", label: "Boost", icon: Sparkles, category: "filter" },
+  { id: "matte", label: "Matte", icon: Sparkles, category: "filter" },
+  { id: "golden", label: "Golden", icon: Sparkles, category: "filter" },
   { id: "blur", label: "Blur", icon: Sparkles, category: "filter", hasSlider: true, min: 1, max: 20, step: 1, default: 5 },
   { id: "sharpen", label: "Sharpen", icon: Sparkles, category: "filter" },
   // Transform

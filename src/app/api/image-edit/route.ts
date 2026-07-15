@@ -104,6 +104,44 @@ export async function POST(req: NextRequest) {
           .linear(1.4, -0.2)
           .sharpen({ sigma: 1.2 });
         break;
+      case "vignette": {
+        // Create a radial vignette overlay.
+        const vigSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="vig" cx="50%" cy="50%" r="70%">
+              <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+              <stop offset="100%" stop-color="#000" stop-opacity="0.6"/>
+            </radialGradient>
+          </defs>
+          <rect width="${width}" height="${height}" fill="url(#vig)"/>
+        </svg>`;
+        pipeline = pipeline.composite([{ input: Buffer.from(vigSvg), top: 0, left: 0 }]);
+        break;
+      }
+      case "noise": {
+        // Add film grain noise.
+        const noiseSvg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/></filter>
+          <rect width="${width}" height="${height}" filter="url(#n)" opacity="0.08"/>
+        </svg>`;
+        pipeline = pipeline.composite([{ input: Buffer.from(noiseSvg), top: 0, left: 0, blend: "over" }]);
+        break;
+      }
+      case "fade":
+        pipeline = pipeline.modulate({ brightness: 1.1, saturation: 0.6 }).linear(0.9, 0.05);
+        break;
+      case "boost":
+        pipeline = pipeline.modulate({ saturation: 1.6, brightness: 1.05 }).sharpen({ sigma: 1 });
+        break;
+      case "matte":
+        pipeline = pipeline.tint({ r: 80, g: 70, b: 60 }).modulate({ brightness: 0.95, saturation: 0.75 });
+        break;
+      case "golden":
+        pipeline = pipeline.tint({ r: 255, g: 200, b: 100 }).modulate({ brightness: 1.05, saturation: 1.1 });
+        break;
+      case " cyberpunk":
+        pipeline = pipeline.tint({ r: 100, g: 50, b: 200 }).modulate({ saturation: 1.4, brightness: 0.95 });
+        break;
 
       // ── Transform ────────────────────────────────────────────────────
       case "rotate": {

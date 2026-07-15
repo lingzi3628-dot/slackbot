@@ -1,32 +1,48 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Prisma schema — Neon Postgres (serverless)
+// Set DATABASE_URL in .env or Vercel env vars to your Neon connection string.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  password        String
+  role            String   @default("user") // "user" | "guest" | "admin"
+  avatarColor     String   @default("#ff7a1a")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  resetToken      String?
+  resetTokenExpiry DateTime?
 }
 
-model Post {
+model Conversation {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  userId    String
+  title     String   @default("New chat")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  messages  Message[]
+
+  @@index([userId])
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  role            String   // "user" | "assistant"
+  content         String
+  type            String   @default("text") // "text" | "image"
+  imageUrl        String?
+  createdAt       DateTime @default(now())
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
 }
