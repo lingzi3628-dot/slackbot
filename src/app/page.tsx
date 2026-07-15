@@ -19,7 +19,7 @@ import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
 
 export default function Home() {
-  const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel } = useSpyroChat();
+  const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
   const createConversation = useChatStore((s) => s.createConversation);
   const activeView = useUIStore((s) => s.activeView);
   const setView = useUIStore((s) => s.setView);
@@ -90,6 +90,8 @@ export default function Home() {
               onToggleWebSearch={() => setWebSearch(!webSearch)}
               model={model}
               onModelChange={setModel}
+              godMode={godMode}
+              onToggleGodMode={() => setGodMode(!godMode)}
             />
             {mounted ? (
               <ChatMessages

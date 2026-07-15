@@ -9,6 +9,39 @@ interface SendOptions {
   webSearch?: boolean;
 }
 
+/** Build a Markdown progress display from God Mode steps. */
+function buildGodModeProgress(
+  steps: Array<{ agent: string; icon: string; status: string; output?: string }>
+): string {
+  const lines: string[] = ["## ⚡ God Mode — Multi-Agent Collaboration", ""];
+
+  for (const step of steps) {
+    const statusIcon =
+      step.status === "done" ? "✅" : step.status === "error" ? "❌" : "⏳";
+    lines.push(`${statusIcon} **${step.icon} ${step.agent}** — ${step.status === "thinking" ? "working…" : step.status}`);
+
+    if (step.output && step.status === "done") {
+      // Show a collapsed summary of each agent's output.
+      const summary = step.output.slice(0, 200);
+      const truncated = step.output.length > 200 ? "…" : "";
+      lines.push("");
+      lines.push(`<details><summary>View output</summary>`);
+      lines.push("");
+      lines.push(summary + truncated);
+      lines.push("");
+      lines.push("</details>");
+      lines.push("");
+    }
+  }
+
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+  lines.push("*Synthesizing final answer…*");
+
+  return lines.join("\n");
+}
+
 /**
  * Drives a SPYRO V1 conversation: sends the message history to /api/chat and
  * streams the assistant reply token-by-token into the store.
@@ -22,6 +55,7 @@ export function useSpyroChat() {
   const store = useChatStore;
   const [webSearch, setWebSearch] = useState(false);
   const [model, setModel] = useState<SpyroModelId>("openai");
+  const [godMode, setGodMode] = useState(false);
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
@@ -33,6 +67,12 @@ export function useSpyroChat() {
     async (text: string, opts?: SendOptions) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+
+      // God Mode → multi-agent pipeline
+      if (godMode) {
+        await sendGodMode(trimmed, opts?.conversationId);
+        return;
+      }
 
       // Handle /imagine command → image generation
       const imagineMatch = trimmed.match(/^\/imagine\s+(.+)/i);
@@ -319,7 +359,130 @@ export function useSpyroChat() {
     [store, webSearch, model]
   );
 
-  return { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel };
+  /** Run God Mode — multi-agent pipeline with live progress updates. */
+  const sendGodMode = useCallback(
+    async (text: string, conversationId?: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      let convoId = conversationId ?? store.getState().activeId;
+      if (!convoId) {
+        convoId = store.getState().createConversation();
+      }
+
+      // Add the user message.
+      store.getState().addMessage(convoId, {
+        role: "user",
+        content: trimmed,
+      });
+
+      // Add a placeholder assistant message — we'll update it with progress.
+      const assistantId = store.getState().addMessage(convoId, {
+        role: "assistant",
+        content: "",
+        streaming: true,
+      });
+
+      store.getState().setGenerating(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        // Build conversation history (exclude the empty placeholder).
+        const convo = store.getState().conversations.find((c) => c.id === convoId);
+        const history = convo
+          ? convo.messages
+              .filter((m) => m.id !== assistantId)
+              .map((m) => ({ role: m.role, content: m.content }))
+          : [];
+
+        const res = await fetch("/api/god-mode", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ prompt: trimmed, messages: history }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) {
+          store.getState().setMessage(assistantId, {
+            streaming: false,
+            error: true,
+            content: `**God Mode failed.** Request error (${res.status}).`,
+          });
+          return;
+        }
+
+        // Parse NDJSON stream.
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        const steps: Array<{ agent: string; icon: string; status: string; output?: string }> = [];
+        let finalAnswer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              if (data.type === "step") {
+                const step = data.step;
+                const existing = steps.findIndex((s) => s.agent === step.agent);
+                if (existing >= 0) {
+                  steps[existing] = step;
+                } else {
+                  steps.push(step);
+                }
+
+                // Update the message with a progress display.
+                const progressMd = buildGodModeProgress(steps);
+                store.getState().setMessage(assistantId, {
+                  content: progressMd,
+                  streaming: true,
+                });
+              } else if (data.type === "done") {
+                // Use the last step's output as the final answer.
+                const lastStep = steps[steps.length - 1];
+                finalAnswer = lastStep?.output || "God Mode completed but produced no output.";
+              } else if (data.type === "error") {
+                finalAnswer = `**God Mode error.** ${data.error}`;
+              }
+            } catch {
+              /* ignore parse errors */
+            }
+          }
+        }
+
+        // Set the final answer.
+        store.getState().setMessage(assistantId, {
+          streaming: false,
+          content: finalAnswer || buildGodModeProgress(steps),
+        });
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") {
+          store.getState().setMessage(assistantId, { streaming: false });
+        } else {
+          store.getState().setMessage(assistantId, {
+            streaming: false,
+            error: true,
+            content: `**God Mode failed.** ${err instanceof Error ? err.message : "Unknown error"}`,
+          });
+        }
+      } finally {
+        store.getState().setGenerating(false);
+        abortRef.current = null;
+      }
+    },
+    [store]
+  );
+
+  return { send, stop, regenerate, generateImage, editMessage, sendGodMode, webSearch, setWebSearch, model, setModel, godMode, setGodMode };
 }
 
 export type SpyroChatApi = ReturnType<typeof useSpyroChat>;

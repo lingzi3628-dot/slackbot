@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Plus, Eraser, Download, Globe, ChevronDown } from "lucide-react";
+import { Menu, Plus, Eraser, Download, Globe, ChevronDown, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModelBadge } from "./model-badge";
 import { useChatStore } from "@/store/chat-store";
@@ -16,6 +16,8 @@ interface ChatHeaderProps {
   onToggleWebSearch?: () => void;
   model?: SpyroModelId;
   onModelChange?: (m: SpyroModelId) => void;
+  godMode?: boolean;
+  onToggleGodMode?: () => void;
 }
 
 export function ChatHeader({
@@ -26,6 +28,8 @@ export function ChatHeader({
   onToggleWebSearch,
   model,
   onModelChange,
+  godMode,
+  onToggleGodMode,
 }: ChatHeaderProps) {
   const activeId = useChatStore((s) => s.activeId);
   const clearMessages = useChatStore((s) => s.clearMessages);
@@ -113,6 +117,24 @@ export function ChatHeader({
           >
             <Globe className="h-4 w-4" />
             <span className="hidden sm:inline">Search</span>
+          </button>
+        )}
+
+        {/* God Mode toggle — lightning pill */}
+        {onToggleGodMode && (
+          <button
+            onClick={onToggleGodMode}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all",
+              godMode
+                ? "spyro-bg-gradient text-primary-foreground spyro-glow"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+            )}
+            aria-label="Toggle God Mode"
+            title={godMode ? "God Mode ON — multi-agent collaboration" : "God Mode OFF"}
+          >
+            <Zap className="h-4 w-4" />
+            <span className="hidden sm:inline">God Mode</span>
           </button>
         )}
 
