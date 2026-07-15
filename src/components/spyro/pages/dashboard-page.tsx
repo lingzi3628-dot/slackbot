@@ -23,6 +23,8 @@ import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
 import { CodeLab } from "./code-lab-page";
 import { GodModeTool } from "./god-mode-page";
+import { VoiceStudio } from "./voice-studio-page";
+import { WebScout } from "./web-scout-page";
 
 // ── Greeting based on time ────────────────────────────────────────────
 function getGreeting() {
@@ -105,7 +107,7 @@ const APPS: SpyroApp[] = [
     description: "Speech to text & text to speech",
     icon: Mic,
     gradient: "from-yellow-500 to-amber-600",
-    status: "soon",
+    status: "live",
   },
   {
     id: "web-scout",
@@ -113,7 +115,7 @@ const APPS: SpyroApp[] = [
     description: "Search & summarize the live web",
     icon: Globe,
     gradient: "from-orange-400 to-red-500",
-    status: "soon",
+    status: "live",
   },
   {
     id: "more",
@@ -133,6 +135,7 @@ function ImageStudio({ onBack }: { onBack: () => void }) {
   const [error, setError] = React.useState<string | null>(null);
   const [progress, setProgress] = React.useState(0);
   const [history, setHistory] = React.useState<Array<{ prompt: string; url: string; time: number }>>([]);
+  const [rateRemaining, setRateRemaining] = React.useState<number | null>(null);
   const { increment, waitTime, useCount } = useRateLimiter();
 
   // Activation sequence
@@ -173,7 +176,13 @@ function ImageStudio({ onBack }: { onBack: () => void }) {
         setResultUrl(data.image);
         setHistory((h) => [{ prompt: p, url: data.image, time: Date.now() }, ...h].slice(0, 8));
         increment();
+        if (data.rateLimit) {
+          setRateRemaining(data.rateLimit.remaining);
+        }
         setTimeout(() => setPhase("result"), 300);
+      } else if (data.rateLimited) {
+        setError(data.error);
+        setPhase("error");
       } else {
         setError(data.error || "Generation failed");
         setPhase("error");
@@ -269,7 +278,15 @@ function ImageStudio({ onBack }: { onBack: () => void }) {
             />
             <div className="mt-3 flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground">
-                {useCount < 3 ? "⚡ Fast mode" : `⏱ ~${waitTime}s wait`}
+                {rateRemaining !== null ? (
+                  <span className={rateRemaining <= 2 ? "text-destructive" : ""}>
+                    {rateRemaining <= 2 ? "⚠️" : "📸"} {rateRemaining} generations left this hour
+                  </span>
+                ) : useCount < 3 ? (
+                  "⚡ Fast mode"
+                ) : (
+                  `⏱ ~${waitTime}s wait`
+                )}
               </span>
               <button
                 onClick={generate}
@@ -578,6 +595,26 @@ export function DashboardPage() {
           transition={{ duration: 0.25 }}
         >
           <GodModeTool onBack={() => setActiveApp(null)} />
+        </motion.div>
+      ) : activeApp === "voice-studio" ? (
+        <motion.div
+          key="voice-studio"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.25 }}
+        >
+          <VoiceStudio onBack={() => setActiveApp(null)} />
+        </motion.div>
+      ) : activeApp === "web-scout" ? (
+        <motion.div
+          key="web-scout"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.25 }}
+        >
+          <WebScout onBack={() => setActiveApp(null)} />
         </motion.div>
       ) : (
         <motion.div

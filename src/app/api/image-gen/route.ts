@@ -5,10 +5,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/**
- * Image generation endpoint using the FREE Pollinations AI image API.
- * Fetches the image, adds a "SPYRO AI" watermark, returns base64.
- */
 const POLLINATIONS_IMAGE_BASE = "https://image.pollinations.ai/prompt";
 
 interface ImageGenBody {
@@ -23,34 +19,79 @@ const SIZE_MAP: Record<string, { width: number; height: number }> = {
   "1440x720": { width: 1440, height: 720 },
 };
 
-/** Build an SVG watermark overlay with "SPYRO AI" text. */
+// ── Rate limiting ─────────────────────────────────────────────────────
+// 10 images per hour per IP (stored in memory — resets on cold start).
+// For production, swap with Upstash Redis.
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX = 10;
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return { allowed: true, remaining: RATE_LIMIT_MAX - 1, resetAt: now + RATE_LIMIT_WINDOW };
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX) {
+    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
+  }
+
+  entry.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count, resetAt: entry.resetAt };
+}
+
+/** Build a premium SPYRO AI watermark SVG overlay. */
 function buildWatermarkSvg(width: number, height: number): Buffer {
   const fontSize = Math.max(14, Math.round(width * 0.022));
-  const padding = Math.round(width * 0.015);
-  const bottomOffset = Math.round(height * 0.035);
-  const textWidth = fontSize * 4.5;
-  const bgHeight = fontSize + padding;
+  const padding = Math.round(width * 0.018);
+  const bottomOffset = Math.round(height * 0.04);
+  const textWidth = fontSize * 4.2;
+  const bgHeight = Math.round(fontSize * 1.6);
   const bgX = width - textWidth - padding * 2.5;
   const bgY = height - bottomOffset - bgHeight;
   const bgW = textWidth + padding * 2;
 
   const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="wmBg" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#16110d" stop-opacity="0.75"/>
-        <stop offset="100%" stop-color="#16110d" stop-opacity="0.55"/>
+      <linearGradient id="wmBg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#0a0705" stop-opacity="0.85"/>
+        <stop offset="100%" stop-color="#1a1008" stop-opacity="0.7"/>
       </linearGradient>
-      <linearGradient id="wmText" x1="0" y1="0" x2="1" y2="0">
+      <linearGradient id="wmFlame" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0%" stop-color="#ffe9a8"/>
-        <stop offset="50%" stop-color="#ff9a3c"/>
+        <stop offset="40%" stop-color="#ff9a3c"/>
         <stop offset="100%" stop-color="#e8421b"/>
       </linearGradient>
+      <filter id="wmGlow">
+        <feGaussianBlur stdDeviation="1.5" result="blur"/>
+        <feMerge>
+          <feMergeNode in="blur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
     </defs>
+    <!-- Background pill -->
     <rect x="${bgX}" y="${bgY}" width="${bgW}" height="${bgHeight}"
           rx="${bgHeight / 2}" fill="url(#wmBg)"/>
-    <text x="${bgX + padding * 0.8}" y="${bgY + bgHeight * 0.72}"
-          font-family="sans-serif" font-size="${fontSize}" font-weight="bold"
-          fill="url(#wmText)" letter-spacing="0.5">SPYRO AI</text>
+    <!-- Flame icon (simplified dragon flame) -->
+    <path d="M ${bgX + padding * 0.7} ${bgY + bgHeight * 0.5}
+             C ${bgX + padding * 0.7} ${bgY + bgHeight * 0.25},
+               ${bgX + padding * 1.3} ${bgY + bgHeight * 0.25},
+               ${bgX + padding * 1.3} ${bgY + bgHeight * 0.5}
+             C ${bgX + padding * 1.3} ${bgY + bgHeight * 0.4},
+               ${bgX + padding * 1.0} ${bgY + bgHeight * 0.35},
+               ${bgX + padding * 1.0} ${bgY + bgHeight * 0.55}
+             C ${bgX + padding * 1.0} ${bgY + bgHeight * 0.65},
+               ${bgX + padding * 0.7} ${bgY + bgHeight * 0.6},
+               ${bgX + padding * 0.7} ${bgY + bgHeight * 0.5} Z"
+          fill="url(#wmFlame)" filter="url(#wmGlow)"/>
+    <!-- SPYRO AI text -->
+    <text x="${bgX + padding * 1.8}" y="${bgY + bgHeight * 0.68}"
+          font-family="system-ui, -apple-system, sans-serif" font-size="${fontSize}" font-weight="700"
+          fill="url(#wmFlame)" letter-spacing="0.5">SPYRO AI</text>
   </svg>`;
   return Buffer.from(svg);
 }
@@ -60,8 +101,23 @@ export async function POST(req: NextRequest) {
     const { prompt, size = "1024x1024" } = (await req.json()) as ImageGenBody;
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
-        { error: "No prompt provided. Send { prompt: '...' }" },
+        { error: "No prompt provided." },
         { status: 400 }
+      );
+    }
+
+    // ── Rate limit check ──────────────────────────────────────────────
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+    const rateLimit = checkRateLimit(ip);
+    if (!rateLimit.allowed) {
+      const minsLeft = Math.ceil((rateLimit.resetAt - Date.now()) / 60000);
+      return NextResponse.json(
+        {
+          error: `Rate limit reached. You've generated ${RATE_LIMIT_MAX} images this hour. Try again in ${minsLeft} minute${minsLeft === 1 ? "" : "s"}.`,
+          rateLimited: true,
+          resetAt: rateLimit.resetAt,
+        },
+        { status: 429 }
       );
     }
 
@@ -79,12 +135,12 @@ export async function POST(req: NextRequest) {
     }
     const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
 
-    // Get ACTUAL image dimensions (Pollinations may return a different size).
+    // Get ACTUAL image dimensions.
     const metadata = await sharp(imgBuffer).metadata();
     const actualWidth = metadata.width || dims.width;
     const actualHeight = metadata.height || dims.height;
 
-    // Build the watermark SVG with the ACTUAL image dimensions.
+    // Add SPYRO AI watermark.
     let resultBuffer: Buffer;
     try {
       const watermarkSvg = buildWatermarkSvg(actualWidth, actualHeight);
@@ -92,9 +148,8 @@ export async function POST(req: NextRequest) {
         .composite([{ input: watermarkSvg, top: 0, left: 0 }])
         .jpeg({ quality: 90 })
         .toBuffer();
-    } catch (wmErr) {
-      // If watermarking fails, return the image without watermark.
-      console.error("[image-gen] watermark failed, returning unwatermarked:", wmErr);
+    } catch {
+      // Fallback: return without watermark.
       resultBuffer = await sharp(imgBuffer).jpeg({ quality: 90 }).toBuffer();
     }
 
@@ -106,6 +161,11 @@ export async function POST(req: NextRequest) {
       prompt,
       size,
       watermarked: true,
+      rateLimit: {
+        remaining: rateLimit.remaining,
+        limit: RATE_LIMIT_MAX,
+        resetAt: rateLimit.resetAt,
+      },
     });
   } catch (err) {
     return NextResponse.json(
@@ -121,5 +181,6 @@ export async function GET() {
   return Response.json({
     status: "online",
     watermark: "🐉 SPYRO AI",
+    rateLimit: `${RATE_LIMIT_MAX} images per hour`,
   });
 }
