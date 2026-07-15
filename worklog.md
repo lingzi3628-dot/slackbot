@@ -410,3 +410,31 @@ Stage Summary:
 - Supabase: full auth system (sign in/up/out) + cloud conversation sync. Gracefully degrades to localStorage when not configured. SQL schema included.
 - AI SDK: installed + tested. Pollinations streaming not compatible with AI SDK's parser. Reverted to working spyro-engine. Packages available for future tool-calling.
 - To enable: set UPSTASH_REDIS_REST_URL/TOKEN + NEXT_PUBLIC_SUPABASE_URL/ANON_KEY on Vercel. Run docs/SUPABASE_SCHEMA.sql in Supabase SQL editor.
+
+---
+Task ID: 15-langfuse-tools-multimodel
+Agent: main (orchestrator)
+Task: Implement all three recommended upgrades: Langfuse observability, tool calling (agent loop), multi-model routing.
+
+Work Log:
+- Installed langfuse@3.38.20.
+- Langfuse observability:
+  - src/lib/langfuse.ts: optional Langfuse client. Uses LANGFUSE_SECRET_KEY + LANGFUSE_PUBLIC_KEY + LANGFUSE_BASE_URL env vars. isLangfuseConfigured flag, getLangfuse() singleton, startTrace() returns a handle with finish(). flushAt:1 for serverless. No-op when not configured.
+  - spyro-engine: wraps getSpyroReply() with startTrace/finish. Traces input messages, output text, model used, errors. flushes before exit.
+- Tool calling (LangChain-style agent loop):
+  - src/lib/tools.ts: 2 tools — web_search (triggers on latest/recent/today/news/price/score), calculator (triggers on math expressions + calculate/compute). Each tool has shouldUse() + execute(). runTools() checks all tools, returns ToolResult[]. formatToolResults() formats as system context.
+  - /api/chat: before generating, checks if tools should run (when toolsEnabled && !webSearch). Executes tools, injects results as system message, then generates. SPYRO is now autonomous — it decides when to search/calculate.
+  - Verified: "15 * 23 + 7" → 352 (calculator tool ran, LLM used the result).
+- Multi-model routing (6 Pollinations models):
+  - spyro-engine: SPYRO_MODELS array: openai (Default), openai-large (Max), mistral (Mist), llama (Llama), deepseek (Deep), qwen-coder (Coder). getSpyroReply accepts model param.
+  - /api/chat: accepts model in request body, passes to engine, sets x-spyro-model header. GET returns available models + tools.
+  - use-spyro-chat: model + setModel state, passed in fetch body.
+  - chat-header: model selector dropdown (chevron-down button, 6-option menu with label + description).
+- Verified: calculator tool works (352), model selector renders in UI, GET /api/chat returns models+tools, lint + typecheck clean.
+- Pushed to BOTH repos: meshmusic2836-lab (8a378ed) + lingzi3628-dot (22a42a9). Vercel auto-deploying.
+
+Stage Summary:
+- SPYRO V1 is now a proper agent with: Langfuse observability, autonomous tool calling (web search + calculator), and 6 selectable models.
+- To enable Langfuse: set LANGFUSE_SECRET_KEY + LANGFUSE_PUBLIC_KEY env vars on Vercel (free at langfuse.com).
+- Tool calling works out of the box (no config needed) — SPYRO auto-detects when to search/calculate.
+- Model selector in the header lets users switch between 6 models (Default, Max, Mist, Llama, Deep, Coder).

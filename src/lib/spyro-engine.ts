@@ -2,20 +2,46 @@
  * SPYRO V1 shared engine — used by all integrations (Telegram, Discord, etc.)
  * and the web streaming endpoint.
  *
- * Single source of truth for the SPYRO V1 persona.
+ * Features:
+ * - Multi-model support (openai, mistral, llama, etc. via Pollinations)
+ * - Langfuse observability (optional, no-op when not configured)
+ * - Tool calling (agent loop — see src/lib/tools.ts)
+ * - Attribution stripping (removes Pollinations watermarks)
  */
 import { SPYRO_SYSTEM_PROMPT } from "./spyro-persona";
+import { startTrace, flushLangfuse, isLangfuseConfigured } from "./langfuse";
 
 const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
-/**
- * Strip Pollinations attribution / promotional text that may be appended
- * to responses. The persona prompt already forbids it, but this is a
- * belt-and-suspenders server-side filter.
- */
+/** Available Pollinations models. */
+export const SPYRO_MODELS = [
+  { id: "openai", label: "SPYRO V1 (Default)", description: "Balanced, fast, versatile" },
+  { id: "openai-large", label: "SPYRO V1 Max", description: "Larger model, higher quality" },
+  { id: "mistral", label: "SPYRO V1 Mist", description: "Mistral — great for code" },
+  { id: "llama", label: "SPYRO V1 Llama", description: "Llama — open + capable" },
+  { id: "deepseek", label: "SPYRO V1 Deep", description: "DeepSeek — reasoning focus" },
+  { id: "qwen-coder", label: "SPYRO V1 Coder", description: "Qwen Coder — code specialist" },
+] as const;
+
+export type SpyroModelId = (typeof SPYRO_MODELS)[number]["id"];
+
+export interface SpyroMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface SpyroReplyOptions {
+  temperature?: number;
+  signal?: AbortSignal;
+  model?: SpyroModelId;
+  onToken?: (token: string, accumulated: string) => void;
+  /** Langfuse trace name (e.g. "web-chat", "telegram-reply"). */
+  traceName?: string;
+}
+
+/** Strip Pollinations attribution / promotional text. */
 function stripAttribution(text: string): string {
   let out = text;
-  // Remove common Pollinations promo lines (case-insensitive, anywhere).
   const patterns = [
     /\s*\[?\s*powered by\s+pollinations\.ai\s*\]?\s*$/i,
     /\s*—\s*pollinations\.ai\s*$/i,
@@ -31,29 +57,15 @@ function stripAttribution(text: string): string {
   return out;
 }
 
-export interface SpyroMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
-
-export interface SpyroReplyOptions {
-  temperature?: number;
-  signal?: AbortSignal;
-  /** Called as the response streams in — integrations can use this for live edits. */
-  onToken?: (token: string, accumulated: string) => void;
-}
-
 /**
- * Get a full SPYRO V1 reply (non-streaming). Best for integrations like
- * Telegram where we need the complete text before replying.
- *
- * Uses stream:false to get the full response in one shot — more reliable
- * on serverless runtimes (Vercel Node.js) where streaming can be flaky.
+ * Get a full SPYRO V1 reply. Tries streaming first (if onToken provided),
+ * falls back to non-streaming for serverless reliability.
  */
 export async function getSpyroReply(
   messages: SpyroMessage[],
   options: SpyroReplyOptions = {}
 ): Promise<string> {
+  const model = options.model ?? "openai";
   const fullMessages: SpyroMessage[] = [
     { role: "system", content: SPYRO_SYSTEM_PROMPT },
     ...messages
@@ -63,17 +75,47 @@ export async function getSpyroReply(
 
   const temperature = options.temperature ?? 0.7;
 
-  // First try streaming (for the onToken callback), fall back to non-streaming.
-  if (options.onToken) {
-    try {
-      return await getSpyroReplyStreaming(fullMessages, temperature, options);
-    } catch (err) {
-      // Streaming failed — fall through to non-streaming.
-      console.error("[spyro-engine] streaming failed, falling back:", err);
+  // Start Langfuse trace (no-op if not configured).
+  const trace = startTrace({
+    name: options.traceName ?? "spyro-reply",
+    input: fullMessages,
+    model,
+    metadata: { temperature, streaming: !!options.onToken },
+  });
+
+  let result: string;
+  try {
+    if (options.onToken) {
+      try {
+        result = await getSpyroReplyStreaming(fullMessages, temperature, model, options);
+      } catch (err) {
+        console.error("[spyro-engine] streaming failed, falling back:", err);
+        result = await getSpyroReplyNonStreaming(fullMessages, temperature, model, options);
+      }
+    } else {
+      result = await getSpyroReplyNonStreaming(fullMessages, temperature, model, options);
+    }
+
+    trace?.finish(result, {});
+    return result;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : "Unknown error";
+    trace?.finish(errMsg, { error: errMsg });
+    throw err;
+  } finally {
+    if (isLangfuseConfigured) {
+      await flushLangfuse().catch(() => {});
     }
   }
+}
 
-  // Non-streaming fallback — more reliable on serverless.
+/** Non-streaming fetch — more reliable on serverless. */
+async function getSpyroReplyNonStreaming(
+  fullMessages: SpyroMessage[],
+  temperature: number,
+  model: string,
+  options: SpyroReplyOptions
+): Promise<string> {
   const res = await fetch(POLLINATIONS_URL, {
     method: "POST",
     headers: {
@@ -81,7 +123,7 @@ export async function getSpyroReply(
       accept: "application/json",
     },
     body: JSON.stringify({
-      model: "openai",
+      model,
       messages: fullMessages,
       temperature,
       stream: false,
@@ -110,12 +152,11 @@ export async function getSpyroReply(
   return content;
 }
 
-/**
- * Streaming variant — used when onToken is provided and streaming works.
- */
+/** Streaming variant — used when onToken is provided. */
 async function getSpyroReplyStreaming(
   fullMessages: SpyroMessage[],
   temperature: number,
+  model: string,
   options: SpyroReplyOptions
 ): Promise<string> {
   const res = await fetch(POLLINATIONS_URL, {
@@ -125,7 +166,7 @@ async function getSpyroReplyStreaming(
       accept: "text/event-stream",
     },
     body: JSON.stringify({
-      model: "openai",
+      model,
       messages: fullMessages,
       temperature,
       stream: true,

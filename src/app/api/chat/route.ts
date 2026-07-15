@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
-import { getSpyroReply, type SpyroMessage } from "@/lib/spyro-engine";
+import {
+  getSpyroReply,
+  SPYRO_MODELS,
+  type SpyroMessage,
+  type SpyroModelId,
+} from "@/lib/spyro-engine";
+import { runTools, formatToolResults } from "@/lib/tools";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -8,18 +14,19 @@ interface ChatRequestBody {
   messages: SpyroMessage[];
   temperature?: number;
   webSearch?: boolean;
+  model?: SpyroModelId;
+  /** Enable autonomous tool calling (web search, calculator). Default: true. */
+  tools?: boolean;
 }
 
 /**
- * Web streaming endpoint — uses the SPYRO V1 engine (direct Pollinations
- * fetch + manual SSE parsing) for maximum reliability.
- *
- * The Vercel AI SDK (`ai` + `@ai-sdk/openai`) is installed and available
- * for future tool-calling enhancements, but the current Pollinations
- * streaming format is better handled by the custom engine.
+ * Web streaming endpoint with:
+ *  - Multi-model support (openai, mistral, llama, deepseek, qwen-coder)
+ *  - Autonomous tool calling (agent loop)
+ *  - Langfuse observability (traced in spyro-engine)
  */
 
-/** Web search — injects live results as context when webSearch is on. */
+/** Manual web search (used when webSearch toggle is on, separate from tools). */
 async function searchWeb(query: string): Promise<string> {
   try {
     const ZAI = (await import("z-ai-web-dev-sdk")).default;
@@ -61,9 +68,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const model = body.model ?? "openai";
+  const toolsEnabled = body.tools !== false; // default: true
+
   let messages = userMessages;
 
-  // Web search mode.
+  // ── 1. Manual web search (toggle in header) ────────────────────────
   if (body.webSearch) {
     const lastUser = [...userMessages].reverse().find((m) => m.role === "user");
     if (lastUser) {
@@ -84,6 +94,27 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ── 2. Autonomous tool calling (agent loop) ────────────────────────
+  if (toolsEnabled && !body.webSearch) {
+    const lastUser = [...userMessages].reverse().find((m) => m.role === "user");
+    if (lastUser) {
+      const toolResults = await runTools(lastUser.content);
+      if (toolResults) {
+        messages = [
+          {
+            role: "system" as const,
+            content:
+              "You used tools to help answer the user's question. " +
+              "Use the tool results below to provide an accurate answer. " +
+              "Don't mention that you used a tool — just answer naturally.\n\n" +
+              formatToolResults(toolResults),
+          },
+          ...userMessages,
+        ];
+      }
+    }
+  }
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -91,6 +122,8 @@ export async function POST(req: NextRequest) {
       try {
         await getSpyroReply(messages, {
           temperature: body.temperature,
+          model,
+          traceName: "web-chat",
           onToken: (token) => {
             controller.enqueue(encoder.encode(token));
           },
@@ -116,16 +149,19 @@ export async function POST(req: NextRequest) {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "no-cache, no-transform",
       "x-content-type-options": "nosniff",
-      "x-spyro-model": "SPYRO-V1",
+      "x-spyro-model": model,
     },
   });
 }
 
+/** GET — health check + available models. */
 export async function GET() {
   return Response.json({
     model: "SPYRO V1",
     status: "online",
+    models: SPYRO_MODELS,
+    tools: ["web_search", "calculator"],
     description:
-      "Dragon-powered AI chat. POST { messages, webSearch? } to stream a response.",
+      "Dragon-powered AI chat with tool calling + multi-model. POST { messages, model?, webSearch?, tools? } to stream.",
   });
 }
