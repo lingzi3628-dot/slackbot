@@ -18,7 +18,6 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
   const [value, setValue] = React.useState("");
   const taRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // Voice recording state
   const [recording, setRecording] = React.useState(false);
   const [transcribing, setTranscribing] = React.useState(false);
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
@@ -58,7 +57,6 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
     }
   };
 
-  // ── Voice recording ──────────────────────────────────────────────
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -116,8 +114,8 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
     <div className="mx-auto w-full max-w-3xl px-3 pb-3 pl-safe pr-safe sm:px-4 sm:pb-4">
       <div
         className={cn(
-          "glass relative flex items-end gap-2 rounded-2xl border border-border p-2 shadow-lg transition-all",
-          "focus-within:border-primary/60 focus-within:spyro-glow"
+          "glass relative flex items-end gap-1.5 rounded-2xl border border-border/60 p-1.5 transition-all",
+          "focus-within:border-primary/40 focus-within:spyro-glow"
         )}
       >
         <textarea
@@ -126,18 +124,18 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          placeholder="Message SPYRO V1…  (or /imagine <prompt>)"
+          placeholder="Message SPYRO V1…"
           className={cn(
             "max-h-[200px] min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5",
-            "text-[16px] leading-relaxed text-foreground placeholder:text-muted-foreground",
+            "text-[16px] leading-relaxed text-foreground placeholder:text-muted-foreground/70",
             "focus:outline-none"
           )}
           aria-label="Message SPYRO V1"
           enterKeyHint="send"
         />
 
-        <div className="flex items-center gap-1 pb-1 pr-1">
-          {/* Image generation button */}
+        <div className="flex items-center gap-1 pb-0.5">
+          {/* Image button */}
           {onImagine && (
             <button
               onClick={() => {
@@ -148,7 +146,7 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
                 }
               }}
               disabled={isGenerating}
-              className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground disabled:opacity-40"
+              className="grid h-10 w-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-40"
               aria-label="Generate image"
               title="Generate image"
             >
@@ -161,10 +159,10 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
             onClick={recording ? stopRecording : startRecording}
             disabled={transcribing || isGenerating}
             className={cn(
-              "grid h-11 w-11 place-items-center rounded-xl transition-colors disabled:opacity-40",
+              "grid h-10 w-10 place-items-center rounded-xl transition-colors disabled:opacity-40",
               recording
                 ? "bg-destructive text-white animate-pulse"
-                : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}
             aria-label={recording ? "Stop recording" : "Start voice input"}
             title={recording ? "Stop recording" : "Voice input"}
@@ -181,11 +179,11 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
             {isGenerating ? (
               <motion.button
                 key="stop"
-                initial={{ scale: 0.8, opacity: 0 }}
+                initial={{ scale: 0.85, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
+                exit={{ scale: 0.85, opacity: 0 }}
                 onClick={onStop}
-                className="grid h-11 w-11 place-items-center rounded-xl bg-muted text-foreground transition-colors hover:bg-muted/70"
+                className="grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground transition-colors hover:bg-muted/70"
                 aria-label="Stop generating"
               >
                 <Square className="h-4 w-4 fill-current" />
@@ -193,14 +191,14 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
             ) : (
               <motion.button
                 key="send"
-                initial={{ scale: 0.8, opacity: 0 }}
+                initial={{ scale: 0.85, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
+                exit={{ scale: 0.85, opacity: 0 }}
                 onClick={submit}
                 disabled={!value.trim()}
                 className={cn(
-                  "grid h-11 w-11 place-items-center rounded-xl spyro-bg-gradient text-primary-foreground transition-all",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
+                  "grid h-10 w-10 place-items-center rounded-xl spyro-bg-gradient text-primary-foreground transition-all",
+                  "disabled:cursor-not-allowed disabled:opacity-30",
                   "enabled:hover:scale-105 enabled:spyro-glow-strong"
                 )}
                 aria-label="Send message"
@@ -211,8 +209,8 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
           </AnimatePresence>
         </div>
       </div>
-      <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground">
-        <Sparkles className="h-3 w-3 text-primary/70" />
+      <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground/60">
+        <Sparkles className="h-3 w-3 text-primary/60" />
         <span className="hidden sm:inline">SPYRO V1 can make mistakes. Verify important info.</span>
         <span className="sm:hidden">SPYRO V1 can make mistakes.</span>
       </p>

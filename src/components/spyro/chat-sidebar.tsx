@@ -35,12 +35,12 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return "now";
+  if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return `${h}h`;
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
+  if (d < 7) return `${d}d`;
   return new Date(ts).toLocaleDateString();
 }
 
@@ -87,36 +87,50 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
-      {/* Brand */}
-      <div className="flex items-center justify-between px-4 py-4">
-        <ModelBadge size="sm" showTagline />
+      {/* Brand — compact */}
+      <div className="px-5 pt-5 pb-3">
+        <ModelBadge size="sm" />
       </div>
 
-      {/* Navigation */}
-      <div className="px-3 pb-2">
-        <div className="space-y-0.5">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.view}
-              onClick={() => handleNav(item.view)}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                activeView === item.view
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </button>
-          ))}
-        </div>
+      {/* Navigation — pill-style */}
+      <div className="px-3 pb-3">
+        <nav className="space-y-0.5">
+          {NAV_ITEMS.map((item) => {
+            const isActive = activeView === item.view;
+            return (
+              <button
+                key={item.view}
+                onClick={() => handleNav(item.view)}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all",
+                  isActive
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    "h-4 w-4 transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )}
+                />
+                {item.label}
+                {isActive && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
       </div>
+
+      {/* Divider */}
+      <div className="mx-3 h-px bg-border/50" />
 
       {/* New chat + conversation list (only in chat view) */}
       {activeView === "chat" && (
         <>
-          <div className="px-3">
+          <div className="px-3 pt-3">
             <Button
               onClick={handleNew}
               className="w-full justify-start gap-2 spyro-bg-gradient text-primary-foreground hover:spyro-glow"
@@ -127,13 +141,13 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
           </div>
 
           <div className="mt-4 flex-1 overflow-y-auto px-2 pb-2">
-            <div className="px-2 pb-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              Conversations
+            <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+              Recent
             </div>
             {conversations.length === 0 ? (
-              <div className="mx-2 rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                <Flame className="mx-auto mb-2 h-5 w-5 text-primary/60" />
-                No chats yet. Start a new conversation to wake the dragon.
+              <div className="mx-2 rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground/80">
+                <Flame className="mx-auto mb-2 h-4 w-4 text-primary/50" />
+                No chats yet
               </div>
             ) : (
               <ul className="space-y-0.5">
@@ -148,14 +162,14 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.18 }}
+                        transition={{ duration: 0.15 }}
                       >
                         <div
                           className={cn(
-                            "group relative flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition-colors",
+                            "group relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all",
                             isActive
-                              ? "bg-accent text-accent-foreground"
-                              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                              ? "bg-muted/60 text-foreground"
+                              : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                           )}
                         >
                           {isEditing ? (
@@ -178,10 +192,13 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
                               onClick={() => handleSelect(c.id)}
                               className="flex flex-1 flex-col items-start overflow-hidden text-left"
                             >
-                              <span className="w-full truncate font-medium">
+                              <span className={cn(
+                                "w-full truncate",
+                                isActive ? "font-medium" : "font-normal"
+                              )}>
                                 {c.title}
                               </span>
-                              <span className="text-[10px] text-muted-foreground/80">
+                              <span className="text-[10px] text-muted-foreground/60">
                                 {timeAgo(c.updatedAt)}
                               </span>
                             </button>
@@ -232,8 +249,8 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
         </>
       )}
 
-      {/* Footer */}
-      <div className="mt-auto border-t border-border p-3">
+      {/* Footer — minimal */}
+      <div className="mt-auto border-t border-border/50 p-3">
         <div className="flex items-center justify-end">
           <ThemeToggle />
         </div>

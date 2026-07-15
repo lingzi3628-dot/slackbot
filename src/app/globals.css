@@ -86,38 +86,38 @@
 }
 
 .dark {
-  /* Refined dragon-lair: deeper, cleaner, more cohesive fire theme */
-  --background: oklch(0.145 0.008 30);      /* near-black warm charcoal */
-  --foreground: oklch(0.96 0.008 60);       /* warm off-white */
-  --card: oklch(0.185 0.012 32);            /* slightly lighter than bg */
-  --card-foreground: oklch(0.96 0.008 60);
-  --popover: oklch(0.185 0.012 32);
-  --popover-foreground: oklch(0.96 0.008 60);
-  --primary: oklch(0.68 0.19 40);           /* refined ember orange */
-  --primary-foreground: oklch(0.145 0.008 30);
-  --secondary: oklch(0.24 0.012 35);
-  --secondary-foreground: oklch(0.96 0.008 60);
-  --muted: oklch(0.22 0.01 32);
-  --muted-foreground: oklch(0.62 0.015 55); /* softer muted text */
-  --accent: oklch(0.28 0.035 40);           /* subtle ember accent */
-  --accent-foreground: oklch(0.96 0.008 60);
-  --destructive: oklch(0.62 0.21 22);
-  --border: oklch(0.3 0.012 35 / 60%);      /* visible but subtle borders */
-  --input: oklch(0.24 0.012 35);
-  --ring: oklch(0.68 0.19 40);
-  --chart-1: oklch(0.68 0.19 40);
-  --chart-2: oklch(0.62 0.21 25);
-  --chart-3: oklch(0.76 0.15 85);
-  --chart-4: oklch(0.58 0.21 15);
-  --chart-5: oklch(0.78 0.13 95);
-  --sidebar: oklch(0.165 0.01 32);
-  --sidebar-foreground: oklch(0.96 0.008 60);
-  --sidebar-primary: oklch(0.68 0.19 40);
-  --sidebar-primary-foreground: oklch(0.145 0.008 30);
-  --sidebar-accent: oklch(0.24 0.02 38);
-  --sidebar-accent-foreground: oklch(0.96 0.008 60);
-  --sidebar-border: oklch(0.3 0.012 35 / 50%);
-  --sidebar-ring: oklch(0.68 0.19 40);
+  /* SPYRO V2 — premium obsidian + ember theme */
+  --background: oklch(0.13 0.006 28);       /* deep obsidian (near-black, warm) */
+  --foreground: oklch(0.95 0.006 55);       /* warm ivory */
+  --card: oklch(0.17 0.008 30);             /* elevated surface */
+  --card-foreground: oklch(0.95 0.006 55);
+  --popover: oklch(0.17 0.008 30);
+  --popover-foreground: oklch(0.95 0.006 55);
+  --primary: oklch(0.66 0.2 38);            /* vivid ember orange */
+  --primary-foreground: oklch(0.13 0.006 28);
+  --secondary: oklch(0.21 0.01 32);
+  --secondary-foreground: oklch(0.95 0.006 55);
+  --muted: oklch(0.19 0.008 30);
+  --muted-foreground: oklch(0.58 0.012 50); /* balanced muted text */
+  --accent: oklch(0.26 0.04 38);            /* ember-tinted accent */
+  --accent-foreground: oklch(0.95 0.006 55);
+  --destructive: oklch(0.6 0.2 20);
+  --border: oklch(0.28 0.01 32 / 50%);      /* hairline borders */
+  --input: oklch(0.21 0.01 32);
+  --ring: oklch(0.66 0.2 38);
+  --chart-1: oklch(0.66 0.2 38);
+  --chart-2: oklch(0.6 0.21 22);
+  --chart-3: oklch(0.74 0.15 82);
+  --chart-4: oklch(0.56 0.2 12);
+  --chart-5: oklch(0.76 0.12 92);
+  --sidebar: oklch(0.15 0.007 29);          /* slightly different from bg */
+  --sidebar-foreground: oklch(0.95 0.006 55);
+  --sidebar-primary: oklch(0.66 0.2 38);
+  --sidebar-primary-foreground: oklch(0.13 0.006 28);
+  --sidebar-accent: oklch(0.22 0.025 36);
+  --sidebar-accent-foreground: oklch(0.95 0.006 55);
+  --sidebar-border: oklch(0.28 0.01 32 / 40%);
+  --sidebar-ring: oklch(0.66 0.2 38);
 }
 
 @layer base {
@@ -165,27 +165,37 @@
   .spyro-bg-gradient {
     background: linear-gradient(
       135deg,
-      oklch(0.7 0.2 42) 0%,
-      oklch(0.62 0.24 28) 100%
+      oklch(0.72 0.19 45) 0%,
+      oklch(0.6 0.22 28) 100%
     );
   }
 
   .spyro-glow {
     box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--primary) 25%, transparent),
-      0 8px 40px -8px color-mix(in oklch, var(--primary) 45%, transparent);
+      0 0 0 1px color-mix(in oklch, var(--primary) 20%, transparent),
+      0 4px 24px -6px color-mix(in oklch, var(--primary) 35%, transparent);
   }
 
   .spyro-glow-strong {
     box-shadow:
-      0 0 30px -4px color-mix(in oklch, var(--primary) 60%, transparent),
-      0 0 60px -10px color-mix(in oklch, var(--primary) 35%, transparent);
+      0 0 24px -4px color-mix(in oklch, var(--primary) 50%, transparent),
+      0 0 48px -12px color-mix(in oklch, var(--primary) 30%, transparent);
   }
 
   .glass {
-    background: color-mix(in oklch, var(--card) 70%, transparent);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    background: color-mix(in oklch, var(--card) 75%, transparent);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  /* Premium surface — subtle gradient + border for elevated cards */
+  .surface-elevated {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--card) 100%, transparent) 0%,
+      color-mix(in oklch, var(--background) 100%, transparent) 100%
+    );
+    border: 1px solid color-mix(in oklch, var(--border) 100%, transparent);
   }
 
   /* Animated ember aura behind the logo */

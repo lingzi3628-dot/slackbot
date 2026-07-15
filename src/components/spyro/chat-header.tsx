@@ -37,7 +37,7 @@ export function ChatHeader({
   const currentModel = SPYRO_MODELS.find((m) => m.id === model) ?? SPYRO_MODELS[0];
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-1 border-b border-border bg-background/80 pl-safe pr-safe pt-safe backdrop-blur-xl sm:gap-2 sm:px-4">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-1 border-b border-border/40 bg-background/70 pl-safe pr-safe pt-safe backdrop-blur-2xl sm:gap-2 sm:px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -53,16 +53,16 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-0.5 sm:gap-1">
-        {/* Model selector */}
+        {/* Model selector — pill button */}
         {onModelChange && (
           <div className="relative">
             <button
               onClick={() => setModelOpen((v) => !v)}
-              className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               aria-label="Select model"
             >
-              <span className="hidden sm:inline">{currentModel.label}</span>
-              <ChevronDown className="h-3 w-3" />
+              <span className="hidden sm:inline">{currentModel.label.replace("SPYRO V1 ", "")}</span>
+              <ChevronDown className={cn("h-3 w-3 transition-transform", modelOpen && "rotate-180")} />
             </button>
             {modelOpen && (
               <>
@@ -70,7 +70,7 @@ export function ChatHeader({
                   className="fixed inset-0 z-30"
                   onClick={() => setModelOpen(false)}
                 />
-                <div className="absolute right-0 top-full z-40 mt-1 w-64 rounded-xl border border-border bg-popover p-1 shadow-xl">
+                <div className="absolute right-0 top-full z-40 mt-1 w-64 overflow-hidden rounded-xl border border-border/60 bg-popover p-1 shadow-2xl">
                   {SPYRO_MODELS.map((m) => (
                     <button
                       key={m.id}
@@ -79,11 +79,16 @@ export function ChatHeader({
                         setModelOpen(false);
                       }}
                       className={cn(
-                        "flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted",
+                        "flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50",
                         m.id === model && "bg-primary/10"
                       )}
                     >
-                      <span className="text-sm font-medium">{m.label}</span>
+                      <span className={cn(
+                        "text-sm",
+                        m.id === model ? "font-medium text-primary" : "font-medium"
+                      )}>
+                        {m.label}
+                      </span>
                       <span className="text-[11px] text-muted-foreground">{m.description}</span>
                     </button>
                   ))}
@@ -93,15 +98,15 @@ export function ChatHeader({
           </div>
         )}
 
-        {/* Web search toggle */}
+        {/* Web search toggle — pill */}
         {onToggleWebSearch && (
           <button
             onClick={onToggleWebSearch}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all",
               webSearch
                 ? "bg-primary/15 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}
             aria-label="Toggle web search"
             title={webSearch ? "Web search ON" : "Web search OFF"}
@@ -110,6 +115,7 @@ export function ChatHeader({
             <span className="hidden sm:inline">Search</span>
           </button>
         )}
+
         {canExport && onExport && (
           <Button
             variant="ghost"
@@ -117,6 +123,7 @@ export function ChatHeader({
             onClick={onExport}
             aria-label="Export conversation"
             title="Export conversation"
+            className="h-8 w-8"
           >
             <Download className="h-4 w-4" />
           </Button>
@@ -128,6 +135,7 @@ export function ChatHeader({
             onClick={() => clearMessages(activeId)}
             aria-label="Clear conversation"
             title="Clear conversation"
+            className="h-8 w-8"
           >
             <Eraser className="h-4 w-4" />
           </Button>

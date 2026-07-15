@@ -48,7 +48,6 @@ export function MessageBubble({
   };
 
   const speak = async () => {
-    // If already playing, stop.
     if (playing && audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -64,9 +63,7 @@ export function MessageBubble({
       if (!res.ok) return;
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      if (audioRef.current) audioRef.current.pause();
       const audio = new Audio(url);
       audio.onended = () => setPlaying(false);
       audio.onerror = () => setPlaying(false);
@@ -84,20 +81,21 @@ export function MessageBubble({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "group flex w-full gap-3 message-enter",
+        "group flex w-full gap-3",
         isUser ? "flex-row-reverse" : "flex-row"
       )}
     >
+      {/* Avatar */}
       <div
         className={cn(
-          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-sm",
+          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
           isUser
             ? "bg-muted text-muted-foreground"
-            : "spyro-bg-gradient text-primary-foreground spyro-glow"
+            : "spyro-bg-gradient text-primary-foreground"
         )}
       >
         {isUser ? (
@@ -107,12 +105,14 @@ export function MessageBubble({
         )}
       </div>
 
+      {/* Content */}
       <div
         className={cn(
           "flex max-w-[85%] flex-col gap-1 sm:max-w-[78%]",
           isUser ? "items-end" : "items-start"
         )}
       >
+        {/* Role label */}
         <div className="mb-0.5 flex items-center gap-2 px-1">
           <span className="text-xs font-medium text-muted-foreground">
             {isUser ? "You" : "SPYRO V1"}
@@ -124,15 +124,15 @@ export function MessageBubble({
           )}
         </div>
 
+        {/* Bubble */}
         <div
           className={cn(
-            "relative rounded-2xl px-4 py-3 shadow-sm transition-colors",
+            "relative rounded-2xl px-4 py-3 transition-colors",
             isUser
               ? "rounded-tr-md bg-primary text-primary-foreground"
               : message.error
                 ? "rounded-tl-md border border-destructive/40 bg-destructive/10"
-                : "rounded-tl-md border border-border bg-card",
-            // Constrain long messages: max height with scroll, keeps card shape.
+                : "rounded-tl-md surface-elevated",
             !showTyping && "max-h-[60vh] overflow-y-auto"
           )}
         >
@@ -158,7 +158,7 @@ export function MessageBubble({
                 </p>
               )}
               {message.streaming && (
-                <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-primary spyro-glow" />
+                <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-primary" />
               )}
             </div>
           ) : isUser ? (
@@ -169,7 +169,7 @@ export function MessageBubble({
             <div className="break-words">
               <Markdown>{message.content}</Markdown>
               {message.streaming && (
-                <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-primary spyro-glow" />
+                <span className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-primary" />
               )}
             </div>
           )}
@@ -179,7 +179,7 @@ export function MessageBubble({
         {!message.streaming && message.content.length > 0 && (
           <div
             className={cn(
-              "flex items-center gap-1 px-1 transition-opacity",
+              "flex items-center gap-0.5 px-1 transition-opacity",
               message.error
                 ? "opacity-100"
                 : "opacity-0 group-hover:opacity-100 focus-within:opacity-100 max-sm:opacity-100"
@@ -200,7 +200,6 @@ export function MessageBubble({
                 </>
               )}
             </button>
-            {/* TTS — only for assistant text messages */}
             {!isUser && !isImage && (
               <button
                 onClick={speak}

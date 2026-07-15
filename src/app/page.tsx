@@ -159,23 +159,25 @@ function EmberBackground() {
       className="pointer-events-none absolute inset-0 overflow-hidden"
       aria-hidden="true"
     >
+      {/* Subtle top glow — more refined */}
       <div
-        className="absolute -top-1/3 left-1/2 h-[60vh] w-[80vw] -translate-x-1/2 rounded-full opacity-50"
+        className="absolute -top-1/4 left-1/2 h-[50vh] w-[70vw] -translate-x-1/2 rounded-full opacity-30"
         style={{
           background:
-            "radial-gradient(ellipse at center, color-mix(in oklch, var(--primary) 22%, transparent) 0%, transparent 70%)",
+            "radial-gradient(ellipse at center, color-mix(in oklch, var(--primary) 18%, transparent) 0%, transparent 70%)",
         }}
       />
+      {/* Floating embers — fewer, more subtle */}
       {embers.map((e) => (
         <span
           key={e.id}
-          className="absolute bottom-0 rounded-full bg-primary/60"
+          className="absolute bottom-0 rounded-full bg-primary/40"
           style={{
             left: e.left,
             width: e.size,
             height: e.size,
             animation: `drift ${e.duration} linear ${e.delay} infinite`,
-            boxShadow: "0 0 8px color-mix(in oklch, var(--primary) 80%, transparent)",
+            boxShadow: "0 0 6px color-mix(in oklch, var(--primary) 60%, transparent)",
           }}
         />
       ))}
