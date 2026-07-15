@@ -34,8 +34,13 @@ export function ChatHeader({
   const activeId = useChatStore((s) => s.activeId);
   const clearMessages = useChatStore((s) => s.clearMessages);
   const conversations = useChatStore((s) => s.conversations);
-  const active = conversations.find((c) => c.id === activeId);
-  const canExport = !!active && active.messages.length > 0;
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
+  // Only read store-dependent values after mount to avoid hydration mismatch.
+  const active = mounted ? conversations.find((c) => c.id === activeId) : null;
+  const canExport = mounted && !!active && active.messages.length > 0;
+  const showClear = mounted && !!activeId;
 
   const [modelOpen, setModelOpen] = React.useState(false);
   const currentModel = SPYRO_MODELS.find((m) => m.id === model) ?? SPYRO_MODELS[0];
@@ -150,7 +155,7 @@ export function ChatHeader({
             <Download className="h-4 w-4" />
           </Button>
         )}
-        {activeId && (
+        {showClear && activeId && (
           <Button
             variant="ghost"
             size="icon"

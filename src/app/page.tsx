@@ -17,6 +17,7 @@ import {
 import { IntegrationsPage } from "@/components/spyro/pages/integrations-page";
 import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
+import { DashboardPage } from "@/components/spyro/pages/dashboard-page";
 
 export default function Home() {
   const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
@@ -144,6 +145,7 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto">
               {activeView === "integrations" && <IntegrationsPage />}
               {activeView === "settings" && <SettingsPage />}
+              {activeView === "dashboard" && <DashboardPage />}
               {activeView === "about" && <AboutPage />}
             </div>
           </>

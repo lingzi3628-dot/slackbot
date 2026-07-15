@@ -14,6 +14,7 @@ import {
   Settings as SettingsIcon,
   Info,
   Search,
+  LayoutDashboard,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -28,6 +29,7 @@ interface SidebarContentProps {
 
 const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
   { view: "chat", label: "Chat", icon: MessageCircle },
+  { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { view: "integrations", label: "Integrations", icon: Plug },
   { view: "settings", label: "Settings", icon: SettingsIcon },
   { view: "about", label: "About", icon: Info },
