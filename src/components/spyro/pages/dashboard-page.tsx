@@ -25,6 +25,7 @@ import { CodeLab } from "./code-lab-page";
 import { GodModeTool } from "./god-mode-page";
 import { VoiceStudio } from "./voice-studio-page";
 import { WebScout } from "./web-scout-page";
+import { PhotoEditor } from "./photo-editor-page";
 
 // ── Greeting based on time ────────────────────────────────────────────
 function getGreeting() {
@@ -116,6 +117,15 @@ const APPS: SpyroApp[] = [
     icon: Globe,
     gradient: "from-orange-400 to-red-500",
     status: "live",
+  },
+  {
+    id: "photo-editor",
+    name: "Photo Editor",
+    description: "Edit photos with AI filters & transforms",
+    icon: Wand2,
+    gradient: "from-orange-500 to-red-600",
+    status: "live",
+    badge: "New",
   },
   {
     id: "more",
@@ -615,6 +625,16 @@ export function DashboardPage() {
           transition={{ duration: 0.25 }}
         >
           <WebScout onBack={() => setActiveApp(null)} />
+        </motion.div>
+      ) : activeApp === "photo-editor" ? (
+        <motion.div
+          key="photo-editor"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.25 }}
+        >
+          <PhotoEditor onBack={() => setActiveApp(null)} />
         </motion.div>
       ) : (
         <motion.div
