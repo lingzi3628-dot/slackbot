@@ -86,38 +86,38 @@
 }
 
 .dark {
-  /* Deep dragon-lair charcoal with a warm ember tint */
-  --background: oklch(0.16 0.012 35);
-  --foreground: oklch(0.97 0.012 70);
-  --card: oklch(0.21 0.016 38);
-  --card-foreground: oklch(0.97 0.012 70);
-  --popover: oklch(0.19 0.016 38);
-  --popover-foreground: oklch(0.97 0.012 70);
-  --primary: oklch(0.7 0.2 42); /* ember orange */
-  --primary-foreground: oklch(0.16 0.02 40);
-  --secondary: oklch(0.26 0.02 40);
-  --secondary-foreground: oklch(0.96 0.012 70);
-  --muted: oklch(0.24 0.015 38);
-  --muted-foreground: oklch(0.7 0.02 60);
-  --accent: oklch(0.32 0.05 42);
-  --accent-foreground: oklch(0.97 0.015 70);
-  --destructive: oklch(0.65 0.22 22);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.7 0.2 42);
-  --chart-1: oklch(0.7 0.2 42);
-  --chart-2: oklch(0.65 0.22 25);
-  --chart-3: oklch(0.78 0.16 85);
-  --chart-4: oklch(0.6 0.22 15);
-  --chart-5: oklch(0.8 0.14 95);
-  --sidebar: oklch(0.18 0.014 38);
-  --sidebar-foreground: oklch(0.96 0.012 70);
-  --sidebar-primary: oklch(0.7 0.2 42);
-  --sidebar-primary-foreground: oklch(0.16 0.02 40);
-  --sidebar-accent: oklch(0.26 0.025 40);
-  --sidebar-accent-foreground: oklch(0.97 0.015 70);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.7 0.2 42);
+  /* Refined dragon-lair: deeper, cleaner, more cohesive fire theme */
+  --background: oklch(0.145 0.008 30);      /* near-black warm charcoal */
+  --foreground: oklch(0.96 0.008 60);       /* warm off-white */
+  --card: oklch(0.185 0.012 32);            /* slightly lighter than bg */
+  --card-foreground: oklch(0.96 0.008 60);
+  --popover: oklch(0.185 0.012 32);
+  --popover-foreground: oklch(0.96 0.008 60);
+  --primary: oklch(0.68 0.19 40);           /* refined ember orange */
+  --primary-foreground: oklch(0.145 0.008 30);
+  --secondary: oklch(0.24 0.012 35);
+  --secondary-foreground: oklch(0.96 0.008 60);
+  --muted: oklch(0.22 0.01 32);
+  --muted-foreground: oklch(0.62 0.015 55); /* softer muted text */
+  --accent: oklch(0.28 0.035 40);           /* subtle ember accent */
+  --accent-foreground: oklch(0.96 0.008 60);
+  --destructive: oklch(0.62 0.21 22);
+  --border: oklch(0.3 0.012 35 / 60%);      /* visible but subtle borders */
+  --input: oklch(0.24 0.012 35);
+  --ring: oklch(0.68 0.19 40);
+  --chart-1: oklch(0.68 0.19 40);
+  --chart-2: oklch(0.62 0.21 25);
+  --chart-3: oklch(0.76 0.15 85);
+  --chart-4: oklch(0.58 0.21 15);
+  --chart-5: oklch(0.78 0.13 95);
+  --sidebar: oklch(0.165 0.01 32);
+  --sidebar-foreground: oklch(0.96 0.008 60);
+  --sidebar-primary: oklch(0.68 0.19 40);
+  --sidebar-primary-foreground: oklch(0.145 0.008 30);
+  --sidebar-accent: oklch(0.24 0.02 38);
+  --sidebar-accent-foreground: oklch(0.96 0.008 60);
+  --sidebar-border: oklch(0.3 0.012 35 / 50%);
+  --sidebar-ring: oklch(0.68 0.19 40);
 }
 
 @layer base {
@@ -287,5 +287,20 @@
       min-height: 44px;
       min-width: 44px;
     }
+  }
+
+  /* Slim scrollbar for constrained message bubbles */
+  .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+  }
+  .overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
+    border-radius: 9999px;
+  }
+  .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
   }
 }

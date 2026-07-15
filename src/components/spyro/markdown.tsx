@@ -3,7 +3,7 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy, Eye, EyeOff, Play } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,7 +35,6 @@ function buildPreviewDoc(code: string, lang: string): string {
 
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = React.useState(false);
-  const [showPreview, setShowPreview] = React.useState(false);
   const canPreview = PREVIEWABLE.has(language.toLowerCase());
 
   const copy = async () => {
@@ -48,10 +47,15 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     }
   };
 
-  const previewDoc = React.useMemo(
-    () => (canPreview ? buildPreviewDoc(code, language.toLowerCase()) : ""),
-    [code, language, canPreview]
-  );
+  /** Open the code in a new browser tab as a live preview. */
+  const openPreview = () => {
+    const doc = buildPreviewDoc(code, language.toLowerCase());
+    const blob = new Blob([doc], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    // Revoke after 1 minute (tab will have loaded by then).
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
 
   return (
     <div className="group/code my-3 overflow-hidden rounded-lg border border-border bg-black/40">
@@ -62,19 +66,12 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
         <div className="flex items-center gap-1">
           {canPreview && (
             <button
-              onClick={() => setShowPreview((v) => !v)}
+              onClick={openPreview}
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-white/5 hover:text-primary"
-              aria-label={showPreview ? "Hide preview" : "Live preview"}
+              aria-label="Open live preview in new tab"
+              title="Open live preview in new tab"
             >
-              {showPreview ? (
-                <>
-                  <EyeOff className="h-3 w-3" /> Hide
-                </>
-              ) : (
-                <>
-                  <Eye className="h-3 w-3" /> Preview
-                </>
-              )}
+              <ExternalLink className="h-3 w-3" /> Preview
             </button>
           )}
           <button
@@ -94,16 +91,6 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
           </button>
         </div>
       </div>
-      {showPreview && canPreview && (
-        <div className="border-b border-border/70 bg-white">
-          <iframe
-            srcDoc={previewDoc}
-            title="Code preview"
-            sandbox="allow-scripts"
-            className="h-64 w-full border-0"
-          />
-        </div>
-      )}
       <pre className="overflow-x-auto p-3 text-[13px] leading-relaxed">
         <code className="font-mono text-foreground/90">{code}</code>
       </pre>

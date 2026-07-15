@@ -131,7 +131,9 @@ export function MessageBubble({
               ? "rounded-tr-md bg-primary text-primary-foreground"
               : message.error
                 ? "rounded-tl-md border border-destructive/40 bg-destructive/10"
-                : "rounded-tl-md border border-border bg-card"
+                : "rounded-tl-md border border-border bg-card",
+            // Constrain long messages: max height with scroll, keeps card shape.
+            !showTyping && "max-h-[60vh] overflow-y-auto"
           )}
         >
           {showTyping ? (
