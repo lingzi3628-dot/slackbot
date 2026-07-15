@@ -3,29 +3,26 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageCircle,
-  Zap,
   Image as ImageIcon,
-  Flame,
-  TrendingUp,
-  Clock,
+  Code2,
+  Zap,
   Globe,
-  Database,
   Mic,
   Volume2,
-  Code2,
+  Database,
   Sparkles,
+  Loader2,
+  Download,
+  Flame,
   Activity,
+  Clock,
+  MessageCircle,
+  TrendingUp,
   Layers,
 } from "lucide-react";
 import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -36,7 +33,156 @@ import { useChatStore } from "@/store/chat-store";
 import { useIntegrationsStore } from "@/store/integrations-store";
 import { cn } from "@/lib/utils";
 
-// ── Animated counter ──────────────────────────────────────────────────
+const EMBER_GRADIENT_ID = "emberGradDash";
+
+// ── Image Generation Tool (inline in dashboard) ───────────────────────
+function ImageGenTool() {
+  const [prompt, setPrompt] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [result, setResult] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [history, setHistory] = React.useState<
+    Array<{ prompt: string; url: string; time: number }>
+  >([]);
+
+  const generate = async () => {
+    const p = prompt.trim();
+    if (!p || loading) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/image-gen", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: p }),
+      });
+      const data = await res.json();
+      if (data.image) {
+        setResult(data.image);
+        setHistory((h) => [{ prompt: p, url: data.image, time: Date.now() }, ...h].slice(0, 12));
+      } else {
+        setError(data.error || "Generation failed");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1 }}
+      className="surface-elevated rounded-2xl p-5"
+    >
+      <div className="mb-4 flex items-center gap-2">
+        <div className="grid h-8 w-8 place-items-center rounded-lg spyro-bg-gradient text-primary-foreground">
+          <ImageIcon className="h-4 w-4" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold">Image Generation</h2>
+          <p className="text-[11px] text-muted-foreground">SPYRO V1 Tool · Text → Image</p>
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="flex gap-2">
+        <input
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && generate()}
+          placeholder="Describe an image…"
+          disabled={loading}
+          className="flex-1 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm focus:border-primary/40 focus:outline-none disabled:opacity-50"
+        />
+        <button
+          onClick={generate}
+          disabled={loading || !prompt.trim()}
+          className="flex items-center gap-1.5 rounded-lg spyro-bg-gradient px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          Generate
+        </button>
+      </div>
+
+      {/* Result */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mt-4 flex h-64 items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20"
+          >
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Generating image…</span>
+            </div>
+          </motion.div>
+        )}
+        {result && !loading && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-4"
+          >
+            <img
+              src={result}
+              alt={prompt}
+              className="w-full rounded-xl border border-border/40"
+              style={{ maxHeight: 400 }}
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <span className="truncate text-xs text-muted-foreground">{prompt}</span>
+              <a
+                href={result}
+                download="spyro-image.jpg"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <Download className="h-3 w-3" /> Download
+              </a>
+            </div>
+          </motion.div>
+        )}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* History */}
+      {history.length > 0 && (
+        <div className="mt-4">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+            Recent Generations
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {history.map((h, i) => (
+              <div key={i} className="group relative aspect-square overflow-hidden rounded-lg border border-border/40">
+                <img src={h.url} alt={h.prompt} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/80 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className="line-clamp-2 text-[10px] text-white">{h.prompt}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ── Stat card with count-up ───────────────────────────────────────────
 function useCountUp(target: number, duration = 800) {
   const [value, setValue] = React.useState(0);
   React.useEffect(() => {
@@ -93,10 +239,17 @@ function StatCard({
   );
 }
 
-// ── Chart colors ──────────────────────────────────────────────────────
-const CHART_COLORS = ["#ff7a1a", "#e8421b", "#ffd27a", "#ff9a3c", "#d8421b", "#ffae42"];
-
-const EMBER_GRADIENT_ID = "emberGradient";
+// ── Tools grid ────────────────────────────────────────────────────────
+const TOOLS = [
+  { name: "Image Generation", icon: ImageIcon, desc: "Text → Image", status: "active", toolId: "image-gen" },
+  { name: "Code Generator", icon: Code2, desc: "Write + preview code", status: "active" },
+  { name: "God Mode", icon: Zap, desc: "Multi-agent collaboration", status: "active" },
+  { name: "Web Search", icon: Globe, desc: "Real-time information", status: "active" },
+  { name: "Voice Input", icon: Mic, desc: "Speech → Text", status: "active" },
+  { name: "Text to Speech", icon: Volume2, desc: "Text → Audio", status: "active" },
+  { name: "Calculator", icon: Database, desc: "Math expressions", status: "active" },
+  { name: "More Coming", icon: Sparkles, desc: "Stay tuned", status: "soon" },
+];
 
 // ── Main Dashboard ────────────────────────────────────────────────────
 export function DashboardPage() {
@@ -104,7 +257,6 @@ export function DashboardPage() {
   const isGenerating = useChatStore((s) => s.isGenerating);
   const integrations = useIntegrationsStore((s) => s.integrations);
 
-  // ── Compute stats ───────────────────────────────────────────────────
   const allMessages = conversations.flatMap((c) => c.messages);
   const userMessages = allMessages.filter((m) => m.role === "user");
   const assistantMessages = allMessages.filter((m) => m.role === "assistant");
@@ -123,9 +275,14 @@ export function DashboardPage() {
     ? Math.max(1, Math.ceil((Date.now() - oldestConv) / (1000 * 60 * 60 * 24)))
     : 0;
 
-  // ── Activity over last 7 days ───────────────────────────────────────
+  const connectedIntegrations = integrations.filter((i) => i.connected).length;
+  const errorRate = allMessages.length > 0
+    ? (errorMessages.length / allMessages.length) * 100
+    : 0;
+
+  // 7-day activity
   const activityData = React.useMemo(() => {
-    const days: { day: string; messages: number; date: string }[] = [];
+    const days: { day: string; messages: number }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -137,55 +294,10 @@ export function DashboardPage() {
       days.push({
         day: new Date(dayStart).toLocaleDateString("en", { weekday: "short" }),
         messages: count,
-        date: new Date(dayStart).toLocaleDateString(),
       });
     }
     return days;
   }, [allMessages]);
-
-  // ── Message type breakdown ──────────────────────────────────────────
-  const messageTypeData = [
-    { name: "User Messages", value: userMessages.length, color: CHART_COLORS[0] },
-    { name: "AI Responses", value: assistantMessages.length, color: CHART_COLORS[1] },
-    { name: "Images", value: imageMessages.length, color: CHART_COLORS[2] },
-  ].filter((d) => d.value > 0);
-
-  // ── Conversation size distribution ──────────────────────────────────
-  const convSizeData = conversations
-    .map((c) => ({
-      name: c.title.length > 15 ? c.title.slice(0, 15) + "…" : c.title,
-      messages: c.messages.length,
-    }))
-    .sort((a, b) => b.messages - a.messages)
-    .slice(0, 6);
-
-  // ── Recent activity ─────────────────────────────────────────────────
-  const recentActivity = conversations.slice(0, 6).map((c) => ({
-    title: c.title,
-    messages: c.messages.length,
-    time: new Date(c.updatedAt).toLocaleDateString("en", {
-      month: "short",
-      day: "numeric",
-    }),
-    images: c.messages.filter((m) => m.type === "image").length,
-  }));
-
-  // ── Feature usage ───────────────────────────────────────────────────
-  const features = [
-    { label: "Streaming Chat", icon: MessageCircle, active: true },
-    { label: "God Mode", icon: Zap, active: true },
-    { label: "Voice Input", icon: Mic, active: true },
-    { label: "Text-to-Speech", icon: Volume2, active: true },
-    { label: "Web Search", icon: Globe, active: true },
-    { label: "Image Generation", icon: ImageIcon, active: true },
-    { label: "Tool Calling", icon: Database, active: true },
-    { label: "Code Preview", icon: Code2, active: true },
-  ];
-
-  const connectedIntegrations = integrations.filter((i) => i.connected).length;
-  const errorRate = allMessages.length > 0
-    ? (errorMessages.length / allMessages.length) * 100
-    : 0;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:py-8">
@@ -196,56 +308,82 @@ export function DashboardPage() {
         className="mb-6 flex items-center justify-between"
       >
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            SPYRO <span className="spyro-text-gradient">AI Tools</span>
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Real-time SPYRO V1 usage analytics
+            Live dashboard · tools · analytics
           </p>
         </div>
-        {/* Live status badge */}
         <div className="flex items-center gap-2 rounded-full border border-border/50 bg-card/40 px-3 py-1.5">
           <span className="relative flex h-2 w-2">
             {isGenerating && (
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
             )}
-            <span
-              className={cn(
-                "relative inline-flex h-2 w-2 rounded-full",
-                isGenerating ? "bg-primary" : "bg-green-500"
-              )}
-            />
+            <span className={cn("relative inline-flex h-2 w-2 rounded-full", isGenerating ? "bg-primary" : "bg-green-500")} />
           </span>
           <span className="text-xs font-medium text-muted-foreground">
-            {isGenerating ? "Generating…" : "Online"}
+            {isGenerating ? "Working…" : "Online"}
           </span>
         </div>
       </motion.div>
 
-      {/* Stat cards */}
+      {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Conversations" value={conversations.length} icon={MessageCircle} delay={0} />
         <StatCard label="Messages" value={allMessages.length} icon={Zap} delay={0.05} />
-        <StatCard label="Images" value={imageMessages.length} icon={ImageIcon} delay={0.1} />
-        <StatCard label="Words" value={totalWords} icon={TrendingUp} delay={0.15} />
-        <StatCard label="Days Active" value={daysActive} icon={Clock} delay={0.2} />
-        <StatCard
-          label="Integrations"
-          value={connectedIntegrations}
-          suffix={`/${integrations.length}`}
-          icon={Globe}
-          delay={0.25}
-        />
-        <StatCard label="Errors" value={errorMessages.length} icon={Database} delay={0.3} />
-        <StatCard
-          label="Avg Msg/Chat"
-          value={conversations.length > 0 ? Math.round(allMessages.length / conversations.length) : 0}
-          icon={Layers}
-          delay={0.35}
-        />
+        <StatCard label="Words" value={totalWords} icon={TrendingUp} delay={0.1} />
+        <StatCard label="Days Active" value={daysActive} icon={Clock} delay={0.15} />
       </div>
 
-      {/* Charts row */}
+      {/* Tools grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mt-6"
+      >
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          SPYRO V1 Tools
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {TOOLS.map((tool, i) => (
+            <motion.div
+              key={tool.name}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.25 + i * 0.04 }}
+              className={cn(
+                "surface-elevated rounded-xl p-4 transition-all",
+                tool.status === "active" ? "hover:spyro-glow" : "opacity-50"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "grid h-8 w-8 place-items-center rounded-lg",
+                  tool.status === "active" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                )}>
+                  <tool.icon className="h-4 w-4" />
+                </div>
+                {tool.status === "active" && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-green-500" />
+                )}
+              </div>
+              <div className="mt-2 text-sm font-medium">{tool.name}</div>
+              <div className="text-[11px] text-muted-foreground">{tool.desc}</div>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Image Generation Tool (full width) */}
+      <div className="mt-6">
+        <ImageGenTool />
+      </div>
+
+      {/* Activity chart + health */}
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Activity over 7 days */}
+        {/* Activity chart */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -257,11 +395,11 @@ export function DashboardPage() {
             <h2 className="text-sm font-semibold">Last 7 Days</h2>
           </div>
           {activityData.every((d) => d.messages === 0) ? (
-            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
               No activity yet
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={160}>
               <AreaChart data={activityData}>
                 <defs>
                   <linearGradient id={EMBER_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
@@ -270,40 +408,18 @@ export function DashboardPage() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis
-                  dataKey="day"
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
+                <XAxis dataKey="day" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{
-                    background: "var(--popover)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: "var(--foreground)" }}
+                  contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="messages"
-                  stroke="#ff7a1a"
-                  strokeWidth={2}
-                  fill={`url(#${EMBER_GRADIENT_ID})`}
-                />
+                <Area type="monotone" dataKey="messages" stroke="#ff7a1a" strokeWidth={2} fill={`url(#${EMBER_GRADIENT_ID})`} />
               </AreaChart>
             </ResponsiveContainer>
           )}
         </motion.div>
 
-        {/* Message type breakdown */}
+        {/* System health */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -312,206 +428,36 @@ export function DashboardPage() {
         >
           <div className="mb-4 flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Message Breakdown</h2>
+            <h2 className="text-sm font-semibold">System Health</h2>
           </div>
-          {messageTypeData.length === 0 ? (
-            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-              No messages yet
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <ResponsiveContainer width="50%" height={180}>
-                <PieChart>
-                  <Pie
-                    data={messageTypeData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {messageTypeData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex-1 space-y-2">
-                {messageTypeData.map((d) => (
-                  <div key={d.name} className="flex items-center gap-2">
-                    <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ background: d.color }}
-                    />
-                    <span className="flex-1 text-xs text-muted-foreground">{d.name}</span>
-                    <span className="text-sm font-semibold tabular-nums">{d.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </div>
-
-      {/* Conversation sizes bar chart */}
-      {convSizeData.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="surface-elevated mt-4 rounded-xl p-5"
-        >
-          <div className="mb-4 flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Top Conversations by Size</h2>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={convSizeData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-              <XAxis
-                type="number"
-                tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                allowDecimals={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="name"
-                tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                width={100}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--popover)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                cursor={{ fill: "rgba(255,122,26,0.1)" }}
-              />
-              <Bar dataKey="messages" radius={[0, 6, 6, 0]}>
-                {convSizeData.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-      )}
-
-      {/* Recent activity + features */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Recent activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="surface-elevated rounded-xl p-5"
-        >
-          <div className="mb-4 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Recent Activity</h2>
-          </div>
-          {recentActivity.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              <Flame className="mx-auto mb-2 h-6 w-6 text-primary/40" />
-              No activity yet
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <AnimatePresence>
-                {recentActivity.map((item, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + i * 0.04 }}
-                    className="flex items-center gap-3 rounded-lg border border-border/30 bg-card/20 px-3 py-2"
-                  >
-                    <MessageCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs font-medium">{item.title}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {item.messages} msg{item.images > 0 && ` · ${item.images} img`} · {item.time}
-                      </div>
-                    </div>
-                    {item.images > 0 && (
-                      <ImageIcon className="h-3 w-3 text-primary/60" />
-                    )}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
-        </motion.div>
-
-        {/* Active features */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="surface-elevated rounded-xl p-5"
-        >
-          <div className="mb-4 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Active Features</h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {features.map((feat, i) => (
-              <motion.div
-                key={feat.label}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.55 + i * 0.03 }}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs",
-                  feat.active
-                    ? "border-primary/30 bg-primary/5 text-foreground"
-                    : "border-border/50 text-muted-foreground"
-                )}
-              >
-                <feat.icon className={cn("h-3 w-3", feat.active ? "text-primary" : "text-muted-foreground")} />
-                {feat.label}
-                {feat.active && (
-                  <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-green-500" />
-                )}
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Health bar */}
-          <div className="mt-4">
-            <div className="mb-1.5 flex items-center justify-between text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-              <span>System Health</span>
-              <span className={cn(errorRate < 5 ? "text-green-500" : "text-destructive")}>
-                {errorRate < 5 ? "Excellent" : errorRate < 15 ? "Fair" : "Poor"}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Error Rate</span>
+              <span className={cn("text-sm font-semibold", errorRate < 5 ? "text-green-500" : "text-destructive")}>
+                {errorRate.toFixed(1)}%
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted/50">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.max(100 - errorRate, 5)}%` }}
-                transition={{ delay: 0.6, duration: 0.6, ease: "easeOut" }}
-                className={cn(
-                  "h-full rounded-full",
-                  errorRate < 5 ? "bg-green-500" : errorRate < 15 ? "bg-yellow-500" : "bg-destructive"
-                )}
+                transition={{ delay: 0.4, duration: 0.6 }}
+                className={cn("h-full rounded-full", errorRate < 5 ? "bg-green-500" : errorRate < 15 ? "bg-yellow-500" : "bg-destructive")}
               />
             </div>
-            <div className="mt-1 text-right text-[10px] text-muted-foreground">
-              {errorRate.toFixed(1)}% error rate
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-muted-foreground">Integrations</span>
+              <span className="text-sm font-semibold">{connectedIntegrations}/{integrations.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Responses</span>
+              <span className="text-sm font-semibold">{assistantMessages.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Avg Msg/Chat</span>
+              <span className="text-sm font-semibold">
+                {conversations.length > 0 ? Math.round(allMessages.length / conversations.length) : 0}
+              </span>
             </div>
           </div>
         </motion.div>

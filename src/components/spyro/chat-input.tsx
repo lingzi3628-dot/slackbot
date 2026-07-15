@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Square, Sparkles, Mic, Image as ImageIcon, Loader2, Search, Trash2, HelpCircle, Image } from "lucide-react";
+import { ArrowUp, Square, Sparkles, Mic, Loader2, Search, Trash2, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
 import { SlashMenu, type SlashCommand } from "./slash-menu";
@@ -117,18 +117,6 @@ export function ChatInput({ onSend, onStop, onImagine, onSlashCommand, registerF
   const slashCommands: SlashCommand[] = React.useMemo(() => {
     const cmds: SlashCommand[] = [
       {
-        command: "/imagine",
-        label: "Generate image",
-        description: "Create an AI image from a text prompt",
-        icon: Image,
-        action: () => {
-          const prompt = value.replace(/^\/imagine\s*/, "").trim();
-          if (prompt && onImagine) onImagine(prompt);
-          setValue("");
-          setSlashOpen(false);
-        },
-      },
-      {
         command: "/search",
         label: "Web search",
         description: "Search the web for current information",
@@ -203,25 +191,6 @@ export function ChatInput({ onSend, onStop, onImagine, onSlashCommand, registerF
         />
 
         <div className="flex items-center gap-1 pb-0.5">
-          {/* Image button */}
-          {onImagine && (
-            <button
-              onClick={() => {
-                const prompt = value.trim() || window.prompt("Describe the image to generate:");
-                if (prompt) {
-                  onImagine(prompt);
-                  setValue("");
-                }
-              }}
-              disabled={isGenerating}
-              className="grid h-10 w-10 place-items-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground disabled:opacity-40"
-              aria-label="Generate image"
-              title="Generate image"
-            >
-              <ImageIcon className="h-4 w-4" />
-            </button>
-          )}
-
           {/* Mic button */}
           <button
             onClick={recording ? stopRecording : startRecording}

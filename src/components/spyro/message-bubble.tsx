@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { SpyroLogo } from "./spyro-logo";
 import { Markdown } from "./markdown";
 import { TypingIndicator } from "./typing-indicator";
+import { CodeGenProgress, useCodeGenProgress } from "./code-gen-progress";
 import type { Message } from "@/store/chat-store";
 
 interface MessageBubbleProps {
@@ -41,6 +42,31 @@ export function MessageBubble({
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const isUser = message.role === "user";
   const isImage = message.type === "image";
+
+  // Code-gen progress: detect if SPYRO is generating code (streaming +
+  // content looks like HTML/CSS/JS). Show progress bar, then auto-build
+  // a preview link when streaming ends.
+  const hasCode = !isUser && /```(?:html|css|javascript|js)/i.test(message.content);
+  const codeGenSteps = useCodeGenProgress(!!message.streaming && hasCode);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // When streaming ends and we have HTML code, build a preview.
+    if (!message.streaming && hasCode && !previewUrl && message.content) {
+      const htmlMatch = message.content.match(/```html\s*([\s\S]*?)```/i);
+      const cssMatch = message.content.match(/```css\s*([\s\S]*?)```/i);
+      const jsMatch = message.content.match(/```(?:javascript|js)\s*([\s\S]*?)```/i);
+
+      if (htmlMatch || cssMatch || jsMatch) {
+        const html = htmlMatch?.[1] || "";
+        const css = cssMatch?.[1] || "";
+        const js = jsMatch?.[1] || "";
+        const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:16px;background:#16110d;color:#f5ecd9;margin:0}${css}</style></head><body>${html}<script>try{${js}}catch(e){document.body.innerHTML+='<pre style="color:#e85a3c">'+e+'</pre>'}<\/script></body></html>`;
+        const blob = new Blob([doc], { type: "text/html" });
+        setPreviewUrl(URL.createObjectURL(blob));
+      }
+    }
+  }, [message.streaming, hasCode, message.content, previewUrl]);
 
   const startEdit = () => {
     setEditText(message.content);
@@ -155,6 +181,19 @@ export function MessageBubble({
         >
           {showTyping ? (
             <TypingIndicator />
+          ) : hasCode && (message.streaming || previewUrl) ? (
+            <div className="space-y-3">
+              <CodeGenProgress
+                steps={codeGenSteps}
+                active={!!message.streaming}
+                previewUrl={previewUrl}
+              />
+              {!message.streaming && (
+                <div className="break-words">
+                  <Markdown>{message.content}</Markdown>
+                </div>
+              )}
+            </div>
           ) : isImage ? (
             <div className="break-words">
               {message.imageUrl ? (
