@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { createSessionToken, buildSessionCookie } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,13 +29,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
     }
 
-    return NextResponse.json({
+    // Create session + set cookie.
+    const token = createSessionToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatarColor: user.avatarColor,
+    });
+
+    const res = NextResponse.json({
       id: user.id,
       name: user.name,
       email: user.email,
       avatarColor: user.avatarColor,
       role: user.role,
     });
+    res.headers.set("Set-Cookie", buildSessionCookie(token));
+    return res;
   } catch {
     return NextResponse.json(
       { error: "Login failed. Database may not be configured." },

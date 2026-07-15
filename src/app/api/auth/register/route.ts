@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     // Hash password.
     const hashed = await bcrypt.hash(password, 10);
 
-    // Create user.
+    // Create user (NOT verified yet — must enter email code).
     const colors = ["#ff7a1a", "#e8421b", "#ff9a3c", "#ffd27a"];
     const user = await db.user.create({
       data: {
@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       avatarColor: user.avatarColor,
       role: user.role,
+      needsVerification: true,
     });
   } catch (err) {
     // If DB not configured, fall back gracefully.

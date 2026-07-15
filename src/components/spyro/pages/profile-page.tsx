@@ -44,9 +44,14 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   const imageCount = allMessages.filter((m) => m.type === "image").length;
   const daysActive = Math.max(1, Math.ceil((Date.now() - user.createdAt) / (1000 * 60 * 60 * 24)));
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      /* ignore */
+    }
     signOut();
-    setView("login");
+    setView("register");
   };
 
   const saveName = () => {
