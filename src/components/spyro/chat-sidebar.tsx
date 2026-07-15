@@ -15,9 +15,11 @@ import {
   Info,
   Search,
   LayoutDashboard,
+  User as UserIcon,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
+import { useLocalAuth } from "@/store/local-auth";
 import { ModelBadge } from "./model-badge";
 import { ThemeToggle } from "./theme-toggle";
 import { cn } from "@/lib/utils";
@@ -32,6 +34,7 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
   { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { view: "integrations", label: "Integrations", icon: Plug },
   { view: "settings", label: "Settings", icon: SettingsIcon },
+  { view: "profile", label: "Profile", icon: UserIcon },
   { view: "about", label: "About", icon: Info },
 ];
 
@@ -57,6 +60,8 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
 
   const activeView = useUIStore((s) => s.activeView);
   const setView = useUIStore((s) => s.setView);
+  const localUser = useLocalAuth((s) => s.user);
+  const isAuthed = useLocalAuth((s) => s.isAuthed);
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState("");
@@ -288,8 +293,33 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
         </>
       )}
 
-      {/* Footer — minimal */}
+      {/* Footer — user + theme */}
       <div className="mt-auto border-t border-border/50 p-3">
+        {isAuthed && localUser ? (
+          <button
+            onClick={() => { setView("profile"); onNavigate?.(); }}
+            className="mb-2 flex w-full items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-muted/50"
+          >
+            <div
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white"
+              style={{ background: localUser.avatarColor }}
+            >
+              {localUser.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-medium">{localUser.name}</div>
+              <div className="truncate text-[10px] text-muted-foreground">{localUser.email}</div>
+            </div>
+          </button>
+        ) : (
+          <button
+            onClick={() => { setView("login"); onNavigate?.(); }}
+            className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg spyro-bg-gradient py-2 text-xs font-medium text-white"
+          >
+            <UserIcon className="h-3.5 w-3.5" />
+            Sign In
+          </button>
+        )}
         <div className="flex items-center justify-end">
           <ThemeToggle />
         </div>

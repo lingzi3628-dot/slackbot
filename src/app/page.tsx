@@ -18,6 +18,8 @@ import { IntegrationsPage } from "@/components/spyro/pages/integrations-page";
 import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
 import { DashboardPage } from "@/components/spyro/pages/dashboard-page";
+import { LoginPage } from "@/components/spyro/pages/login-page";
+import { ProfilePage } from "@/components/spyro/pages/profile-page";
 
 export default function Home() {
   const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
@@ -29,6 +31,8 @@ export default function Home() {
   const inputFocusRef = React.useRef<() => void>(() => {});
 
   React.useEffect(() => setMounted(true), []);
+
+  // (All hooks must run before any early return — see useKeyboardShortcuts below.)
 
   const handleSend = (text: string) => {
     void send(text, { webSearch });
@@ -57,6 +61,11 @@ export default function Home() {
     onToggleSidebar: () => setMobileOpen((v) => !v),
     onCloseSidebar: () => setMobileOpen(false),
   });
+
+  // Login view is full-screen (no sidebar, no header) — must be after all hooks.
+  if (activeView === "login") {
+    return <LoginPage />;
+  }
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
@@ -146,6 +155,7 @@ export default function Home() {
               {activeView === "integrations" && <IntegrationsPage />}
               {activeView === "settings" && <SettingsPage />}
               {activeView === "dashboard" && <DashboardPage />}
+              {activeView === "profile" && <ProfilePage onBack={() => setView("dashboard")} />}
               {activeView === "about" && <AboutPage />}
             </div>
           </>
