@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
+import { CodeLab } from "./code-lab-page";
 
 // ── Greeting based on time ────────────────────────────────────────────
 function getGreeting() {
@@ -556,6 +557,16 @@ export function DashboardPage() {
           className="px-4 py-6 sm:py-8"
         >
           <ImageStudio onBack={() => setActiveApp(null)} />
+        </motion.div>
+      ) : activeApp === "code-lab" ? (
+        <motion.div
+          key="code-lab"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.25 }}
+        >
+          <CodeLab onBack={() => setActiveApp(null)} />
         </motion.div>
       ) : (
         <motion.div
