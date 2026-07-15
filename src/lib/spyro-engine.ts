@@ -13,14 +13,14 @@ import { startTrace, flushLangfuse, isLangfuseConfigured } from "./langfuse";
 
 const POLLINATIONS_URL = "https://text.pollinations.ai/openai";
 
-/** Available Pollinations models. */
+/** Available SPYRO V1 models — all branded as SPYRO, no upstream names shown. */
 export const SPYRO_MODELS = [
-  { id: "openai", label: "SPYRO V1 (Default)", description: "Balanced, fast, versatile" },
-  { id: "openai-large", label: "SPYRO V1 Max", description: "Larger model, higher quality" },
-  { id: "mistral", label: "SPYRO V1 Mist", description: "Mistral — great for code" },
-  { id: "llama", label: "SPYRO V1 Llama", description: "Llama — open + capable" },
-  { id: "deepseek", label: "SPYRO V1 Deep", description: "DeepSeek — reasoning focus" },
-  { id: "qwen-coder", label: "SPYRO V1 Coder", description: "Qwen Coder — code specialist" },
+  { id: "openai", label: "SPYRO V1", description: "Balanced · fast · versatile" },
+  { id: "openai-large", label: "SPYRO V1 Max", description: "Higher quality · deeper reasoning" },
+  { id: "mistral", label: "SPYRO V1 Swift", description: "Fast · great for code" },
+  { id: "llama", label: "SPYRO V1 Core", description: "Open · capable · reliable" },
+  { id: "deepseek", label: "SPYRO V1 Reason", description: "Advanced reasoning · step-by-step" },
+  { id: "qwen-coder", label: "SPYRO V1 Coder", description: "Code specialist · syntax perfect" },
 ] as const;
 
 export type SpyroModelId = (typeof SPYRO_MODELS)[number]["id"];

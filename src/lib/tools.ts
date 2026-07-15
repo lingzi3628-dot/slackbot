@@ -29,13 +29,17 @@ const webSearchTool: SpyroTool = {
   name: "web_search",
   description: "Search the web for current information",
   shouldUse: (msg) => {
-    const lower = msg.toLowerCase();
-    // Detect current-events / factual queries that need live data.
+    const lower = msg.toLowerCase().trim();
+    // Only trigger on clear current-events / factual queries.
+    // Use word-boundary matching to avoid false positives (e.g. "now" in
+    // "what can you do now" shouldn't trigger a search).
     const triggers = [
-      "latest", "recent", "today", "yesterday", "this week", "this month",
-      "current", "now", "news", "update", "2025", "2026",
-      "who won", "what happened", "stock", "price of", "weather",
-      "score", "result of", "release date",
+      "latest", "recent news", "today's", "today news",
+      "yesterday", "this week", "this month", "this year",
+      "current events", "current news", "in 2024", "in 2025", "in 2026",
+      "who won", "what happened", "stock price", "price of",
+      "weather in", "weather today", "score", "election results",
+      "release date", "breaking news", "live update",
     ];
     return triggers.some((t) => lower.includes(t));
   },
