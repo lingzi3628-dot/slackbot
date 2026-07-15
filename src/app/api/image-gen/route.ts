@@ -25,17 +25,20 @@ const SIZE_MAP: Record<string, { width: number; height: number }> = {
 
 /** Build an SVG watermark overlay with "SPYRO AI" text. */
 function buildWatermarkSvg(width: number, height: number): Buffer {
-  const fontSize = Math.max(16, Math.round(width * 0.025));
-  const padding = Math.round(width * 0.02);
-  const bottomOffset = Math.round(height * 0.04);
-  const textWidth = fontSize * 5; // approximate
+  const fontSize = Math.max(14, Math.round(width * 0.022));
+  const padding = Math.round(width * 0.015);
+  const bottomOffset = Math.round(height * 0.035);
+  const textWidth = fontSize * 4.5;
   const bgHeight = fontSize + padding;
+  const bgX = width - textWidth - padding * 2.5;
+  const bgY = height - bottomOffset - bgHeight;
+  const bgW = textWidth + padding * 2;
 
   const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="wmBg" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#16110d" stop-opacity="0.7"/>
-        <stop offset="100%" stop-color="#16110d" stop-opacity="0.5"/>
+        <stop offset="0%" stop-color="#16110d" stop-opacity="0.75"/>
+        <stop offset="100%" stop-color="#16110d" stop-opacity="0.55"/>
       </linearGradient>
       <linearGradient id="wmText" x1="0" y1="0" x2="1" y2="0">
         <stop offset="0%" stop-color="#ffe9a8"/>
@@ -43,17 +46,11 @@ function buildWatermarkSvg(width: number, height: number): Buffer {
         <stop offset="100%" stop-color="#e8421b"/>
       </linearGradient>
     </defs>
-    <!-- Background pill -->
-    <rect x="${width - textWidth - padding * 2}" y="${height - bottomOffset - bgHeight}"
-          width="${textWidth + padding}" height="${bgHeight}"
+    <rect x="${bgX}" y="${bgY}" width="${bgW}" height="${bgHeight}"
           rx="${bgHeight / 2}" fill="url(#wmBg)"/>
-    <!-- Dragon emoji -->
-    <text x="${width - textWidth - padding + fontSize * 0.3}" y="${height - bottomOffset - padding * 0.5}"
-          font-family="sans-serif" font-size="${fontSize * 0.8}" fill="white" opacity="0.9">🐉</text>
-    <!-- SPYRO AI text -->
-    <text x="${width - textWidth + fontSize * 0.3}" y="${height - bottomOffset - padding * 0.3}"
+    <text x="${bgX + padding * 0.8}" y="${bgY + bgHeight * 0.72}"
           font-family="sans-serif" font-size="${fontSize}" font-weight="bold"
-          fill="url(#wmText)" letter-spacing="1">SPYRO AI</text>
+          fill="url(#wmText)" letter-spacing="0.5">SPYRO AI</text>
   </svg>`;
   return Buffer.from(svg);
 }
@@ -82,14 +79,26 @@ export async function POST(req: NextRequest) {
     }
     const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
 
-    // Add SPYRO AI watermark using sharp.
-    const watermarkSvg = buildWatermarkSvg(dims.width, dims.height);
-    const watermarked = await sharp(imgBuffer)
-      .composite([{ input: watermarkSvg, top: 0, left: 0 }])
-      .jpeg({ quality: 90 })
-      .toBuffer();
+    // Get ACTUAL image dimensions (Pollinations may return a different size).
+    const metadata = await sharp(imgBuffer).metadata();
+    const actualWidth = metadata.width || dims.width;
+    const actualHeight = metadata.height || dims.height;
 
-    const base64 = watermarked.toString("base64");
+    // Build the watermark SVG with the ACTUAL image dimensions.
+    let resultBuffer: Buffer;
+    try {
+      const watermarkSvg = buildWatermarkSvg(actualWidth, actualHeight);
+      resultBuffer = await sharp(imgBuffer)
+        .composite([{ input: watermarkSvg, top: 0, left: 0 }])
+        .jpeg({ quality: 90 })
+        .toBuffer();
+    } catch (wmErr) {
+      // If watermarking fails, return the image without watermark.
+      console.error("[image-gen] watermark failed, returning unwatermarked:", wmErr);
+      resultBuffer = await sharp(imgBuffer).jpeg({ quality: 90 }).toBuffer();
+    }
+
+    const base64 = resultBuffer.toString("base64");
     const dataUrl = `data:image/jpeg;base64,${base64}`;
 
     return NextResponse.json({
@@ -97,7 +106,6 @@ export async function POST(req: NextRequest) {
       prompt,
       size,
       watermarked: true,
-      provider: "Pollinations AI + SPYRO watermark",
     });
   } catch (err) {
     return NextResponse.json(
@@ -112,7 +120,6 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   return Response.json({
     status: "online",
-    provider: "Pollinations AI + SPYRO AI watermark",
     watermark: "🐉 SPYRO AI",
   });
 }

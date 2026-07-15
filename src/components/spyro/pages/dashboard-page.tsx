@@ -245,7 +245,7 @@ function ImageStudio({ onBack }: { onBack: () => void }) {
           </div>
           <div>
             <h2 className="text-lg font-bold">Image Studio</h2>
-            <p className="text-[11px] text-muted-foreground">SPYRO V1 · Powered by Pollinations</p>
+            <p className="text-[11px] text-muted-foreground">SPYRO V1 · Image Generation Engine</p>
           </div>
         </div>
       </div>
