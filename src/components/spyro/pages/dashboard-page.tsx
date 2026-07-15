@@ -18,6 +18,18 @@ import {
   Settings2,
   Layers,
   Maximize2,
+  Scissors,
+  FileText,
+  BookMarked,
+  Pin,
+  Share2,
+  Bell,
+  Palette,
+  Keyboard,
+  Eye,
+  VolumeX,
+  ListFilter,
+  Bookmark,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
@@ -26,6 +38,7 @@ import { GodModeTool } from "./god-mode-page";
 import { VoiceStudio } from "./voice-studio-page";
 import { WebScout } from "./web-scout-page";
 import { PhotoEditor } from "./photo-editor-page";
+import { BackgroundRemover } from "./bg-remover-page";
 
 // ── Greeting based on time ────────────────────────────────────────────
 function getGreeting() {
@@ -128,9 +141,18 @@ const APPS: SpyroApp[] = [
     badge: "New",
   },
   {
+    id: "bg-remover",
+    name: "BG Remover",
+    description: "Remove image backgrounds instantly",
+    icon: Scissors,
+    gradient: "from-red-500 to-rose-700",
+    status: "live",
+    badge: "New",
+  },
+  {
     id: "more",
     name: "More Tools",
-    description: "New tools coming soon",
+    description: "20+ new features coming",
     icon: Sparkles,
     gradient: "from-amber-400 to-yellow-600",
     status: "soon",
@@ -635,6 +657,16 @@ export function DashboardPage() {
           transition={{ duration: 0.25 }}
         >
           <PhotoEditor onBack={() => setActiveApp(null)} />
+        </motion.div>
+      ) : activeApp === "bg-remover" ? (
+        <motion.div
+          key="bg-remover"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.25 }}
+        >
+          <BackgroundRemover onBack={() => setActiveApp(null)} />
         </motion.div>
       ) : (
         <motion.div

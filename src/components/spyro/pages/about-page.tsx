@@ -57,6 +57,41 @@ export function AboutPage() {
             </a>
           </p>
         </Card>
+
+        <Card title="Leadership">
+          <p className="text-sm text-muted-foreground">
+            <strong className="text-foreground">SPYRO Labs</strong> is headquartered in Kenya, East Africa.
+            Founded by <strong className="text-foreground">Lewis Kariuki</strong> — a university student
+            who trained and developed SPYRO V1 through collaboration with multiple youth universities
+            across Kenya. SPYRO's mission: make AI accessible, powerful, and free for everyone —
+            starting from Africa, reaching the world. 🇰🇪🐉
+          </p>
+        </Card>
+
+        <Card title="20 New Features (v2.0)">
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            <li>1. 🐉 SPYRO AI watermark on all generated images</li>
+            <li>2. 📸 Rate limiting (10 images/hour) with live counter</li>
+            <li>3. 🎤 Voice Studio (speech-to-text + text-to-speech)</li>
+            <li>4. 🌐 Web Scout (live web search + AI summary)</li>
+            <li>5. 🎨 Photo Editor (filters, adjustments, transforms)</li>
+            <li>6. ✂️ Background Remover (AI cutout engine)</li>
+            <li>7. 💻 Code Lab (write, review, preview code)</li>
+            <li>8. ⚡ God Mode (4-agent multi-agent collaboration)</li>
+            <li>9. 🔐 Login & profile system (local auth)</li>
+            <li>10. 📊 Dashboard hub with 7 tools</li>
+            <li>11. 🔍 Conversation search in sidebar</li>
+            <li>12. ✏️ Message editing (edit + resend)</li>
+            <li>13. ⌨️ Slash commands with autocomplete</li>
+            <li>14. 📤 Export conversations (Markdown + JSON)</li>
+            <li>15. 🗣️ TTS on every assistant message</li>
+            <li>16. 🎙️ Voice input via microphone</li>
+            <li>17. 🌐 Web search toggle in chat header</li>
+            <li>18. 🤖 Tool calling (auto web search + calculator)</li>
+            <li>19. 📱 PWA (installable on phone)</li>
+            <li>20. ✈️ Telegram bot integration</li>
+          </ul>
+        </Card>
       </div>
 
       <p className="mt-10 text-xs text-muted-foreground">
