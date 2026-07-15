@@ -80,29 +80,32 @@ export function RegisterPage() {
         // Login succeeded → go to dashboard.
         signIn(data.email, data.name);
         setView("dashboard");
-      } else if (data.error && data.error.includes("not be configured")) {
-        // DB not configured — fall back to local.
-        signIn(email.trim(), name.trim() || email.split("@")[0]);
-        setView("dashboard");
       } else {
         setError(data.error || "Something went wrong.");
       }
     } catch {
-      signIn(email.trim(), name.trim() || email.split("@")[0]);
-      setView("dashboard");
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   // ── Send verification code ──────────────────────────────────────────
+  const [devCode, setDevCode] = React.useState<string | null>(null);
   const sendCode = async (targetEmail: string) => {
     try {
-      await fetch("/api/auth/send-code", {
+      const res = await fetch("/api/auth/send-code", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: targetEmail }),
       });
+      const data = await res.json();
+      // If Gmail failed, show the dev code so the user can still verify.
+      if (data.devCode) {
+        setDevCode(data.devCode);
+      } else {
+        setDevCode(null);
+      }
     } catch {
       /* ignore */
     }
@@ -136,10 +139,6 @@ export function RegisterPage() {
       if (data.verified) {
         // Verified → sign in + go to dashboard.
         signIn(data.email, data.name);
-        setView("dashboard");
-      } else if (data.error && data.error.includes("not be configured")) {
-        // DB fallback.
-        signIn(verifyEmail, name || verifyEmail.split("@")[0]);
         setView("dashboard");
       } else {
         setCodeError(data.error || "Invalid code.");
@@ -202,6 +201,12 @@ export function RegisterPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 We sent a 6-digit code to <span className="font-medium text-foreground">{verifyEmail}</span>
               </p>
+              {devCode && (
+                <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
+                  <p className="text-[11px] text-muted-foreground">Email not configured. Use this code:</p>
+                  <p className="mt-1 text-2xl font-bold tracking-[0.3em] text-primary">{devCode}</p>
+                </div>
+              )}
             </div>
 
             {/* Code input */}
