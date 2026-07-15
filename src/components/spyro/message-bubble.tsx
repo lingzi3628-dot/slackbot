@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Volume2,
   Square,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SpyroLogo } from "./spyro-logo";
@@ -23,6 +24,7 @@ interface MessageBubbleProps {
   isLast: boolean;
   isGenerating: boolean;
   onRegenerate: () => void;
+  onEdit?: (messageId: string, newText: string) => void;
 }
 
 export function MessageBubble({
@@ -30,12 +32,27 @@ export function MessageBubble({
   isLast,
   isGenerating,
   onRegenerate,
+  onEdit,
 }: MessageBubbleProps) {
   const [copied, setCopied] = React.useState(false);
   const [playing, setPlaying] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [editText, setEditText] = React.useState("");
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const isUser = message.role === "user";
   const isImage = message.type === "image";
+
+  const startEdit = () => {
+    setEditText(message.content);
+    setEditing(true);
+  };
+
+  const commitEdit = () => {
+    if (onEdit && editText.trim()) {
+      onEdit(message.id, editText);
+    }
+    setEditing(false);
+  };
 
   const copy = async () => {
     try {
@@ -162,9 +179,42 @@ export function MessageBubble({
               )}
             </div>
           ) : isUser ? (
-            <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-              {message.content}
-            </p>
+            editing ? (
+              <div className="space-y-2">
+                <textarea
+                  autoFocus
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      commitEdit();
+                    }
+                    if (e.key === "Escape") setEditing(false);
+                  }}
+                  className="w-full resize-none rounded-lg bg-background/80 px-3 py-2 text-[15px] text-foreground focus:outline-none"
+                  rows={3}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={commitEdit}
+                    className="rounded-lg spyro-bg-gradient px-3 py-1 text-xs font-medium text-primary-foreground"
+                  >
+                    Send
+                  </button>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="rounded-lg px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                {message.content}
+              </p>
+            )
           ) : (
             <div className="break-words">
               <Markdown>{message.content}</Markdown>
@@ -200,6 +250,16 @@ export function MessageBubble({
                 </>
               )}
             </button>
+            {/* Edit button — user messages only */}
+            {isUser && onEdit && !isGenerating && (
+              <button
+                onClick={startEdit}
+                className="touch-target inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Edit message"
+              >
+                <Pencil className="h-3 w-3" /> Edit
+              </button>
+            )}
             {!isUser && !isImage && (
               <button
                 onClick={speak}

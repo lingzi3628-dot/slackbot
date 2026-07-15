@@ -11,11 +11,13 @@ import { cn } from "@/lib/utils";
 interface ChatMessagesProps {
   onPickSuggestion: (prompt: string) => void;
   onRegenerate: () => void;
+  onEditMessage?: (messageId: string, newText: string) => void;
 }
 
 export function ChatMessages({
   onPickSuggestion,
   onRegenerate,
+  onEditMessage,
 }: ChatMessagesProps) {
   const active = useChatStore((s) =>
     s.conversations.find((c) => c.id === s.activeId) ?? null
@@ -72,6 +74,7 @@ export function ChatMessages({
               isLast={i === messages.length - 1}
               isGenerating={isGenerating}
               onRegenerate={onRegenerate}
+              onEdit={onEditMessage}
             />
           ))}
           <div ref={bottomRef} className="h-1" />

@@ -2,21 +2,24 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Square, Sparkles, Mic, Image as ImageIcon, Loader2 } from "lucide-react";
+import { ArrowUp, Square, Sparkles, Mic, Image as ImageIcon, Loader2, Search, Trash2, HelpCircle, Image } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
+import { SlashMenu, type SlashCommand } from "./slash-menu";
 
 interface ChatInputProps {
   onSend: (text: string) => void;
   onStop: () => void;
   onImagine?: (prompt: string) => void;
+  onSlashCommand?: (cmd: string) => void;
   registerFocus?: (fn: () => void) => void;
 }
 
-export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, onImagine, onSlashCommand, registerFocus }: ChatInputProps) {
   const isGenerating = useChatStore((s) => s.isGenerating);
   const [value, setValue] = React.useState("");
   const taRef = React.useRef<HTMLTextAreaElement>(null);
+  const [slashOpen, setSlashOpen] = React.useState(false);
 
   const [recording, setRecording] = React.useState(false);
   const [transcribing, setTranscribing] = React.useState(false);
@@ -110,8 +113,70 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
     }
   };
 
+  // Build slash commands list.
+  const slashCommands: SlashCommand[] = React.useMemo(() => {
+    const cmds: SlashCommand[] = [
+      {
+        command: "/imagine",
+        label: "Generate image",
+        description: "Create an AI image from a text prompt",
+        icon: Image,
+        action: () => {
+          const prompt = value.replace(/^\/imagine\s*/, "").trim();
+          if (prompt && onImagine) onImagine(prompt);
+          setValue("");
+          setSlashOpen(false);
+        },
+      },
+      {
+        command: "/search",
+        label: "Web search",
+        description: "Search the web for current information",
+        icon: Search,
+        action: () => {
+          const query = value.replace(/^\/search\s*/, "").trim();
+          if (query) onSend(query);
+          setValue("");
+          setSlashOpen(false);
+        },
+      },
+      {
+        command: "/clear",
+        label: "Clear chat",
+        description: "Delete all messages in this conversation",
+        icon: Trash2,
+        action: () => {
+          if (onSlashCommand) onSlashCommand("/clear");
+          setValue("");
+          setSlashOpen(false);
+        },
+      },
+      {
+        command: "/help",
+        label: "Help",
+        description: "Show available commands and features",
+        icon: HelpCircle,
+        action: () => {
+          if (onSlashCommand) onSlashCommand("/help");
+          setValue("");
+          setSlashOpen(false);
+        },
+      },
+    ];
+    // Filter by what the user has typed.
+    const typed = value.toLowerCase();
+    return cmds.filter((c) => c.command.startsWith(typed) || typed === "/");
+  }, [value, onImagine, onSend, onSlashCommand]);
+
   return (
     <div className="mx-auto w-full max-w-3xl px-3 pb-3 pl-safe pr-safe sm:px-4 sm:pb-4">
+      <div className="relative">
+        <SlashMenu
+          open={slashOpen && slashCommands.length > 0}
+          commands={slashCommands}
+          onSelect={(cmd) => cmd.action()}
+          onClose={() => setSlashOpen(false)}
+        />
       <div
         className={cn(
           "glass relative flex items-end gap-1.5 rounded-2xl border border-border/60 p-1.5 transition-all",
@@ -121,7 +186,10 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
         <textarea
           ref={taRef}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setSlashOpen(e.target.value.startsWith("/"));
+          }}
           onKeyDown={onKeyDown}
           rows={1}
           placeholder="Message SPYRO V1…"
@@ -208,6 +276,7 @@ export function ChatInput({ onSend, onStop, onImagine, registerFocus }: ChatInpu
             )}
           </AnimatePresence>
         </div>
+      </div>
       </div>
       <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground/60">
         <Sparkles className="h-3 w-3 text-primary/60" />

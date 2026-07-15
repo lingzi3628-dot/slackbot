@@ -42,6 +42,7 @@ interface ChatState {
   appendToMessage: (messageId: string, chunk: string) => void;
   setMessage: (messageId: string, patch: Partial<Message>) => void;
   clearMessages: (conversationId: string) => void;
+  truncateAfter: (messageId: string) => void;
   setGenerating: (v: boolean) => void;
 }
 
@@ -144,6 +145,16 @@ export const useChatStore = create<ChatState>()(
               ? { ...c, messages: [], title: "New chat", updatedAt: Date.now() }
               : c
           ),
+        })),
+
+      truncateAfter: (messageId) =>
+        set((s) => ({
+          conversations: s.conversations.map((c) => {
+            const idx = c.messages.findIndex((m) => m.id === messageId);
+            if (idx === -1) return c;
+            // Keep messages up to AND INCLUDING the target message.
+            return { ...c, messages: c.messages.slice(0, idx + 1), updatedAt: Date.now() };
+          }),
         })),
 
       setGenerating: (v) => set({ isGenerating: v }),

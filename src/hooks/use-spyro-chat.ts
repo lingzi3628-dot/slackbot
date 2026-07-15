@@ -230,7 +230,96 @@ export function useSpyroChat() {
     await send(userText, { conversationId: active.id });
   }, [send, store]);
 
-  return { send, stop, regenerate, generateImage, webSearch, setWebSearch, model, setModel };
+  /** Edit a user message: update its content, truncate everything after it, resend. */
+  const editMessage = useCallback(
+    async (messageId: string, newText: string) => {
+      const trimmed = newText.trim();
+      if (!trimmed) return;
+      const active = store.getState().getActive();
+      if (!active) return;
+
+      const msg = active.messages.find((m) => m.id === messageId);
+      if (!msg || msg.role !== "user") return;
+
+      // Update the message content + truncate everything after it.
+      store.getState().setMessage(messageId, { content: trimmed });
+      store.getState().truncateAfter(messageId);
+
+      // Now resend — but send() will add a NEW user message, so we need to
+      // remove the edited one from history first, then send.
+      // Actually: truncateAfter keeps the edited message. So we build history
+      // from the conversation (which now ends with the edited user message),
+      // and call the engine directly without adding a new user message.
+      const convo = store.getState().conversations.find((c) => c.id === active.id);
+      if (!convo) return;
+      const history = convo.messages.map((m) => ({ role: m.role, content: m.content }));
+
+      // Add a placeholder assistant message to stream into.
+      const assistantId = store.getState().addMessage(active.id, {
+        role: "assistant",
+        content: "",
+        streaming: true,
+      });
+
+      store.getState().setGenerating(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ messages: history, webSearch, model }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) {
+          store.getState().setMessage(assistantId, {
+            streaming: false,
+            error: true,
+            content: `**SPYRO V1 hit a snag.** Request failed (${res.status}).`,
+          });
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          store.getState().setMessage(assistantId, {
+            content: acc,
+            streaming: true,
+          });
+        }
+        store.getState().setMessage(assistantId, {
+          streaming: false,
+          error: acc.trim().length === 0 ? true : undefined,
+          content: acc.trim().length === 0
+            ? "**SPYRO V1 returned an empty response.** Try rephrasing."
+            : acc,
+        });
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") {
+          store.getState().setMessage(assistantId, { streaming: false });
+        } else {
+          store.getState().setMessage(assistantId, {
+            streaming: false,
+            error: true,
+            content: `**SPYRO V1 lost its fire.** ${err instanceof Error ? err.message : "Unknown error"}`,
+          });
+        }
+      } finally {
+        store.getState().setGenerating(false);
+        abortRef.current = null;
+      }
+    },
+    [store, webSearch, model]
+  );
+
+  return { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel };
 }
 
 export type SpyroChatApi = ReturnType<typeof useSpyroChat>;

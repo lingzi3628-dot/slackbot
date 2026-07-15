@@ -19,7 +19,7 @@ import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
 
 export default function Home() {
-  const { send, stop, regenerate, generateImage, webSearch, setWebSearch, model, setModel } = useSpyroChat();
+  const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel } = useSpyroChat();
   const createConversation = useChatStore((s) => s.createConversation);
   const activeView = useUIStore((s) => s.activeView);
   const setView = useUIStore((s) => s.setView);
@@ -95,6 +95,7 @@ export default function Home() {
               <ChatMessages
                 onPickSuggestion={handleSend}
                 onRegenerate={() => void regenerate()}
+                onEditMessage={(id, text) => void editMessage(id, text)}
               />
             ) : (
               <div className="flex flex-1 items-center justify-center">
@@ -108,6 +109,14 @@ export default function Home() {
               onSend={handleSend}
               onStop={stop}
               onImagine={handleImagine}
+              onSlashCommand={(cmd) => {
+                if (cmd === "/clear") {
+                  const id = useChatStore.getState().activeId;
+                  if (id) useChatStore.getState().clearMessages(id);
+                } else if (cmd === "/help") {
+                  void send("Show me a brief help message about what SPYRO V1 can do.");
+                }
+              }}
               registerFocus={(fn) => (inputFocusRef.current = fn)}
             />
           </>

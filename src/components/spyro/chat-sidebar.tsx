@@ -13,6 +13,7 @@ import {
   Plug,
   Settings as SettingsIcon,
   Info,
+  Search,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -57,6 +58,18 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState("");
+  const [search, setSearch] = React.useState("");
+
+  // Filter conversations by search query (title + message content).
+  const filteredConversations = React.useMemo(() => {
+    if (!search.trim()) return conversations;
+    const q = search.toLowerCase();
+    return conversations.filter(
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        c.messages.some((m) => m.content.toLowerCase().includes(q))
+    );
+  }, [conversations, search]);
 
   const startEdit = (id: string, current: string) => {
     setEditingId(id);
@@ -140,11 +153,35 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
             </Button>
           </div>
 
-          <div className="mt-4 flex-1 overflow-y-auto px-2 pb-2">
-            <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-              Recent
+          {/* Search */}
+          {conversations.length > 0 && (
+            <div className="px-3 pt-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search chats…"
+                  className="w-full rounded-lg border border-border/50 bg-muted/30 py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             </div>
-            {conversations.length === 0 ? (
+          )}
+
+          <div className="mt-3 flex-1 overflow-y-auto px-2 pb-2">
+            <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+              {search ? `Results (${filteredConversations.length})` : "Recent"}
+            </div>
+            {filteredConversations.length === 0 ? (
               <div className="mx-2 rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground/80">
                 <Flame className="mx-auto mb-2 h-4 w-4 text-primary/50" />
                 No chats yet
@@ -152,7 +189,7 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
             ) : (
               <ul className="space-y-0.5">
                 <AnimatePresence initial={false}>
-                  {conversations.map((c) => {
+                  {filteredConversations.map((c) => {
                     const isActive = c.id === activeId;
                     const isEditing = editingId === c.id;
                     return (
