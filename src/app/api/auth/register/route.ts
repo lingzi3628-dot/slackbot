@@ -51,9 +51,9 @@ export async function POST(req: NextRequest) {
       needsVerification: true,
     });
   } catch (err) {
-    // If DB not configured, fall back gracefully.
+    console.error("[register] error:", err);
     return NextResponse.json(
-      { error: "Registration failed. Database may not be configured." },
+      { error: err instanceof Error ? err.message : "Registration failed." },
       { status: 500 }
     );
   }

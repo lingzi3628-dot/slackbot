@@ -66,9 +66,10 @@ export async function POST(req: NextRequest) {
       ok: true,
       message: "If an account exists, a reset link has been sent to your email.",
     });
-  } catch {
+  } catch (err) {
+    console.error("[forgot-password] error:", err);
     return NextResponse.json(
-      { error: "Failed to send reset email. Database may not be configured." },
+      { error: err instanceof Error ? err.message : "Failed to send reset email." },
       { status: 500 }
     );
   }

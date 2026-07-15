@@ -51,9 +51,10 @@ export async function POST(req: NextRequest) {
     });
     res.headers.set("Set-Cookie", buildSessionCookie(token));
     return res;
-  } catch {
+  } catch (err) {
+    console.error("[verify-code] error:", err);
     return NextResponse.json(
-      { error: "Verification failed. Database may not be configured." },
+      { error: err instanceof Error ? err.message : "Verification failed." },
       { status: 500 }
     );
   }

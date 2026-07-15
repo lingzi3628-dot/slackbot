@@ -84,8 +84,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(response);
   } catch (err) {
     console.error("[send-code] error:", err);
+    const msg = err instanceof Error ? err.message : "Failed to send code.";
+    // Return the actual error so the frontend can show it.
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to send code." },
+      { error: msg.includes("protocol") ? "Database URL is invalid. Remove channel_binding=require from DATABASE_URL on Vercel." : msg },
       { status: 500 }
     );
   }

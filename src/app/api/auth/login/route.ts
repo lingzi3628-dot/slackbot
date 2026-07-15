@@ -47,9 +47,10 @@ export async function POST(req: NextRequest) {
     });
     res.headers.set("Set-Cookie", buildSessionCookie(token));
     return res;
-  } catch {
+  } catch (err) {
+    console.error("[login] error:", err);
     return NextResponse.json(
-      { error: "Login failed. Database may not be configured." },
+      { error: err instanceof Error ? err.message : "Login failed." },
       { status: 500 }
     );
   }
