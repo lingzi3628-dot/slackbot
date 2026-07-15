@@ -4,15 +4,28 @@ import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mail, Lock, User, ArrowRight, Sparkles, Zap, Flame, Eye, EyeOff,
-  AlertCircle, Check, Loader2, ShieldCheck,
+  AlertCircle, Check, Loader2, ShieldCheck, MailCheck, KeyRound,
 } from "lucide-react";
 import { useLocalAuth } from "@/store/local-auth";
 import { useUIStore } from "@/store/ui-store";
 import { SpyroLogo } from "../spyro-logo";
+import { auth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
+// ── Google icon (SVG) ──────────────────────────────────────────────────
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 48 48" fill="none">
+      <path d="M44.5 20H24v8.5h11.8C34.7 33.9 30 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.3 0 6.3 1.2 8.6 3.3l6.4-6.4C35.5 4.3 30.1 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.1-2.7-.5-4z" fill="#4285F4"/>
+      <path d="M6.3 14.7l7 5.1C15.1 15.2 19.2 13 24 13c3.3 0 6.3 1.2 8.6 3.3l6.4-6.4C35.5 4.3 30.1 2 24 2 16.3 2 9.7 6.6 6.3 14.7z" fill="#EA4335"/>
+      <path d="M24 46c5.9 0 11.4-2.3 15.5-6.1l-7.2-5.9C30 35.9 27.2 37 24 37c-6 0-11-4-12.8-9.4l-7 5.4C7.5 41.3 14.9 46 24 46z" fill="#34A853"/>
+      <path d="M44.5 20H24v8.5h11.8c-.6 1.9-1.6 3.5-3 4.5l7.2 5.9C42.7 36.2 46 30.7 46 24c0-1.3-.1-2.7-.5-4z" fill="#FBBC05"/>
+    </svg>
+  );
+}
+
 export function RegisterPage() {
-  const { signIn, signOut } = useLocalAuth();
+  const { signIn } = useLocalAuth();
   const setView = useUIStore((s) => s.setView);
 
   // Form state
@@ -27,6 +40,7 @@ export function RegisterPage() {
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [forgotSent, setForgotSent] = React.useState(false);
   const [forgotLoading, setForgotLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
 
   // Verification state
   const [step, setStep] = React.useState<"form" | "verify">("form");
@@ -34,6 +48,7 @@ export function RegisterPage() {
   const [code, setCode] = React.useState("");
   const [codeLoading, setCodeLoading] = React.useState(false);
   const [codeError, setCodeError] = React.useState<string | null>(null);
+  const [devCode, setDevCode] = React.useState<string | null>(null);
   const [resendDisabled, setResendDisabled] = React.useState(false);
 
   // ── Submit (register or login) ──────────────────────────────────────
@@ -68,7 +83,6 @@ export function RegisterPage() {
       const data = await res.json();
 
       if (mode === "register" && data.needsVerification) {
-        // Registration succeeded → send verification code.
         setVerifyEmail(data.email);
         await sendCode(data.email);
         setStep("verify");
@@ -77,7 +91,6 @@ export function RegisterPage() {
       }
 
       if (data.id) {
-        // Login succeeded → go to dashboard.
         signIn(data.email, data.name);
         setView("dashboard");
       } else {
@@ -90,8 +103,48 @@ export function RegisterPage() {
     }
   };
 
+  // ── Google Sign-In ──────────────────────────────────────────────────
+  const signInWithGoogle = async () => {
+    if (!auth || !googleProvider) {
+      setError("Google Sign-In is not configured.");
+      return;
+    }
+
+    setGoogleLoading(true);
+    setError(null);
+
+    try {
+      const { signInWithPopup } = await import("firebase/auth");
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Send to our API to create/find user in Neon + set session cookie.
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          name: user.displayName,
+          uid: user.uid,
+          photoUrl: user.photoURL,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.id) {
+        signIn(data.email, data.name);
+        setView("dashboard");
+      } else {
+        setError(data.error || "Google sign-in failed.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed.");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   // ── Send verification code ──────────────────────────────────────────
-  const [devCode, setDevCode] = React.useState<string | null>(null);
   const sendCode = async (targetEmail: string) => {
     try {
       const res = await fetch("/api/auth/send-code", {
@@ -100,7 +153,6 @@ export function RegisterPage() {
         body: JSON.stringify({ email: targetEmail }),
       });
       const data = await res.json();
-      // If Gmail failed, show the dev code so the user can still verify.
       if (data.devCode) {
         setDevCode(data.devCode);
       } else {
@@ -111,14 +163,12 @@ export function RegisterPage() {
     }
   };
 
-  // ── Resend code ─────────────────────────────────────────────────────
   const resendCode = async () => {
     setResendDisabled(true);
     await sendCode(verifyEmail);
-    setTimeout(() => setResendDisabled(false), 30000); // 30s cooldown
+    setTimeout(() => setResendDisabled(false), 30000);
   };
 
-  // ── Verify code ─────────────────────────────────────────────────────
   const verifyCode = async () => {
     if (!code.trim() || code.length !== 6) {
       setCodeError("Enter the 6-digit code.");
@@ -137,7 +187,6 @@ export function RegisterPage() {
       const data = await res.json();
 
       if (data.verified) {
-        // Verified → sign in + go to dashboard.
         signIn(data.email, data.name);
         setView("dashboard");
       } else {
@@ -150,13 +199,11 @@ export function RegisterPage() {
     }
   };
 
-  // ── Guest mode ──────────────────────────────────────────────────────
   const continueAsGuest = () => {
     signIn("guest@spyro.ai", "Guest");
     setView("dashboard");
   };
 
-  // ── Forgot password ─────────────────────────────────────────────────
   const sendForgotPassword = async () => {
     if (!forgotEmail.trim()) return;
     setForgotLoading(true);
@@ -174,7 +221,7 @@ export function RegisterPage() {
     }
   };
 
-  // ── Verification step ───────────────────────────────────────────────
+  // ── Verification step (redesigned) ──────────────────────────────────
   if (step === "verify") {
     return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
@@ -188,38 +235,52 @@ export function RegisterPage() {
           animate={{ opacity: 1, y: 0 }}
           className="relative z-10 w-full max-w-md"
         >
-          <div className="surface-elevated rounded-2xl p-6">
-            <div className="mb-6 text-center">
+          <div className="surface-elevated rounded-3xl p-8">
+            {/* Icon */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="ember-aura relative mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl spyro-bg-gradient spyro-glow-strong"
+            >
+              <MailCheck className="h-8 w-8 text-white" />
+            </motion.div>
+
+            {/* Title */}
+            <h2 className="text-center text-xl font-bold">Check your email</h2>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              We sent a <span className="font-semibold text-foreground">6-digit verification code</span> to
+            </p>
+            <p className="text-center text-sm font-medium text-primary">{verifyEmail}</p>
+
+            {/* Dev code (if Gmail not configured) */}
+            {devCode && (
               <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="ember-aura relative mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl spyro-bg-gradient spyro-glow"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-center"
               >
-                <ShieldCheck className="h-8 w-8 text-white" />
+                <p className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                  <KeyRound className="h-3 w-3" />
+                  Your verification code
+                </p>
+                <p className="mt-2 text-4xl font-bold tracking-[0.4em] spyro-text-gradient">{devCode}</p>
               </motion.div>
-              <h2 className="text-xl font-bold">Verify your email</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                We sent a 6-digit code to <span className="font-medium text-foreground">{verifyEmail}</span>
-              </p>
-              {devCode && (
-                <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 text-center">
-                  <p className="text-[11px] text-muted-foreground">Email not configured. Use this code:</p>
-                  <p className="mt-1 text-2xl font-bold tracking-[0.3em] text-primary">{devCode}</p>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Code input */}
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              onKeyDown={(e) => e.key === "Enter" && verifyCode()}
-              placeholder="000000"
-              className="w-full rounded-xl border border-border/50 bg-muted/20 py-4 text-center text-3xl font-bold tracking-[0.5em] focus:border-primary/40 focus:outline-none"
-              autoFocus
-              inputMode="numeric"
-            />
+            <div className="mt-6">
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onKeyDown={(e) => e.key === "Enter" && verifyCode()}
+                placeholder="000000"
+                className="w-full rounded-2xl border border-border/50 bg-muted/20 py-4 text-center text-3xl font-bold tracking-[0.5em] focus:border-primary/40 focus:outline-none"
+                autoFocus
+                inputMode="numeric"
+              />
+            </div>
 
             {codeError && (
               <div className="mt-3 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
@@ -228,21 +289,23 @@ export function RegisterPage() {
               </div>
             )}
 
+            {/* Verify button */}
             <button
               onClick={verifyCode}
               disabled={codeLoading || code.length !== 6}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl spyro-bg-gradient py-2.5 text-sm font-semibold text-white transition-all hover:spyro-glow disabled:opacity-50"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl spyro-bg-gradient py-3 text-sm font-semibold text-white transition-all hover:spyro-glow disabled:opacity-50"
             >
-              {codeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {codeLoading ? "Verifying…" : "Verify & Continue"}
+              {codeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {codeLoading ? "Verifying…" : "Verify & Enter SPYRO"}
             </button>
 
+            {/* Footer actions */}
             <div className="mt-4 flex items-center justify-between text-xs">
               <button
-                onClick={() => { setStep("form"); setCode(""); setCodeError(null); }}
+                onClick={() => { setStep("form"); setCode(""); setCodeError(null); setDevCode(null); }}
                 className="text-muted-foreground hover:text-foreground"
               >
-                ← Back
+                ← Back to form
               </button>
               <button
                 onClick={resendCode}
@@ -252,13 +315,18 @@ export function RegisterPage() {
                 {resendDisabled ? "Resend in 30s" : "Resend code"}
               </button>
             </div>
+
+            {/* Info */}
+            <p className="mt-4 text-center text-[11px] text-muted-foreground/60">
+              Code expires in 10 minutes. Check your spam folder if you don't see the email.
+            </p>
           </div>
         </motion.div>
       </div>
     );
   }
 
-  // ── Main form (register / login) ────────────────────────────────────
+  // ── Main form ────────────────────────────────────────────────────────
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -273,7 +341,7 @@ export function RegisterPage() {
         className="relative z-10 w-full max-w-md"
       >
         {/* Logo */}
-        <div className="mb-8 flex flex-col items-center text-center">
+        <div className="mb-6 flex flex-col items-center text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -285,13 +353,35 @@ export function RegisterPage() {
           <h1 className="mt-5 text-3xl font-bold tracking-tight">
             <span className="spyro-text-gradient">SPYRO</span> V1
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">The dragon-powered AI platform</p>
+          <p className="mt-1 text-sm text-muted-foreground">The dragon-powered AI platform</p>
           <p className="mt-1 text-xs text-muted-foreground/60">🇰🇪 Built in Kenya by Lewis Kariuki & SPYRO Labs</p>
         </div>
 
         {/* Auth card */}
-        <div className="surface-elevated rounded-2xl p-6">
-          <div className="mb-5 flex gap-1 rounded-xl border border-border/40 bg-card/20 p-1">
+        <div className="surface-elevated rounded-3xl p-6">
+          {/* Google Sign-In */}
+          {isFirebaseConfigured && (
+            <>
+              <button
+                onClick={signInWithGoogle}
+                disabled={googleLoading}
+                className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-border/50 bg-white py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-50 disabled:opacity-50"
+              >
+                {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                {googleLoading ? "Connecting…" : "Continue with Google"}
+              </button>
+
+              {/* Divider */}
+              <div className="my-4 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border/40" />
+                <span className="text-[11px] text-muted-foreground/60">or</span>
+                <div className="h-px flex-1 bg-border/40" />
+              </div>
+            </>
+          )}
+
+          {/* Mode tabs */}
+          <div className="mb-4 flex gap-1 rounded-xl border border-border/40 bg-card/20 p-1">
             {[
               { id: "register" as const, label: "Create Account" },
               { id: "login" as const, label: "Sign In" },
@@ -357,7 +447,7 @@ export function RegisterPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
+        <div className="mt-5 flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1"><Zap className="h-3 w-3 text-primary" /> God Mode</span>
           <span className="flex items-center gap-1"><Flame className="h-3 w-3 text-primary" /> 7 AI Tools</span>
           <span className="flex items-center gap-1"><Sparkles className="h-3 w-3 text-primary" /> Free</span>

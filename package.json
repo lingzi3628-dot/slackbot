@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "prisma generate && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "postinstall": "prisma generate",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:push": "prisma db push",
@@ -59,6 +60,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "firebase": "^12.16.0",
     "framer-motion": "^12.23.2",
     "input-otp": "^1.4.2",
     "langfuse": "^3.38.20",
