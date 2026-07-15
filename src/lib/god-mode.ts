@@ -4,10 +4,10 @@
  * When God Mode is enabled, a user's prompt is processed by a TEAM of
  * specialized SPYRO agents, each using the best model for its role:
  *
- *   1. PLANNER (openai-large) — breaks the task into steps, assigns agents
+ *   1. PLANNER (openai) — breaks the task into steps, assigns agents
  *   2. RESEARCHER (openai + web_search tool) — gathers information
- *   3. CODER (qwen-coder) — writes/executes code if needed
- *   4. SYNTHESIZER (openai-large) — combines everything into the final answer
+ *   3. CODER (openai) — writes/executes code if needed
+ *   4. SYNTHESIZER (openai) — combines everything into the final answer
  *
  * Each agent's output is fed to the next. Progress events stream to the UI
  * so the user sees the agents working in real time.
@@ -36,7 +36,7 @@ export interface GodModeOptions {
 const AGENTS = {
   planner: {
     name: "Planner",
-    model: "openai-large" as SpyroModelId,
+    model: "openai" as SpyroModelId,
     icon: "🧠",
     systemPrompt: `You are the PLANNER agent of SPYRO V1 God Mode. Your job is to break down the user's request into a clear plan.
 Output EXACTLY 3-5 numbered steps. Each step should be one sentence.
@@ -58,7 +58,7 @@ Focus on FACTS, not opinions.`,
   },
   coder: {
     name: "Coder",
-    model: "qwen-coder" as SpyroModelId,
+    model: "openai" as SpyroModelId,
     icon: "💻",
     systemPrompt: `You are the CODER agent of SPYRO V1 God Mode. If the task requires code, write it. If not, explain why no code is needed.
 When writing code:
@@ -69,7 +69,7 @@ If no code is needed, respond with: "No code required for this task."`,
   },
   synthesizer: {
     name: "Synthesizer",
-    model: "openai-large" as SpyroModelId,
+    model: "openai" as SpyroModelId,
     icon: "⚡",
     systemPrompt: `You are the SYNTHESIZER agent of SPYRO V1 God Mode. You receive the plan, research, and code from the other agents.
 Your job: produce the FINAL, polished answer to the user's original question.

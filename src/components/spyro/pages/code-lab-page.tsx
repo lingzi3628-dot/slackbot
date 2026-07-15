@@ -112,7 +112,7 @@ export function CodeLab({ onBack }: { onBack: () => void }) {
             { role: "system", content: systemPrompt },
             { role: "user", content: text },
           ],
-          model: "qwen-coder",
+          model: "openai",
         }),
       });
 
@@ -121,7 +121,7 @@ export function CodeLab({ onBack }: { onBack: () => void }) {
         return;
       }
 
-      // Read the stream.
+      // Read the stream — DON'T show code while streaming, only when done.
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = "";
@@ -129,7 +129,7 @@ export function CodeLab({ onBack }: { onBack: () => void }) {
         const { done, value } = await reader.read();
         if (done) break;
         acc += decoder.decode(value, { stream: true });
-        setOutput(acc);
+        // Update progress bar based on accumulated length but don't show code yet.
       }
 
       clearInterval(stepInterval);

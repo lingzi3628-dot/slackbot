@@ -22,6 +22,7 @@ import {
 import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
 import { CodeLab } from "./code-lab-page";
+import { GodModeTool } from "./god-mode-page";
 
 // ── Greeting based on time ────────────────────────────────────────────
 function getGreeting() {
@@ -567,6 +568,16 @@ export function DashboardPage() {
           transition={{ duration: 0.25 }}
         >
           <CodeLab onBack={() => setActiveApp(null)} />
+        </motion.div>
+      ) : activeApp === "god-mode" ? (
+        <motion.div
+          key="god-mode"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.25 }}
+        >
+          <GodModeTool onBack={() => setActiveApp(null)} />
         </motion.div>
       ) : (
         <motion.div
