@@ -44,80 +44,79 @@
 }
 
 /* ============================================================
-   SPYRO V1 — Dragon / Fire Theme
-   Warm charcoal base + amber/orange/red fire accents
-   (No indigo / blue used anywhere)
+   SPYRO OS — Premium AI Operating System Design System
+   Inspired by Linear, Cursor, Vercel, Arc, VisionOS
    ============================================================ */
 :root {
-  --radius: 0.875rem;
+  --radius: 1.5rem;
 
-  /* Light theme (kept warm & ember-like) */
-  --background: oklch(0.985 0.008 60);
-  --foreground: oklch(0.22 0.03 40);
-  --card: oklch(1 0.006 60);
-  --card-foreground: oklch(0.22 0.03 40);
-  --popover: oklch(1 0.006 60);
-  --popover-foreground: oklch(0.22 0.03 40);
-  --primary: oklch(0.62 0.21 38); /* fire orange */
-  --primary-foreground: oklch(0.99 0.01 60);
-  --secondary: oklch(0.96 0.02 55);
-  --secondary-foreground: oklch(0.3 0.05 40);
-  --muted: oklch(0.96 0.015 55);
-  --muted-foreground: oklch(0.5 0.03 45);
-  --accent: oklch(0.94 0.04 50);
-  --accent-foreground: oklch(0.3 0.08 35);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.9 0.015 55);
-  --input: oklch(0.92 0.015 55);
-  --ring: oklch(0.62 0.21 38);
-  --chart-1: oklch(0.65 0.22 38);
-  --chart-2: oklch(0.7 0.18 25);
-  --chart-3: oklch(0.72 0.15 70);
-  --chart-4: oklch(0.55 0.2 15);
-  --chart-5: oklch(0.78 0.16 85);
-  --sidebar: oklch(0.97 0.01 55);
-  --sidebar-foreground: oklch(0.22 0.03 40);
-  --sidebar-primary: oklch(0.62 0.21 38);
-  --sidebar-primary-foreground: oklch(0.99 0.01 60);
-  --sidebar-accent: oklch(0.94 0.04 50);
-  --sidebar-accent-foreground: oklch(0.3 0.08 35);
-  --sidebar-border: oklch(0.9 0.015 55);
-  --sidebar-ring: oklch(0.62 0.21 38);
+  /* Light theme */
+  --background: oklch(0.985 0.002 280);
+  --foreground: oklch(0.09 0.01 280);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.09 0.01 280);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.09 0.01 280);
+  --primary: oklch(0.55 0.25 295);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.005 280);
+  --secondary-foreground: oklch(0.2 0.01 280);
+  --muted: oklch(0.96 0.005 280);
+  --muted-foreground: oklch(0.5 0.01 280);
+  --accent: oklch(0.93 0.01 280);
+  --accent-foreground: oklch(0.2 0.01 280);
+  --destructive: oklch(0.55 0.24 25);
+  --border: oklch(0.9 0.005 280);
+  --input: oklch(0.92 0.005 280);
+  --ring: oklch(0.55 0.25 295);
+  --chart-1: oklch(0.55 0.25 295);
+  --chart-2: oklch(0.6 0.2 190);
+  --chart-3: oklch(0.65 0.15 150);
+  --chart-4: oklch(0.55 0.22 25);
+  --chart-5: oklch(0.7 0.18 85);
+  --sidebar: oklch(0.97 0.003 280);
+  --sidebar-foreground: oklch(0.2 0.01 280);
+  --sidebar-primary: oklch(0.55 0.25 295);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.93 0.01 280);
+  --sidebar-accent-foreground: oklch(0.2 0.01 280);
+  --sidebar-border: oklch(0.9 0.005 280);
+  --sidebar-ring: oklch(0.55 0.25 295);
 }
 
 .dark {
-  /* SPYRO V2 — premium obsidian + ember theme */
-  --background: oklch(0.13 0.006 28);       /* deep obsidian (near-black, warm) */
-  --foreground: oklch(0.95 0.006 55);       /* warm ivory */
-  --card: oklch(0.17 0.008 30);             /* elevated surface */
-  --card-foreground: oklch(0.95 0.006 55);
-  --popover: oklch(0.17 0.008 30);
-  --popover-foreground: oklch(0.95 0.006 55);
-  --primary: oklch(0.66 0.2 38);            /* vivid ember orange */
-  --primary-foreground: oklch(0.13 0.006 28);
-  --secondary: oklch(0.21 0.01 32);
-  --secondary-foreground: oklch(0.95 0.006 55);
-  --muted: oklch(0.19 0.008 30);
-  --muted-foreground: oklch(0.58 0.012 50); /* balanced muted text */
-  --accent: oklch(0.26 0.04 38);            /* ember-tinted accent */
-  --accent-foreground: oklch(0.95 0.006 55);
-  --destructive: oklch(0.6 0.2 20);
-  --border: oklch(0.28 0.01 32 / 50%);      /* hairline borders */
-  --input: oklch(0.21 0.01 32);
-  --ring: oklch(0.66 0.2 38);
-  --chart-1: oklch(0.66 0.2 38);
-  --chart-2: oklch(0.6 0.21 22);
-  --chart-3: oklch(0.74 0.15 82);
-  --chart-4: oklch(0.56 0.2 12);
-  --chart-5: oklch(0.76 0.12 92);
-  --sidebar: oklch(0.15 0.007 29);          /* slightly different from bg */
-  --sidebar-foreground: oklch(0.95 0.006 55);
-  --sidebar-primary: oklch(0.66 0.2 38);
-  --sidebar-primary-foreground: oklch(0.13 0.006 28);
-  --sidebar-accent: oklch(0.22 0.025 36);
-  --sidebar-accent-foreground: oklch(0.95 0.006 55);
-  --sidebar-border: oklch(0.28 0.01 32 / 40%);
-  --sidebar-ring: oklch(0.66 0.2 38);
+  /* SPYRO OS — Deep Obsidian */
+  --background: #09090B;
+  --foreground: #FAFAFA;
+  --card: #12141A;
+  --card-foreground: #FAFAFA;
+  --popover: #12141A;
+  --popover-foreground: #FAFAFA;
+  --primary: #7C3AED;
+  --primary-foreground: #FAFAFA;
+  --secondary: #181B22;
+  --secondary-foreground: #FAFAFA;
+  --muted: #181B22;
+  --muted-foreground: #A3A3A3;
+  --accent: #1E1E26;
+  --accent-foreground: #FAFAFA;
+  --destructive: #EF4444;
+  --border: rgba(255, 255, 255, 0.06);
+  --input: #181B22;
+  --ring: #7C3AED;
+  --chart-1: #7C3AED;
+  --chart-2: #06B6D4;
+  --chart-3: #10B981;
+  --chart-4: #F59E0B;
+  --chart-5: #EC4899;
+  --sidebar: #0C0C0F;
+  --sidebar-foreground: #FAFAFA;
+  --sidebar-primary: #7C3AED;
+  --sidebar-primary-foreground: #FAFAFA;
+  --sidebar-accent: #181B22;
+  --sidebar-accent-foreground: #FAFAFA;
+  --sidebar-border: rgba(255, 255, 255, 0.04);
+  --sidebar-ring: #7C3AED;
 }
 
 @layer base {
@@ -126,36 +125,32 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  /* Custom scrollbars — ember themed */
+
+  /* Premium scrollbars */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in oklch, var(--primary) 35%, transparent);
+    background: rgba(255, 255, 255, 0.08);
     border-radius: 9999px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklch, var(--primary) 55%, transparent);
-    background-clip: padding-box;
+    background: rgba(255, 255, 255, 0.15);
   }
 }
 
 @layer utilities {
-  /* Spyro fire gradient text */
+  /* SPYRO OS Accent Gradient */
   .spyro-text-gradient {
-    background: linear-gradient(
-      100deg,
-      oklch(0.85 0.16 80) 0%,
-      oklch(0.72 0.22 45) 45%,
-      oklch(0.62 0.24 28) 100%
-    );
+    background: linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -163,135 +158,111 @@
   }
 
   .spyro-bg-gradient {
-    background: linear-gradient(
-      135deg,
-      oklch(0.72 0.19 45) 0%,
-      oklch(0.6 0.22 28) 100%
-    );
+    background: linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%);
   }
 
+  /* Soft glow */
   .spyro-glow {
-    box-shadow:
-      0 0 0 1px color-mix(in oklch, var(--primary) 20%, transparent),
-      0 4px 24px -6px color-mix(in oklch, var(--primary) 35%, transparent);
+    box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.15), 0 4px 32px -8px rgba(124, 58, 237, 0.25);
   }
 
   .spyro-glow-strong {
-    box-shadow:
-      0 0 24px -4px color-mix(in oklch, var(--primary) 50%, transparent),
-      0 0 48px -12px color-mix(in oklch, var(--primary) 30%, transparent);
+    box-shadow: 0 0 24px -4px rgba(124, 58, 237, 0.4), 0 0 48px -12px rgba(6, 182, 212, 0.2);
   }
 
+  /* Glass effect — used sparingly on dialogs, command palette, floating panels */
   .glass {
-    background: color-mix(in oklch, var(--card) 75%, transparent);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    background: rgba(18, 20, 26, 0.7);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
-  /* Premium surface — subtle gradient + border for elevated cards */
+  .glass-strong {
+    background: rgba(12, 12, 15, 0.85);
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* Premium card surface */
+  .surface {
+    background: #12141A;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 24px;
+  }
+
   .surface-elevated {
-    background: linear-gradient(
-      180deg,
-      color-mix(in oklch, var(--card) 100%, transparent) 0%,
-      color-mix(in oklch, var(--background) 100%, transparent) 100%
-    );
-    border: 1px solid color-mix(in oklch, var(--border) 100%, transparent);
+    background: linear-gradient(180deg, #12141A 0%, #0E0F14 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 24px;
+    box-shadow: 0 2px 16px -4px rgba(0, 0, 0, 0.3);
   }
 
-  /* Animated ember aura behind the logo */
-  .ember-aura::before {
-    content: "";
+  /* Soft shadows */
+  .shadow-soft {
+    box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.2), 0 1px 4px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .shadow-elevated {
+    box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4), 0 2px 8px -2px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Animated gradient mesh background */
+  .gradient-mesh {
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(124, 58, 237, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 30% at 50% 50%, rgba(124, 58, 237, 0.04) 0%, transparent 50%);
+  }
+
+  /* Floating blurred lights */
+  .floating-light {
     position: absolute;
-    inset: -30%;
-    background: radial-gradient(
-      circle at 50% 60%,
-      color-mix(in oklch, var(--primary) 45%, transparent) 0%,
-      transparent 65%
-    );
-    filter: blur(20px);
-    animation: ember-pulse 3.6s ease-in-out infinite;
-    z-index: -1;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.3;
+    pointer-events: none;
   }
 
-  @keyframes ember-pulse {
-    0%,
-    100% {
-      opacity: 0.55;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.9;
-      transform: scale(1.12);
-    }
+  /* Animations */
+  @keyframes float {
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(-20px) translateX(10px); }
   }
 
-  /* Floating flame flicker for the typing dots */
-  @keyframes flame-flicker {
-    0%,
-    100% {
-      transform: translateY(0) scaleY(1);
-      opacity: 0.85;
-    }
-    50% {
-      transform: translateY(-3px) scaleY(1.15);
-      opacity: 1;
-    }
-  }
-  .flame-dot {
-    animation: flame-flicker 1.1s ease-in-out infinite;
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
   }
 
-  /* Slow drifting background embers */
-  @keyframes drift {
-    0% {
-      transform: translateY(0) translateX(0);
-      opacity: 0;
-    }
-    10% {
-      opacity: 0.6;
-    }
-    90% {
-      opacity: 0.4;
-    }
-    100% {
-      transform: translateY(-120px) translateX(20px);
-      opacity: 0;
-    }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 
-  .message-enter {
-    animation: message-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-  @keyframes message-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px) scale(0.985);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
   }
 
-  /* Safe-area helpers for notch / dynamic-island / home-indicator phones.
-     Requires viewport-fit=cover (set in layout.tsx). */
-  .pt-safe {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .pl-safe {
-    padding-left: env(safe-area-inset-left, 0px);
-  }
-  .pr-safe {
-    padding-right: env(safe-area-inset-right, 0px);
-  }
-  .h-safe-bottom {
-    height: env(safe-area-inset-bottom, 0px);
+  .animate-pulse-soft {
+    animation: pulse-soft 3s ease-in-out infinite;
   }
 
-  /* Tap target sizing for touch devices (44px minimum per Apple HIG) */
+  /* Skeleton shimmer */
+  .shimmer {
+    background: linear-gradient(90deg, #12141A 0%, #181B22 50%, #12141A 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Safe areas */
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+  .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+
+  /* Touch targets */
   @media (pointer: coarse) {
     .touch-target {
       min-height: 44px;
@@ -299,18 +270,18 @@
     }
   }
 
-  /* Slim scrollbar for constrained message bubbles */
-  .overflow-y-auto::-webkit-scrollbar {
-    width: 6px;
+  /* Focus ring */
+  .focus-ring {
+    outline: 2px solid #7C3AED;
+    outline-offset: 2px;
   }
-  .overflow-y-auto::-webkit-scrollbar-track {
-    background: transparent;
+
+  /* Message enter */
+  .message-enter {
+    animation: message-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-  .overflow-y-auto::-webkit-scrollbar-thumb {
-    background: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
-    border-radius: 9999px;
-  }
-  .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+  @keyframes message-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
 }
