@@ -22,6 +22,9 @@ import { LoginPage } from "@/components/spyro/pages/login-page";
 import { RegisterPage } from "@/components/spyro/pages/register-page";
 import { ProfilePage } from "@/components/spyro/pages/profile-page";
 import { IntegrationControl } from "@/components/spyro/pages/integration-control-page";
+import { ApiPlayground } from "@/components/spyro/pages/api-playground-page";
+import { AgentBuilder } from "@/components/spyro/pages/agent-builder-page";
+import { GodModeLive } from "@/components/spyro/pages/god-mode-live-page";
 
 export default function Home() {
   const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
@@ -156,6 +159,9 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto">
               {activeView === "integrations" && <IntegrationsPage />}
               {activeView === "integration-control" && <IntegrationControl />}
+              {activeView === "api-playground" && <ApiPlayground />}
+              {activeView === "agent-builder" && <AgentBuilder />}
+              {activeView === "god-mode-live" && <GodModeLive onBack={() => setView("dashboard")} />}
               {activeView === "settings" && <SettingsPage />}
               {activeView === "dashboard" && <DashboardPage />}
               {activeView === "profile" && <ProfilePage onBack={() => setView("dashboard")} />}

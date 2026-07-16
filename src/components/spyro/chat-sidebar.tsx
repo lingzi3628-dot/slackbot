@@ -34,6 +34,8 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
   { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { view: "integrations", label: "Integrations", icon: Plug },
   { view: "integration-control", label: "AI Control", icon: SettingsIcon },
+  { view: "agent-builder", label: "Agent Builder", icon: Flame },
+  { view: "api-playground", label: "API Playground", icon: Plug },
   { view: "profile", label: "Profile", icon: UserIcon },
   { view: "about", label: "About", icon: Info },
 ];

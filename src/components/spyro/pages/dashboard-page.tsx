@@ -35,6 +35,7 @@ import { useChatStore } from "@/store/chat-store";
 import { cn } from "@/lib/utils";
 import { CodeLab } from "./code-lab-page";
 import { GodModeTool } from "./god-mode-page";
+import { GodModeLive } from "./god-mode-live-page";
 import { VoiceStudio } from "./voice-studio-page";
 import { WebScout } from "./web-scout-page";
 import { PhotoEditor } from "./photo-editor-page";
@@ -115,6 +116,15 @@ const APPS: SpyroApp[] = [
     gradient: "from-red-500 to-rose-700",
     status: "live",
     badge: "Pro",
+  },
+  {
+    id: "god-mode-live",
+    name: "God Mode Live",
+    description: "20 agents collaborating in real-time",
+    icon: Zap,
+    gradient: "from-red-600 to-orange-600",
+    status: "live",
+    badge: "New",
   },
   {
     id: "voice-studio",
@@ -634,14 +644,12 @@ export function DashboardPage() {
           <CodeLab onBack={() => setActiveApp(null)} />
         </motion.div>
       ) : activeApp === "god-mode" ? (
-        <motion.div
-          key="god-mode"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.25 }}
-        >
+        <motion.div key="god-mode" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
           <GodModeTool onBack={() => setActiveApp(null)} />
+        </motion.div>
+      ) : activeApp === "god-mode-live" ? (
+        <motion.div key="god-mode-live" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
+          <GodModeLive onBack={() => setActiveApp(null)} />
         </motion.div>
       ) : activeApp === "voice-studio" ? (
         <motion.div
