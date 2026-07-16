@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageCircle, RefreshCw, Check, Loader2, X, Smartphone,
+  MessageCircle, RefreshCw, Check, Loader2, X,
   ShieldCheck, Zap, Phone, ArrowRight, Copy,
 } from "lucide-react";
 import { useCommsStore } from "@/store/comms-store";
@@ -37,6 +37,12 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
   const [phone, setPhone] = React.useState("");
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const stopRef = React.useRef(false);
+  // Keep a ref of the current phase so the polling callback can read it
+  // without going stale (the callback is created once via useCallback).
+  const phaseRef = React.useRef<Phase>("idle");
+  React.useEffect(() => { phaseRef.current = phase; }, [phase]);
+  const qrRef = React.useRef<string | null>(null);
+  React.useEffect(() => { qrRef.current = qrCode; }, [qrCode]);
 
   const stopPolling = React.useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -61,15 +67,22 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
         setPhase("connected");
         setTimeout(() => onConnected?.(), 1200);
       } else if (data.status === "connecting") {
-        if (data.qrCode && data.qrCode !== qrCode) setQrCode(data.qrCode);
-        setPhase(prev => prev === "qr" || prev === "pairing-code" || prev === "scanning" ? "scanning" : prev);
+        // IMPORTANT: stay on the current screen — don't switch phases.
+        // The pairing-code screen already shows "Waiting for pairing…"
+        // and the QR screen already shows "Waiting for scan…".
+        // Switching to "scanning" would hide the pairing code before the
+        // user can copy it.
+        // Only refresh the QR if a new one was provided AND we're on the QR screen.
+        if (data.qrCode && data.qrCode !== qrRef.current && phaseRef.current === "qr") {
+          setQrCode(data.qrCode);
+        }
       } else if (data.status === "error") {
         stopPolling();
         setError(data.errorMessage || "Connection failed");
         setPhase("error");
       }
     } catch { /* transient */ }
-  }, [qrCode, setConnection, stopPolling, onConnected]);
+  }, [setConnection, stopPolling, onConnected]);
 
   const start = React.useCallback(async () => {
     stopRef.current = false;
@@ -305,8 +318,9 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
               </motion.div>
             )}
 
-            {/* QR — for Baileys/Evolution flows */}
-            {(phase === "qr" || phase === "scanning") && qrCode && (
+            {/* QR — for Baileys/Evolution flows. Always show the scan animation
+                since we're always waiting for the scan once the QR is displayed. */}
+            {phase === "qr" && qrCode && (
               <motion.div key="qr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
                 <h3 className="text-base font-semibold">Scan with your WhatsApp</h3>
                 <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
@@ -315,22 +329,17 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
 
                 <div className="relative mx-auto mt-5 grid h-64 w-64 place-items-center rounded-3xl bg-white p-4 shadow-elevated ring-4 ring-primary/10">
                   <img src={qrCode} alt="WhatsApp pairing QR code" className="h-full w-full rounded-2xl object-contain" />
-                  {phase === "scanning" && (
-                    <motion.div
-                      initial={{ y: 0 }}
-                      animate={{ y: [0, 240, 0] }}
-                      transition={{ repeat: Infinity, duration: 2.4, ease: "linear" }}
-                      className="absolute inset-x-4 h-0.5 bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,0.6)]"
-                    />
-                  )}
+                  <motion.div
+                    initial={{ y: 0 }}
+                    animate={{ y: [0, 240, 0] }}
+                    transition={{ repeat: Infinity, duration: 2.4, ease: "linear" }}
+                    className="absolute inset-x-4 h-0.5 bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,0.6)]"
+                  />
                 </div>
 
                 <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  {phase === "scanning" ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />Waiting for scan…</>
-                  ) : (
-                    <><Smartphone className="h-3.5 w-3.5" />Point your phone here</>
-                  )}
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
+                  Waiting for scan…
                 </div>
 
                 <button
