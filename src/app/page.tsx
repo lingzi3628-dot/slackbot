@@ -34,6 +34,7 @@ import { AgentBuilder } from "@/components/spyro/pages/agent-builder-page";
 import { GodModeLive } from "@/components/spyro/pages/god-mode-live-page";
 import { CommandPalette } from "@/components/spyro/command-palette";
 import { ThemeToggle } from "@/components/spyro/theme-toggle";
+import { CommunicationCenter } from "@/components/spyro/pages/comms/communication-center-page";
 
 // Friendly titles for the top bar on non-chat views.
 const VIEW_TITLES: Record<string, string> = {
@@ -47,6 +48,7 @@ const VIEW_TITLES: Record<string, string> = {
   automation: "Automation",
   analytics: "Analytics",
   settings: "Settings",
+  communication: "Communication Center",
   integrations: "Integrations",
   "integration-control": "AI Control",
   "api-playground": "API Playground",
@@ -181,6 +183,9 @@ export default function Home() {
               registerFocus={(fn) => (inputFocusRef.current = fn)}
             />
           </>
+        ) : activeView === "communication" ? (
+          /* Communication Center gets the full height — it has its own tab bar. */
+          <CommunicationCenter />
         ) : (
           <>
             {/* Top app bar for non-chat views */}

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, MessageCircle, Bot, Settings,
   Home, FolderKanban, BookOpen,
-  FileText, BarChart3, Zap, LayoutGrid, ArrowRight,
+  FileText, BarChart3, Zap, LayoutGrid, ArrowRight, Inbox,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -62,6 +62,7 @@ export function CommandPalette() {
       { id: "nav-home", label: "Home", description: "Your command center", icon: Home, category: "Navigate", action: () => { setView("home"); setOpen(false); }, keywords: ["home", "dashboard", "start"] },
       { id: "nav-projects", label: "Projects", description: "Organize your work", icon: FolderKanban, category: "Navigate", action: () => { setView("projects"); setOpen(false); }, keywords: ["project", "workspace", "folder"] },
       { id: "nav-chat", label: "Chats", description: "AI conversations", icon: MessageCircle, category: "Navigate", action: () => { setView("chat"); setOpen(false); }, keywords: ["chat", "message", "ask", "conversation"] },
+      { id: "nav-inbox", label: "Communication Center", description: "WhatsApp & messaging inbox", icon: Inbox, category: "Navigate", action: () => { setView("communication"); setOpen(false); }, keywords: ["whatsapp", "inbox", "communication", "message", "contact", "agent"] },
       { id: "nav-knowledge", label: "Knowledge", description: "Your second brain", icon: BookOpen, category: "Navigate", action: () => { setView("knowledge"); setOpen(false); }, keywords: ["knowledge", "docs", "notes", "memory"] },
       { id: "nav-agents", label: "Agents", description: "Persistent AI workers", icon: Bot, category: "Navigate", action: () => { setView("agents"); setOpen(false); }, keywords: ["agent", "bot", "assistant", "worker"] },
       { id: "nav-files", label: "Files", description: "Everything you upload", icon: FileText, category: "Navigate", action: () => { setView("files"); setOpen(false); }, keywords: ["file", "upload", "media", "asset"] },

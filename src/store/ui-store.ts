@@ -13,6 +13,8 @@ export type View =
   // Primary nav (spec)
   | "home" | "projects" | "chat" | "knowledge" | "agents"
   | "files" | "apps" | "automation" | "analytics" | "settings"
+  // Communication Center (first-class platform feature)
+  | "communication"
   // Secondary views
   | "integrations" | "integration-control" | "about" | "profile"
   | "login" | "register"

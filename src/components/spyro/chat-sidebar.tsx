@@ -6,7 +6,7 @@ import {
   Check, MessageSquarePlus, Pencil, Trash2, X,
   MessageCircle, Settings as SettingsIcon, Search,
   Home, FolderKanban, BookOpen, Bot, FileText, LayoutGrid,
-  Zap, BarChart3, Flame,
+  Zap, BarChart3, Flame, Inbox,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -25,6 +25,7 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
   { view: "home", label: "Home", icon: Home },
   { view: "projects", label: "Projects", icon: FolderKanban },
   { view: "chat", label: "Chats", icon: MessageCircle },
+  { view: "communication", label: "Inbox", icon: Inbox },
   { view: "knowledge", label: "Knowledge", icon: BookOpen },
   { view: "agents", label: "Agents", icon: Bot },
   { view: "files", label: "Files", icon: FileText },

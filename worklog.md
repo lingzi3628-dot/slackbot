@@ -519,3 +519,54 @@ Stage Summary:
 - "Too white" issue FIXED: app now defaults to a rich dark obsidian theme; light theme warmed up and available via the theme toggle.
 - Master spec now followed: full 10-item global navigation (Home, Projects, Chats, Knowledge, Agents, Files, Apps, Automation, Analytics, Settings) wired end-to-end, with a proper Home command center and premium placeholder pages for the sections under active development.
 - Artifacts: src/store/local-auth.ts, src/components/spyro/pages/{home,placeholder,projects,knowledge,files,automation,analytics}-page.tsx, updated src/app/page.tsx, src/store/ui-store.ts, src/components/spyro/{chat-sidebar,command-palette}.tsx, src/app/{layout.tsx,globals.css}.
+
+---
+Task ID: SPYRO-COMMS-CENTER
+Agent: main (orchestrator)
+Task: Redesign WhatsApp integration as a first-class "SPYRO Communication Center" — a channel-agnostic messaging hub per the user's spec. Hide all Evolution API / webhook / session details behind Spyro services.
+
+Work Log:
+- Installed `qrcode` (+ @types/qrcode) for server-side QR generation.
+- Designed a channel-agnostic provider architecture in `src/lib/comms/`:
+  - `types.ts` — `ChannelProvider` interface + all domain types (ChannelConnection, ConversationSummary, ConversationMessage, Contact, AgentAssignment, DashboardStats, ActivityEntry, Attachment covering text/image/pdf/audio/voice/video/sticker/document/location/contact).
+  - `mock-data.ts` — realistic dataset: 8 contacts (multinational: Nigeria, Kenya, UAE, Brazil, Japan, South Africa, Oman), 8 conversations with AI summaries + suggested replies + sentiment, 5+ message threads with attachments, 2 AI agents (Sales Assistant, Support Specialist), dashboard stats with 6 activity entries.
+  - `evolution-api.ts` — `EvolutionApiProvider` implementing `ChannelProvider`. In-memory connection registry. DEMO mode (when no EVOLUTION_API_URL/KEY configured): generates a REAL scannable QR (via `qrcode.toDataURL`), simulates the scan after 8s, then serves the mock dataset. PRODUCTION mode: structured to proxy Evolution API endpoints (instance/create, connect, fetchInstances, logout, chat/findContacts, chat/findChats). Includes a provider registry so Telegram/Slack/Email/etc. can be added without UI changes.
+- Built 9 backend API routes in `src/app/api/comms/`:
+  - POST /connect (initiate → QR + channelId)
+  - GET /status (poll connection state, includes QR while connecting)
+  - POST /disconnect
+  - POST /sync (sync chats + contacts)
+  - GET /chats (conversation list)
+  - GET /conversation (full thread: messages + contact + activity + notes)
+  - GET /contacts
+  - POST /send (outbound message)
+  - GET /agents + PATCH /agents (agent assignment + settings)
+  - GET /dashboard (aggregated stats)
+- Built `src/store/comms-store.ts` (zustand) — tracks channelId, connection, dashboard, conversations, activeConversation, contacts, agents, activeTab.
+- Built the Communication Center frontend in `src/components/spyro/pages/comms/`:
+  - `communication-center-page.tsx` — main shell. Disconnected state shows a premium empty state with feature bullets + "Connect WhatsApp" CTA. Connected state shows a 4-tab workspace (Dashboard/Inbox/Contacts/Agents) with Sync + Disconnect actions. Bootstraps from localStorage on mount. Mobile menu button included.
+  - `connect-wizard.tsx` — modal QR flow with 6 phases (idle→generating→qr→scanning→syncing→connected→error). Real QR code, animated scan line, auto-polls /status every 1.2s, refresh-QR button, success animation with device name + phone number.
+  - `comms-dashboard.tsx` — connection banner, 4 stat cards (messages today, active conversations, AI response rate, human takeover rate), connection-health radial gauge (SVG circle, 0-100 score), recent activity feed with typed icons, connected agents mini-cards.
+  - `comms-inbox.tsx` — 3-pane unified inbox: conversation list (search + 5 filters: all/unread/ai/human/negative, sentiment icons, AI/Human badges, unread counts, pinned) | message thread (AI summary banner, bubbles with attachments + read receipts, suggested replies chips, composer with Enter-to-send) | expandable customer profile drawer (tags, assigned agent, custom fields, purchase history, internal notes, activity timeline). Human takeover button. Mobile-responsive (list ↔ detail).
+  - `comms-contacts.tsx` — searchable, tag-filterable contact grid with sentiment, assigned agent, last interaction. Click opens a right-side detail drawer with full profile (tags, assigned agent, custom fields, purchase history, notes).
+  - `comms-agents.tsx` — agent cards with expandable configuration: allowed channels (toggle WhatsApp/Telegram/Slack/Discord/Email/SMS/Instagram/Messenger), business hours (time inputs + day picker), response style (5 options), approval mode (3 modes with descriptions), auto-reply mode (always/business_hours/off), escalation rules (confidence threshold slider, auto-escalate on negative, notify on takeover, escalation keywords), knowledge sources.
+- Added "Inbox" as a first-class nav item in the sidebar (between Chats and Knowledge) + in the Command Palette (⌘K) with keywords (whatsapp, inbox, communication, message, contact, agent).
+- Wired into `page.tsx` — the Communication Center renders full-height with its own tab bar (no duplicate top app bar).
+- Fixed a stale-closure bug in `handleConnected` by reading `useCommsStore.getState().channelId` directly instead of from the render closure.
+
+Verification (Agent Browser, end-to-end):
+- Landing → Continue as guest → Home → click Inbox nav → Communication Center empty state renders.
+- Click "Connect WhatsApp" → wizard opens → click connect → real QR code appears → "Waiting for scan…" → after 8s → "Connected!" with device name → auto-redirects to Dashboard.
+- Dashboard: shows all 4 stats (142 messages, 8 conversations, 87% AI, 13% human), connection health gauge (96/100 Excellent), 6 recent activity entries, 2 connected agents.
+- Inbox: 8 conversations listed with names, previews, timestamps, AI/Human badges, unread counts, sentiment icons. Filters work. Click Carlos → AI summary banner ("frustrated, recommend human takeover"), full message thread with image attachment, 2 suggested replies, Human takeover button, customer profile drawer with tags + custom fields.
+- Contacts: 8 contacts in grid, tag filters (VIP/Enterprise/Lead/Frustrated/Repeat Buyer/New), sentiment icons, assigned agent, click → detail drawer with purchase history + custom fields + notes.
+- Agents: 2 agent cards, click Configure → all spec-required settings visible (channels, business hours, response style, approval mode, auto-reply, escalation rules with confidence slider, knowledge sources).
+- `bun run lint`: zero errors.
+- Browser console: zero errors. Dev log: all 9 API routes returning 200.
+
+Stage Summary:
+- Built a complete, channel-agnostic Communication Center per the spec. WhatsApp is the first channel, powered by Evolution API (in DEMO mode with realistic mock data, structured to drop in real Evolution API credentials).
+- The UI exposes ZERO technical concepts — no sessions, webhooks, REST endpoints, or API keys are visible to the user. The experience is: click Connect WhatsApp → scan QR → done.
+- Architecture is channel-agnostic: adding Telegram/Slack/Email/etc. requires only implementing the `ChannelProvider` interface — zero UI changes.
+- All spec sections delivered: Dashboard (status, device, last sync, messages today, active conversations, AI response rate, human takeover rate, connected agents, recent activity, connection health), Inbox (search, filters, labels, tags, pinned, AI summaries, suggested replies, attachments, history, customer profile, internal notes, escalation, human takeover, activity timeline), AI Agent Assignment (allowed channels, business hours, response style, knowledge sources, escalation rules, approval mode, auto-reply, confidence threshold), Contacts (name, phone, tags, history, assigned agent, notes, last interaction, sentiment, purchase history, custom fields), Media Support (typed attachments for text/image/pdf/audio/voice/video/sticker/document/location/contact).
+- Artifacts: src/lib/comms/{types,mock-data,evolution-api}.ts, src/store/comms-store.ts, src/app/api/comms/{connect,status,disconnect,sync,chats,contacts,conversation,send,agents,dashboard}/route.ts, src/components/spyro/pages/comms/{communication-center-page,connect-wizard,comms-dashboard,comms-inbox,comms-contacts,comms-agents}.tsx.

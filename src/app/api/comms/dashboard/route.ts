@@ -1,0 +1,36 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getProvider } from "@/lib/comms/evolution-api";
+import type { ChannelType } from "@/lib/comms/types";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/comms/dashboard?channelId=xxx&channelType=whatsapp
+ * Returns aggregated Communication Center metrics.
+ */
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const channelId = searchParams.get("channelId");
+    const channelType = (searchParams.get("channelType") as ChannelType) || "whatsapp";
+
+    if (!channelId) {
+      return NextResponse.json({ error: "channelId is required" }, { status: 400 });
+    }
+
+    const provider = getProvider(channelType);
+    if (!provider) {
+      return NextResponse.json({ error: "Unsupported channel" }, { status: 400 });
+    }
+
+    const dashboard = await provider.getDashboard(channelId);
+    return NextResponse.json(dashboard);
+  } catch (err) {
+    console.error("[comms/dashboard] error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to fetch dashboard" },
+      { status: 500 }
+    );
+  }
+}
