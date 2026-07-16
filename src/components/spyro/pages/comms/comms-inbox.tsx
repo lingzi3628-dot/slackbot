@@ -399,8 +399,12 @@ function ConversationDetail({
           </div>
         )}
 
-        {/* Composer */}
+        {/* Composer — replies are sent from the connected WhatsApp number */}
         <div className="border-t border-border p-3">
+          <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
+            <Send className="h-2.5 w-2.5 text-emerald-400" />
+            <span>Sent from your connected WhatsApp number</span>
+          </div>
           <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2">
             <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Attach">
               <Paperclip className="h-4 w-4" />

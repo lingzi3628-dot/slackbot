@@ -186,8 +186,8 @@ export interface ConversationDetail {
 export interface ChannelProvider {
   type: ChannelType;
   displayName: string;
-  /** Begin a connection. Returns a QR (or deep link) + channel id. */
-  initiateConnection(channelId: string): Promise<{ qrCode: string; expiresAt: number }>;
+  /** Begin a connection. Returns a QR (or deep link) + channel id + expiry. */
+  initiateConnection(channelId: string): Promise<{ qrCode: string; expiresAt: number; resolvedChannelId: string }>;
   /** Poll connection status. Returns connected once the user scans. */
   getConnectionStatus(channelId: string): Promise<ChannelConnection>;
   /** Tear down a connection. */

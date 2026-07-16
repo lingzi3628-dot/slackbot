@@ -13,6 +13,7 @@ import { CommsDashboard } from "./comms-dashboard";
 import { CommsInbox } from "./comms-inbox";
 import { CommsContacts } from "./comms-contacts";
 import { CommsAgents } from "./comms-agents";
+import { ModeBanner } from "./mode-banner";
 
 const TABS: { id: CommsTab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -151,6 +152,7 @@ export function CommunicationCenter() {
           </button>
         </div>
         <div className="mx-auto flex max-w-2xl flex-col items-center px-6 py-8 text-center sm:py-16">
+          <ModeBanner />
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -288,6 +290,9 @@ export function CommunicationCenter() {
           </button>
         </div>
       </div>
+
+      {/* Mode banner (DEMO vs LIVE) */}
+      <ModeBanner />
 
       {/* Active tab */}
       <div className="min-h-0 flex-1 overflow-hidden">

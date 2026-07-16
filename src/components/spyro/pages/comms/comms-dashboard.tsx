@@ -4,7 +4,7 @@ import * as React from "react";
 import { motion } from "framer-motion";
 import {
   MessageCircle, Activity, Bot, Clock, Zap, Heart, TrendingUp,
-  CheckCircle2, AlertTriangle, RefreshCw, Power,
+  CheckCircle2, AlertTriangle, RefreshCw, Power, Phone,
 } from "lucide-react";
 import { useCommsStore } from "@/store/comms-store";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ export function CommsDashboard({ onSync }: { onSync?: () => void }) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      {/* Connection banner */}
+      {/* Connection banner — shows the connected phone number prominently */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -85,6 +85,14 @@ export function CommsDashboard({ onSync }: { onSync?: () => void }) {
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {dashboard.deviceName ?? "No device"} {dashboard.lastSyncAt ? `· Synced ${timeAgo(dashboard.lastSyncAt)}` : ""}
               </p>
+              {/* Connected phone number — this is the number AI agents reply from */}
+              {connection?.phoneNumber && dashboard.status === "connected" && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[11px]">
+                  <Phone className="h-3 w-3 text-emerald-400" />
+                  <span className="text-emerald-400">Replies sent from:</span>
+                  <span className="font-mono font-medium text-foreground">{connection.phoneNumber}</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
