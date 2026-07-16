@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   getSpyroReply,
   SPYRO_MODELS,
@@ -6,6 +6,7 @@ import {
   type SpyroModelId,
 } from "@/lib/spyro-engine";
 import { runTools, formatToolResults } from "@/lib/tools";
+import { getRateLimitForRequest, buildRateLimitHeaders } from "@/lib/rate-limit";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -50,6 +51,24 @@ async function searchWeb(query: string): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  // ── Rate limiting ──────────────────────────────────────────────────
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+  const apiKey = req.headers.get("x-api-key");
+  const rateLimit = getRateLimitForRequest(ip, apiKey);
+  if (!rateLimit.allowed) {
+    const minsLeft = Math.ceil((rateLimit.resetAt - Date.now()) / 60000);
+    return NextResponse.json(
+      {
+        error: `Rate limit exceeded. Try again in ${minsLeft} minute${minsLeft === 1 ? "" : "s"}.`,
+        rateLimited: true,
+      },
+      {
+        status: 429,
+        headers: buildRateLimitHeaders(rateLimit),
+      }
+    );
+  }
+
   let body: ChatRequestBody;
   try {
     body = await req.json();
@@ -150,6 +169,7 @@ export async function POST(req: NextRequest) {
       "cache-control": "no-cache, no-transform",
       "x-content-type-options": "nosniff",
       "x-spyro-model": model,
+      ...buildRateLimitHeaders(rateLimit),
     },
   });
 }
