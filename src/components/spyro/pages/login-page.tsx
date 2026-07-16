@@ -17,10 +17,10 @@ export function LoginPage() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // If already authed, redirect to dashboard.
+  // If already authed, redirect to home.
   React.useEffect(() => {
     if (isAuthed && user) {
-      setView("dashboard");
+      setView("home");
     }
   }, [isAuthed, user, setView]);
 
@@ -42,13 +42,13 @@ export function LoginPage() {
 
     signIn(email.trim(), name.trim());
     setLoading(false);
-    setView("dashboard");
+    setView("home");
   };
 
   const skipLogin = () => {
     // Guest mode — sign in as a guest.
     signIn("guest@spyro.ai", "Guest Dragon");
-    setView("dashboard");
+    setView("home");
   };
 
   return (

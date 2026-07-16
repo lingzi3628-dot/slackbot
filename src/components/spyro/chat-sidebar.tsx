@@ -4,8 +4,9 @@ import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, MessageSquarePlus, Pencil, Trash2, X,
-  MessageCircle, Plug, Settings as SettingsIcon, Info, Search,
-  LayoutDashboard, User as UserIcon, Bot, Terminal, Flame,
+  MessageCircle, Settings as SettingsIcon, Search,
+  Home, FolderKanban, BookOpen, Bot, FileText, LayoutGrid,
+  Zap, BarChart3, Flame,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -17,14 +18,20 @@ interface SidebarContentProps {
   onNavigate?: () => void;
 }
 
-// SPYRO OS Navigation — aligned with the master spec
-const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
-  { view: "dashboard", label: "Home", icon: LayoutDashboard },
+// ── SPYRO OS Global Navigation (master spec) ──────────────────────────
+// Home · Projects · Chats · Knowledge · Agents · Files · Apps ·
+// Automation · Analytics · Settings
+const NAV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
+  { view: "home", label: "Home", icon: Home },
+  { view: "projects", label: "Projects", icon: FolderKanban },
   { view: "chat", label: "Chats", icon: MessageCircle },
-  { view: "agent-builder", label: "Agents", icon: Bot },
-  { view: "api-playground", label: "API", icon: Terminal },
-  { view: "integrations", label: "Apps", icon: Plug },
-  { view: "integration-control", label: "Settings", icon: SettingsIcon },
+  { view: "knowledge", label: "Knowledge", icon: BookOpen },
+  { view: "agents", label: "Agents", icon: Bot },
+  { view: "files", label: "Files", icon: FileText },
+  { view: "apps", label: "Apps", icon: LayoutGrid },
+  { view: "automation", label: "Automation", icon: Zap },
+  { view: "analytics", label: "Analytics", icon: BarChart3 },
+  { view: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
 function timeAgo(ts: number): string {
@@ -94,11 +101,16 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
                 key={item.view}
                 onClick={() => handleNav(item.view)}
                 className={cn(
-                  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all",
-                  isActive ? "bg-secondary text-foreground font-medium" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                  "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all",
+                  isActive
+                    ? "bg-primary/10 text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
                 )}
               >
-                <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-muted-foreground")} />
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                )}
+                <item.icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
                 {item.label}
               </button>
             );
@@ -108,7 +120,7 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
 
       <div className="mx-3 h-px bg-border" />
 
-      {/* Conversations (chat view only) */}
+      {/* Conversations (only on chat view) */}
       {activeView === "chat" && (
         <>
           <div className="px-3 pt-3">

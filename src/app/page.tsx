@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useSpyroChat } from "@/hooks/use-spyro-chat";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore } from "@/store/ui-store";
+import { useLocalAuth } from "@/store/local-auth";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { exportConversationAsMarkdown } from "@/lib/export";
 import { ChatHeader } from "@/components/spyro/chat-header";
@@ -18,6 +19,12 @@ import { IntegrationsPage } from "@/components/spyro/pages/integrations-page";
 import { SettingsPage } from "@/components/spyro/pages/settings-page";
 import { AboutPage } from "@/components/spyro/pages/about-page";
 import { DashboardPage } from "@/components/spyro/pages/dashboard-page";
+import { HomePage } from "@/components/spyro/pages/home-page";
+import { ProjectsPage } from "@/components/spyro/pages/projects-page";
+import { KnowledgePage } from "@/components/spyro/pages/knowledge-page";
+import { FilesPage } from "@/components/spyro/pages/files-page";
+import { AutomationPage } from "@/components/spyro/pages/automation-page";
+import { AnalyticsPage } from "@/components/spyro/pages/analytics-page";
 import { LoginPage } from "@/components/spyro/pages/login-page";
 import { RegisterPage } from "@/components/spyro/pages/register-page";
 import { ProfilePage } from "@/components/spyro/pages/profile-page";
@@ -26,19 +33,54 @@ import { ApiPlayground } from "@/components/spyro/pages/api-playground-page";
 import { AgentBuilder } from "@/components/spyro/pages/agent-builder-page";
 import { GodModeLive } from "@/components/spyro/pages/god-mode-live-page";
 import { CommandPalette } from "@/components/spyro/command-palette";
+import { ThemeToggle } from "@/components/spyro/theme-toggle";
+
+// Friendly titles for the top bar on non-chat views.
+const VIEW_TITLES: Record<string, string> = {
+  home: "Home",
+  projects: "Projects",
+  chat: "Chats",
+  knowledge: "Knowledge",
+  agents: "Agents",
+  files: "Files",
+  apps: "Apps",
+  automation: "Automation",
+  analytics: "Analytics",
+  settings: "Settings",
+  integrations: "Integrations",
+  "integration-control": "AI Control",
+  "api-playground": "API Playground",
+  "agent-builder": "Agent Builder",
+  "god-mode-live": "God Mode Live",
+  about: "About",
+  profile: "Profile",
+};
 
 export default function Home() {
   const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
   const createConversation = useChatStore((s) => s.createConversation);
   const activeView = useUIStore((s) => s.activeView);
   const setView = useUIStore((s) => s.setView);
+  const initAuth = useLocalAuth((s) => s.init);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const inputFocusRef = React.useRef<() => void>(() => {});
 
   React.useEffect(() => setMounted(true), []);
 
-  // (All hooks must run before any early return — see useKeyboardShortcuts below.)
+  // Restore session from cookie on first mount. If a session exists and the
+  // user is still on the register screen, send them to Home.
+  React.useEffect(() => {
+    let cancelled = false;
+    initAuth().then(() => {
+      if (cancelled) return;
+      const st = useLocalAuth.getState();
+      if (st.isAuthed && useUIStore.getState().activeView === "register") {
+        useUIStore.getState().setView("home");
+      }
+    });
+    return () => { cancelled = true; };
+  }, [initAuth]);
 
   const handleSend = (text: string) => {
     void send(text, { webSearch });
@@ -141,8 +183,8 @@ export default function Home() {
           </>
         ) : (
           <>
-            {/* Mobile header for non-chat views */}
-            <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/80 pl-safe pr-safe pt-safe backdrop-blur-xl sm:px-4">
+            {/* Top app bar for non-chat views */}
+            <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border bg-background/80 pl-safe pr-safe pt-safe backdrop-blur-xl sm:px-6">
               <button
                 onClick={() => setMobileOpen(true)}
                 className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
@@ -154,19 +196,39 @@ export default function Home() {
                   <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              <h1 className="flex-1 text-base font-semibold capitalize">
-                {activeView}
+              <h1 className="flex-1 text-base font-semibold">
+                {VIEW_TITLES[activeView] ?? activeView}
               </h1>
+              <button
+                onClick={() => {
+                  const el = document.querySelector<HTMLInputElement>("[data-cmdk-trigger]");
+                  el?.click();
+                  // Fallback: dispatch the keyboard shortcut.
+                  window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+                }}
+                className="hidden items-center gap-2 rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary sm:flex"
+                aria-label="Search"
+              >
+                <span>Search…</span>
+                <kbd className="rounded border border-border bg-secondary px-1 py-0.5 text-[10px]">⌘K</kbd>
+              </button>
+              <ThemeToggle />
             </header>
             <div className="flex-1 overflow-y-auto">
+              {activeView === "home" && <HomePage />}
+              {activeView === "projects" && <ProjectsPage />}
+              {activeView === "knowledge" && <KnowledgePage />}
+              {activeView === "files" && <FilesPage />}
+              {activeView === "automation" && <AutomationPage />}
+              {activeView === "analytics" && <AnalyticsPage />}
+              {activeView === "apps" && <DashboardPage />}
               {activeView === "integrations" && <IntegrationsPage />}
               {activeView === "integration-control" && <IntegrationControl />}
               {activeView === "api-playground" && <ApiPlayground />}
-              {activeView === "agent-builder" && <AgentBuilder />}
-              {activeView === "god-mode-live" && <GodModeLive onBack={() => setView("dashboard")} />}
+              {activeView === "agents" && <AgentBuilder />}
+              {activeView === "god-mode-live" && <GodModeLive onBack={() => setView("apps")} />}
               {activeView === "settings" && <SettingsPage />}
-              {activeView === "dashboard" && <DashboardPage />}
-              {activeView === "profile" && <ProfilePage onBack={() => setView("dashboard")} />}
+              {activeView === "profile" && <ProfilePage onBack={() => setView("home")} />}
               {activeView === "about" && <AboutPage />}
             </div>
           </>
@@ -215,6 +277,7 @@ function EmberBackground() {
           }}
         />
       ))}
+      <style>{`@keyframes drift { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-100vh) translateX(20px); opacity: 0; } }`}</style>
     </div>
   );
 }

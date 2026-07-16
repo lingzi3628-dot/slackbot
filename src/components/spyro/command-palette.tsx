@@ -3,9 +3,9 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, MessageCircle, LayoutDashboard, Bot, Plug, Settings,
-  Info, Terminal, User as UserIcon, Home, FolderKanban, BookOpen,
-  FileText, BarChart3, Zap, ArrowRight, Clock,
+  Search, MessageCircle, Bot, Settings,
+  Home, FolderKanban, BookOpen,
+  FileText, BarChart3, Zap, LayoutGrid, ArrowRight,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -59,14 +59,16 @@ export function CommandPalette() {
   // Build command items
   const items: CommandItem[] = React.useMemo(() => {
     const navItems: CommandItem[] = [
-      { id: "nav-home", label: "Home", description: "Dashboard", icon: Home, category: "Navigate", action: () => { setView("dashboard"); setOpen(false); }, keywords: ["dashboard", "home"] },
-      { id: "nav-chat", label: "Chat", description: "New conversation", icon: MessageCircle, category: "Navigate", action: () => { setView("chat"); setOpen(false); }, keywords: ["chat", "message", "ask"] },
-      { id: "nav-agents", label: "Agents", description: "Manage AI agents", icon: Bot, category: "Navigate", action: () => { setView("agent-builder"); setOpen(false); }, keywords: ["agent", "bot", "assistant"] },
-      { id: "nav-api", label: "API Playground", description: "Test API endpoints", icon: Terminal, category: "Navigate", action: () => { setView("api-playground"); setOpen(false); }, keywords: ["api", "playground", "test"] },
-      { id: "nav-integrations", label: "Integrations", description: "Connect platforms", icon: Plug, category: "Navigate", action: () => { setView("integrations"); setOpen(false); }, keywords: ["integration", "telegram", "discord", "whatsapp"] },
-      { id: "nav-control", label: "AI Control", description: "Reply settings", icon: Settings, category: "Navigate", action: () => { setView("integration-control"); setOpen(false); }, keywords: ["control", "settings", "config"] },
-      { id: "nav-profile", label: "Profile", description: "Your account", icon: UserIcon, category: "Navigate", action: () => { setView("profile"); setOpen(false); }, keywords: ["profile", "account"] },
-      { id: "nav-about", label: "About", description: "About SPYRO", icon: Info, category: "Navigate", action: () => { setView("about"); setOpen(false); }, keywords: ["about", "help"] },
+      { id: "nav-home", label: "Home", description: "Your command center", icon: Home, category: "Navigate", action: () => { setView("home"); setOpen(false); }, keywords: ["home", "dashboard", "start"] },
+      { id: "nav-projects", label: "Projects", description: "Organize your work", icon: FolderKanban, category: "Navigate", action: () => { setView("projects"); setOpen(false); }, keywords: ["project", "workspace", "folder"] },
+      { id: "nav-chat", label: "Chats", description: "AI conversations", icon: MessageCircle, category: "Navigate", action: () => { setView("chat"); setOpen(false); }, keywords: ["chat", "message", "ask", "conversation"] },
+      { id: "nav-knowledge", label: "Knowledge", description: "Your second brain", icon: BookOpen, category: "Navigate", action: () => { setView("knowledge"); setOpen(false); }, keywords: ["knowledge", "docs", "notes", "memory"] },
+      { id: "nav-agents", label: "Agents", description: "Persistent AI workers", icon: Bot, category: "Navigate", action: () => { setView("agents"); setOpen(false); }, keywords: ["agent", "bot", "assistant", "worker"] },
+      { id: "nav-files", label: "Files", description: "Everything you upload", icon: FileText, category: "Navigate", action: () => { setView("files"); setOpen(false); }, keywords: ["file", "upload", "media", "asset"] },
+      { id: "nav-apps", label: "Apps", description: "Studios & tools", icon: LayoutGrid, category: "Navigate", action: () => { setView("apps"); setOpen(false); }, keywords: ["app", "studio", "tool", "image", "code", "voice"] },
+      { id: "nav-automation", label: "Automation", description: "AI executes repetitive work", icon: Zap, category: "Navigate", action: () => { setView("automation"); setOpen(false); }, keywords: ["automation", "workflow", "trigger", "schedule"] },
+      { id: "nav-analytics", label: "Analytics", description: "Productivity & usage", icon: BarChart3, category: "Navigate", action: () => { setView("analytics"); setOpen(false); }, keywords: ["analytics", "stats", "usage", "chart"] },
+      { id: "nav-settings", label: "Settings", description: "Preferences", icon: Settings, category: "Navigate", action: () => { setView("settings"); setOpen(false); }, keywords: ["settings", "preferences", "config"] },
     ];
 
     const convoItems: CommandItem[] = conversations.slice(0, 8).map((c) => ({

@@ -50,73 +50,73 @@
 :root {
   --radius: 1.5rem;
 
-  /* SPYRO OS Light — clean, airy, premium */
-  --background: #FAFAFA;
-  --foreground: #09090B;
+  /* SPYRO OS Light — warm paper, not stark white */
+  --background: #F6F6F4;
+  --foreground: #0C0C0E;
   --card: #FFFFFF;
-  --card-foreground: #09090B;
+  --card-foreground: #0C0C0E;
   --popover: #FFFFFF;
-  --popover-foreground: #09090B;
+  --popover-foreground: #0C0C0E;
   --primary: #7C3AED;
   --primary-foreground: #FFFFFF;
-  --secondary: #F4F4F5;
-  --secondary-foreground: #09090B;
-  --muted: #F4F4F5;
-  --muted-foreground: #71717A;
-  --accent: #F4F4F5;
-  --accent-foreground: #09090B;
+  --secondary: #EEEDE9;
+  --secondary-foreground: #0C0C0E;
+  --muted: #EEEDE9;
+  --muted-foreground: #6B6B72;
+  --accent: #EEEDE9;
+  --accent-foreground: #0C0C0E;
   --destructive: #EF4444;
-  --border: rgba(0, 0, 0, 0.06);
-  --input: #F4F4F5;
+  --border: rgba(12, 12, 14, 0.08);
+  --input: #EEEDE9;
   --ring: #7C3AED;
   --chart-1: #7C3AED;
   --chart-2: #06B6D4;
   --chart-3: #10B981;
   --chart-4: #F59E0B;
   --chart-5: #EC4899;
-  --sidebar: #F8F8F9;
-  --sidebar-foreground: #09090B;
+  --sidebar: #F1F0EC;
+  --sidebar-foreground: #0C0C0E;
   --sidebar-primary: #7C3AED;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F4F4F5;
-  --sidebar-accent-foreground: #09090B;
-  --sidebar-border: rgba(0, 0, 0, 0.05);
+  --sidebar-accent: #E6E5E0;
+  --sidebar-accent-foreground: #0C0C0E;
+  --sidebar-border: rgba(12, 12, 14, 0.06);
   --sidebar-ring: #7C3AED;
 }
 
 .dark {
-  /* SPYRO OS — Deep Obsidian */
-  --background: #09090B;
-  --foreground: #FAFAFA;
-  --card: #12141A;
-  --card-foreground: #FAFAFA;
-  --popover: #12141A;
-  --popover-foreground: #FAFAFA;
-  --primary: #7C3AED;
-  --primary-foreground: #FAFAFA;
-  --secondary: #181B22;
-  --secondary-foreground: #FAFAFA;
-  --muted: #181B22;
-  --muted-foreground: #A3A3A3;
-  --accent: #1E1E26;
-  --accent-foreground: #FAFAFA;
-  --destructive: #EF4444;
-  --border: rgba(255, 255, 255, 0.06);
-  --input: #181B22;
-  --ring: #7C3AED;
-  --chart-1: #7C3AED;
-  --chart-2: #06B6D4;
-  --chart-3: #10B981;
-  --chart-4: #F59E0B;
-  --chart-5: #EC4899;
-  --sidebar: #0C0C0F;
-  --sidebar-foreground: #FAFAFA;
-  --sidebar-primary: #7C3AED;
-  --sidebar-primary-foreground: #FAFAFA;
-  --sidebar-accent: #181B22;
-  --sidebar-accent-foreground: #FAFAFA;
-  --sidebar-border: rgba(255, 255, 255, 0.04);
-  --sidebar-ring: #7C3AED;
+  /* SPYRO OS — Deep Obsidian (primary, premium) */
+  --background: #08080A;
+  --foreground: #F5F5F7;
+  --card: #0F1014;
+  --card-foreground: #F5F5F7;
+  --popover: #111218;
+  --popover-foreground: #F5F5F7;
+  --primary: #8B5CF6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #16171C;
+  --secondary-foreground: #F5F5F7;
+  --muted: #16171C;
+  --muted-foreground: #9A9AA3;
+  --accent: #1A1B22;
+  --accent-foreground: #F5F5F7;
+  --destructive: #F87171;
+  --border: rgba(255, 255, 255, 0.07);
+  --input: #16171C;
+  --ring: #8B5CF6;
+  --chart-1: #8B5CF6;
+  --chart-2: #22D3EE;
+  --chart-3: #34D399;
+  --chart-4: #FBBF24;
+  --chart-5: #F472B6;
+  --sidebar: #0A0A0D;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-primary: #8B5CF6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #16171C;
+  --sidebar-accent-foreground: #F5F5F7;
+  --sidebar-border: rgba(255, 255, 255, 0.05);
+  --sidebar-ring: #8B5CF6;
 }
 
 @layer base {
@@ -148,13 +148,20 @@
 }
 
 @layer utilities {
-  /* SPYRO OS Accent Gradient */
+  /* SPYRO OS Accent Gradient — violet → cyan */
   .spyro-text-gradient {
-    background: linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%);
+    background: linear-gradient(135deg, #A78BFA 0%, #22D3EE 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
+  }
+
+  .dark .spyro-text-gradient {
+    background: linear-gradient(135deg, #A78BFA 0%, #67E8F9 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   .spyro-bg-gradient {
@@ -163,11 +170,11 @@
 
   /* Soft glow */
   .spyro-glow {
-    box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.15), 0 4px 32px -8px rgba(124, 58, 237, 0.25);
+    box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.18), 0 4px 32px -8px rgba(139, 92, 246, 0.28);
   }
 
   .spyro-glow-strong {
-    box-shadow: 0 0 24px -4px rgba(124, 58, 237, 0.4), 0 0 48px -12px rgba(6, 182, 212, 0.2);
+    box-shadow: 0 0 24px -4px rgba(139, 92, 246, 0.45), 0 0 48px -12px rgba(34, 211, 238, 0.22);
   }
 
   /* Glass effect — used sparingly on dialogs, command palette, floating panels */
@@ -211,9 +218,28 @@
   /* Animated gradient mesh background — adapts to theme */
   .gradient-mesh {
     background:
-      radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in srgb, var(--primary) 10%, transparent) 0%, transparent 50%),
-      radial-gradient(ellipse 60% 50% at 80% 100%, color-mix(in srgb, #06B6D4 6%, transparent) 0%, transparent 50%),
-      radial-gradient(ellipse 40% 30% at 50% 50%, color-mix(in srgb, var(--primary) 3%, transparent) 0%, transparent 50%);
+      radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, color-mix(in srgb, #22D3EE 8%, transparent) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 30% at 50% 50%, color-mix(in srgb, var(--primary) 4%, transparent) 0%, transparent 50%);
+  }
+
+  /* Ambient mesh for dark mode pages — richer premium feel */
+  .ambient-mesh {
+    position: relative;
+  }
+  .ambient-mesh::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 70% 40% at 15% -10%, color-mix(in srgb, var(--primary) 14%, transparent) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 35% at 85% 110%, color-mix(in srgb, #22D3EE 9%, transparent) 0%, transparent 60%);
+    z-index: 0;
+  }
+  .ambient-mesh > * {
+    position: relative;
+    z-index: 1;
   }
 
   /* Floating blurred lights */
@@ -272,7 +298,7 @@
 
   /* Focus ring */
   .focus-ring {
-    outline: 2px solid #7C3AED;
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 
@@ -283,5 +309,21 @@
   @keyframes message-in {
     from { opacity: 0; transform: translateY(6px) scale(0.99); }
     to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Ember aura — keeps the dragon signature on key brand surfaces */
+  .ember-aura {
+    position: relative;
+  }
+  .ember-aura::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: inherit;
+    background: radial-gradient(circle at center, rgba(139, 92, 246, 0.4) 0%, transparent 70%);
+    filter: blur(10px);
+    z-index: -1;
+    opacity: 0.7;
+    animation: pulse-soft 3s ease-in-out infinite;
   }
 }

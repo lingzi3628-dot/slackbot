@@ -482,3 +482,40 @@ Stage Summary:
 - Pill-style nav, surface-elevated cards, animated status indicator.
 - Subtler ember particles (less distracting).
 - All functionality preserved — purely a visual refresh.
+
+---
+Task ID: SPYRO-OS-SPEC-REDO
+Agent: main (orchestrator)
+Task: User reported the UI "looks too white" and that the SPYRO AI OS master spec was not followed. Investigate and fix.
+
+Work Log:
+- Discovered the site was returning HTTP 500 — `@/store/local-auth` was imported by 5+ components but the file never existed (previous agents referenced it without creating it).
+- Read the auth API routes (/api/auth/me, /login, /register, /logout) to understand the expected user shape (id, name, email, avatarColor, role).
+- Created `src/store/local-auth.ts`: a zustand store wrapping the cookie-based session endpoints, with `init()` (restores from /api/auth/me), `signIn()` (local state setter for guest mode), `signOut()`, `updateProfile()`, plus `isGuest()` and `canAccessTool()` helpers. This unblocked the 500.
+- Fixed the "too white" root cause: `defaultTheme="system"` was falling back to light on most systems. Changed layout.tsx ThemeProvider to `defaultTheme="dark"` with `enableSystem={false}`, and rewrote the no-flash inline script to default to dark (system → dark unless explicitly light).
+- Enriched the dark theme palette in globals.css: deeper obsidian (#08080A bg, #0F1014 cards), brighter violet primary (#8B5CF6), warmer light theme (#F6F6F4 instead of stark #FAFAFA), richer chart colors, and added `.ambient-mesh` + `.ember-aura` utilities for premium depth.
+- Expanded `ui-store.ts` View type to the full 10-item spec nav: Home, Projects, Chats, Knowledge, Agents, Files, Apps, Automation, Analytics, Settings (renamed "dashboard" → "home").
+- Updated all `"dashboard"` view references → `"home"` across login-page, register-page, command-palette, page.tsx.
+- Rebuilt `chat-sidebar.tsx` with the full 10-item nav and a clearly visible active state (primary-tinted background + left accent bar + primary-colored icon).
+- Rebuilt `command-palette.tsx` with all 10 nav destinations + keywords for fuzzy search.
+- Built `src/components/spyro/pages/home-page.tsx` — a proper command center per spec: time-based greeting, "Continue working" (recent conversations), "AI Recommendations" (context-aware: different set for new vs returning users), "Usage Statistics" cards, and quick-action buttons. Wrapped in `.ambient-mesh` for premium depth.
+- Built `src/components/spyro/pages/placeholder-page.tsx` — a shared premium empty-state component (gradient icon, title, description, bullet grid, primary + secondary CTAs) used for spec sections still in active development.
+- Built 5 placeholder pages using the shared component: projects-page, knowledge-page, files-page, automation-page, analytics-page — each with spec-accurate descriptions and feature bullets.
+- Rewrote `src/app/page.tsx`: wired `useLocalAuth().init()` on mount (auto-redirects authed users from register → home), added a top app bar for non-chat views (title + ⌘K search trigger + theme toggle), and mapped all 10 nav views to their pages.
+- Added the missing `drift` keyframe (the EmberBackground referenced it but it wasn't defined in globals.css).
+
+Verification (Agent Browser):
+- Landing/register page renders cleanly (dark, split-screen, form + features).
+- Guest sign-in flows to Home command center.
+- All 10 nav items render and are clickable; each navigates to its page without errors.
+- Home shows: greeting, context-aware recommendations, usage stats, actions — all in premium dark obsidian.
+- Sidebar active state is clearly visible (primary accent bar + tinted bg).
+- Browser console: zero errors. Dev log: clean 200s, no 500s.
+- `bun run lint`: zero errors.
+- VLM visual assessment: "Linear/Cursor/Vercel caliber. Dark theme is cohesive, active-nav indicator is clear, content is well-organized. All 8 verification criteria passed."
+
+Stage Summary:
+- CRITICAL FIX: Site was broken (500) due to missing local-auth store — now created and working.
+- "Too white" issue FIXED: app now defaults to a rich dark obsidian theme; light theme warmed up and available via the theme toggle.
+- Master spec now followed: full 10-item global navigation (Home, Projects, Chats, Knowledge, Agents, Files, Apps, Automation, Analytics, Settings) wired end-to-end, with a proper Home command center and premium placeholder pages for the sections under active development.
+- Artifacts: src/store/local-auth.ts, src/components/spyro/pages/{home,placeholder,projects,knowledge,files,automation,analytics}-page.tsx, updated src/app/page.tsx, src/store/ui-store.ts, src/components/spyro/{chat-sidebar,command-palette}.tsx, src/app/{layout.tsx,globals.css}.

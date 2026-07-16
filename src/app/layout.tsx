@@ -68,9 +68,12 @@ export default function RootLayout({
               (function() {
                 try {
                   var stored = localStorage.getItem('theme');
-                  var theme = stored || 'system';
+                  // SPYRO OS ships dark-first. Default to dark unless the user
+                  // has explicitly chosen 'light'. 'system' falls back to dark
+                  // so the premium obsidian experience is the default.
+                  var theme = stored || 'dark';
                   if (theme === 'system') {
-                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
                   }
                   if (theme === 'dark') document.documentElement.classList.add('dark');
                   else document.documentElement.classList.remove('dark');
@@ -87,8 +90,8 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
           {children}

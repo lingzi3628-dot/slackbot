@@ -61,7 +61,7 @@ export function RegisterPage() {
       if (mode === "register" && data.needsVerification) {
         setVerifyEmail(data.email); await sendCode(data.email); setStep("verify"); setLoading(false); return;
       }
-      if (data.id) { signIn(data.email, data.name); setView("dashboard"); }
+      if (data.id) { signIn(data.email, data.name); setView("home"); }
       else { setError(data.error || "Something went wrong."); }
     } catch { setError("Network error. Please try again."); }
     finally { setLoading(false); }
@@ -83,13 +83,13 @@ export function RegisterPage() {
     try {
       const res = await fetch("/api/auth/verify-code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: verifyEmail, code: code.trim() }) });
       const data = await res.json();
-      if (data.verified) { signIn(data.email, data.name); setView("dashboard"); }
+      if (data.verified) { signIn(data.email, data.name); setView("home"); }
       else { setCodeError(data.error || "Invalid code."); }
     } catch { setCodeError("Network error."); }
     finally { setCodeLoading(false); }
   };
 
-  const continueAsGuest = () => { signIn("guest@spyro.ai", "Guest"); setView("dashboard"); };
+  const continueAsGuest = () => { signIn("guest@spyro.ai", "Guest"); setView("home"); };
 
   const sendForgotPassword = async () => {
     if (!forgotEmail.trim()) return;
