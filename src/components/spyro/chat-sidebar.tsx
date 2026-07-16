@@ -3,9 +3,9 @@
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Check, MessageSquarePlus, Pencil, Trash2, X, Flame,
+  Check, MessageSquarePlus, Pencil, Trash2, X,
   MessageCircle, Plug, Settings as SettingsIcon, Info, Search,
-  LayoutDashboard, User as UserIcon, Bot, Terminal,
+  LayoutDashboard, User as UserIcon, Bot, Terminal, Flame,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -17,15 +17,14 @@ interface SidebarContentProps {
   onNavigate?: () => void;
 }
 
+// SPYRO OS Navigation — aligned with the master spec
 const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
-  { view: "chat", label: "Chat", icon: MessageCircle },
-  { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { view: "dashboard", label: "Home", icon: LayoutDashboard },
+  { view: "chat", label: "Chats", icon: MessageCircle },
   { view: "agent-builder", label: "Agents", icon: Bot },
   { view: "api-playground", label: "API", icon: Terminal },
-  { view: "integrations", label: "Integrations", icon: Plug },
-  { view: "integration-control", label: "AI Control", icon: SettingsIcon },
-  { view: "profile", label: "Profile", icon: UserIcon },
-  { view: "about", label: "About", icon: Info },
+  { view: "integrations", label: "Apps", icon: Plug },
+  { view: "integration-control", label: "Settings", icon: SettingsIcon },
 ];
 
 function timeAgo(ts: number): string {
@@ -60,29 +59,32 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
   const filtered = React.useMemo(() => {
     if (!search.trim()) return conversations;
     const q = search.toLowerCase();
-    return conversations.filter((c) => c.title.toLowerCase().includes(q) || c.messages.some((m) => m.content.toLowerCase().includes(q)));
+    return conversations.filter((c) =>
+      c.title.toLowerCase().includes(q) ||
+      c.messages.some((m) => m.content.toLowerCase().includes(q))
+    );
   }, [conversations, search]);
 
   const handleNav = (view: View) => { setView(view); onNavigate?.(); };
   const handleNew = () => { createConversation(); setView("chat"); onNavigate?.(); };
   const handleSelect = (id: string) => { setActive(id); setView("chat"); onNavigate?.(); };
-
   const startEdit = (id: string, current: string) => { setEditingId(id); setDraft(current); };
   const commitEdit = () => { if (editingId) renameConversation(editingId, draft); setEditingId(null); setDraft(""); };
 
   return (
     <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
-      {/* Brand — minimal */}
+      {/* Brand */}
       <div className="px-5 pt-5 pb-3">
         <div className="flex items-center gap-2">
           <div className="grid h-7 w-7 place-items-center rounded-lg spyro-bg-gradient">
             <Flame className="h-4 w-4 text-white" />
           </div>
           <span className="text-sm font-bold tracking-tight">SPYRO</span>
+          <span className="ml-auto text-[10px] text-muted-foreground/40">⌘K</span>
         </div>
       </div>
 
-      {/* Navigation — minimal, spacious */}
+      {/* Navigation */}
       <div className="px-2 pb-3">
         <nav className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
@@ -104,10 +106,9 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
         </nav>
       </div>
 
-      {/* Divider */}
       <div className="mx-3 h-px bg-border" />
 
-      {/* New chat + conversations (chat view only) */}
+      {/* Conversations (chat view only) */}
       {activeView === "chat" && (
         <>
           <div className="px-3 pt-3">
@@ -116,7 +117,6 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
             </Button>
           </div>
 
-          {/* Search */}
           {conversations.length > 0 && (
             <div className="px-3 pt-2">
               <div className="relative">
@@ -169,7 +169,7 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
         </>
       )}
 
-      {/* Footer — user */}
+      {/* Footer */}
       <div className="mt-auto border-t border-border p-3">
         {isAuthed && localUser ? (
           <button onClick={() => { setView("profile"); onNavigate?.(); }} className="flex w-full items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-secondary/50">

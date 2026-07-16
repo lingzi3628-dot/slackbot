@@ -25,6 +25,7 @@ import { IntegrationControl } from "@/components/spyro/pages/integration-control
 import { ApiPlayground } from "@/components/spyro/pages/api-playground-page";
 import { AgentBuilder } from "@/components/spyro/pages/agent-builder-page";
 import { GodModeLive } from "@/components/spyro/pages/god-mode-live-page";
+import { CommandPalette } from "@/components/spyro/command-palette";
 
 export default function Home() {
   const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
@@ -75,6 +76,7 @@ export default function Home() {
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
       <EmberBackground />
+      <CommandPalette />
 
       {/* Desktop sidebar */}
       <aside className="relative z-10 hidden w-72 shrink-0 overflow-hidden border-r border-border bg-sidebar/60 backdrop-blur-xl lg:flex">

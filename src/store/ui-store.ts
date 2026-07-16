@@ -1,11 +1,14 @@
 /**
- * UI state — which "page" is active. We use a view-state rather than
- * separate routes so everything stays on `/` (the preview-visible route)
- * while still feeling like separate pages.
+ * UI state — which "page" is active.
+ * Aligned with SPYRO OS spec: Home, Projects, Chats, Knowledge, Agents,
+ * Files, Apps, Automation, Analytics, Settings.
  */
 import { create } from "zustand";
 
-export type View = "chat" | "dashboard" | "integrations" | "integration-control" | "settings" | "about" | "login" | "register" | "profile" | "api-playground" | "agent-builder" | "god-mode-live";
+export type View =
+  | "chat" | "dashboard" | "integrations" | "integration-control"
+  | "settings" | "about" | "login" | "register" | "profile"
+  | "api-playground" | "agent-builder" | "god-mode-live";
 
 interface UIState {
   activeView: View;
