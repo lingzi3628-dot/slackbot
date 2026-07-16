@@ -1,26 +1,32 @@
 import { NextResponse } from "next/server";
-import { IS_LIVE, EVOLUTION_CONFIGURED, WEBHOOK_CONFIGURED } from "@/lib/comms/evolution-api";
+import { getActiveMode, EVOLUTION_CONFIGURED, WEBHOOK_CONFIGURED } from "@/lib/comms/evolution-api";
+import { isBaileysAvailable } from "@/lib/comms/baileys-provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/comms/mode
- * Returns whether the Communication Center is running in LIVE or DEMO mode,
- * and what's configured. Used by the frontend to show the right banner.
+ * Returns the active WhatsApp provider and configuration status.
  */
 export async function GET() {
+  const mode = await getActiveMode();
+  const baileysAvailable = await isBaileysAvailable();
+
+  const setupSteps = mode === "demo" ? [
+    "Option A (FREE): Run the Baileys mini-service locally — `cd mini-services/whatsapp && bun install && bun run dev`. It connects directly to WhatsApp, no API key needed.",
+    "Option B (Self-hosted): Deploy an Evolution API instance via Docker",
+    "Option C (Hosted): Use a hosted Evolution API provider",
+    "Set NEXT_PUBLIC_APP_URL to this app's public URL (so incoming messages reach the AI agent)",
+    "Redeploy — the Connect WhatsApp flow will then pair a real device and the AI agent will auto-reply from your connected number",
+  ] : [];
+
   return NextResponse.json({
-    mode: IS_LIVE ? "live" : "demo",
+    mode,
+    baileysAvailable,
     evolutionApiConfigured: EVOLUTION_CONFIGURED,
     webhookConfigured: WEBHOOK_CONFIGURED,
     appUrl: process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || null,
-    setupSteps: IS_LIVE ? [] : [
-      "Deploy an Evolution API instance (self-hosted via Docker or use a hosted provider)",
-      "Set EVOLUTION_API_URL to your instance URL (e.g. https://evolution.yourdomain.com)",
-      "Set EVOLUTION_API_KEY to your Evolution API key",
-      "Set NEXT_PUBLIC_APP_URL to this app's public URL (so Evolution API can deliver incoming messages)",
-      "Redeploy — the Connect WhatsApp flow will then pair a real device and the AI agent will auto-reply from your connected number",
-    ],
+    setupSteps,
   });
 }

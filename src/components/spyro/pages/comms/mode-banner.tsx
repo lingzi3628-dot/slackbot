@@ -6,7 +6,8 @@ import { Info, X, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ModeInfo {
-  mode: "live" | "demo";
+  mode: "baileys" | "evolution" | "demo";
+  baileysAvailable: boolean;
   evolutionApiConfigured: boolean;
   webhookConfigured: boolean;
   appUrl: string | null;
@@ -27,7 +28,8 @@ export function ModeBanner() {
 
   if (!mode || dismissed) return null;
 
-  const isLive = mode.mode === "live";
+  const isLive = mode.mode !== "demo";
+  const modeLabel = mode.mode === "baileys" ? "Baileys (Free)" : mode.mode === "evolution" ? "Evolution API" : "Demo";
 
   return (
     <>
@@ -41,8 +43,8 @@ export function ModeBanner() {
         {isLive ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
         <span className="flex-1">
           {isLive
-            ? "LIVE MODE — Real WhatsApp connected. AI agents reply from your number."
-            : "DEMO MODE — Simulated connection. Add Evolution API credentials to go live."}
+            ? `LIVE MODE (${modeLabel}) — Real WhatsApp. AI agents reply from your connected number.`
+            : "DEMO MODE — Simulated connection. Run the Baileys service or add Evolution API to go live."}
         </span>
         {!isLive && (
           <button
@@ -98,7 +100,7 @@ export function ModeBanner() {
 
               <div className="overflow-y-auto px-6 py-5">
                 <p className="text-sm text-muted-foreground">
-                  To connect real WhatsApp devices and have your AI agents reply from your own number, you need an Evolution API instance. Here's how:
+                  Three ways to go live with real WhatsApp — all free, no paid APIs:
                 </p>
 
                 <ol className="mt-4 space-y-3">
@@ -112,30 +114,48 @@ export function ModeBanner() {
                   ))}
                 </ol>
 
-                <div className="mt-5 rounded-xl border border-border bg-card/40 p-4">
-                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Environment variables</div>
-                  <pre className="overflow-x-auto rounded-lg bg-background p-3 text-[11px] leading-relaxed text-foreground/80"><code>{`# Required for LIVE mode
-EVOLUTION_API_URL=https://your-evolution-instance.com
-EVOLUTION_API_KEY=your-evolution-api-key
-
-# Required for incoming message webhooks
-NEXT_PUBLIC_APP_URL=https://your-spyro-app.com`}</code></pre>
+                {/* Baileys (recommended — free) */}
+                <div className="mt-5 flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                  <div>
+                    <div className="font-medium text-emerald-400">Option A: Baileys (Recommended · 100% Free)</div>
+                    <div className="mt-1 text-foreground/80">
+                      Run the included mini-service locally or on a VPS:
+                    </div>
+                    <pre className="mt-2 overflow-x-auto rounded-lg bg-background p-2 text-[10px] leading-relaxed text-foreground/80"><code>{`cd mini-services/whatsapp
+bun install && bun run dev`}</code></pre>
+                    <div className="mt-1 text-[10px] text-muted-foreground">
+                      Connects directly to WhatsApp. No API key, no hosting fee.
+                      Needs a persistent process (VPS, local machine, or Railway/Render free tier).
+                    </div>
+                  </div>
                 </div>
 
-                <div className="mt-4 flex items-start gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs text-cyan-400">
+                {/* Evolution API */}
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 text-xs text-cyan-400">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <div>
-                    <div className="font-medium">Evolution API</div>
+                    <div className="font-medium">Option B: Evolution API</div>
                     <div className="mt-0.5 text-cyan-400/70">
-                      Open-source WhatsApp API. Deploy via Docker or use a hosted provider.
+                      Self-host via Docker or use a hosted provider.
                       Docs: <span className="underline">github.com/EvolutionAPI/evolution-api</span>
                     </div>
                   </div>
                 </div>
 
+                <div className="mt-5 rounded-xl border border-border bg-card/40 p-4">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Environment variables (Option B only)</div>
+                  <pre className="overflow-x-auto rounded-lg bg-background p-3 text-[11px] leading-relaxed text-foreground/80"><code>{`EVOLUTION_API_URL=https://your-evolution-instance.com
+EVOLUTION_API_KEY=your-evolution-api-key
+NEXT_PUBLIC_APP_URL=https://your-spyro-app.com`}</code></pre>
+                </div>
+
                 <div className="mt-4 text-[11px] text-muted-foreground">
                   Current status:
-                  <span className={cn("ml-1 font-medium", mode.evolutionApiConfigured ? "text-emerald-400" : "text-rose-400")}>
+                  <span className={cn("ml-1 font-medium", mode.baileysAvailable ? "text-emerald-400" : "text-rose-400")}>
+                    {mode.baileysAvailable ? "Baileys service ✓" : "Baileys service ✗"}
+                  </span>
+                  <span className={cn("ml-2 font-medium", mode.evolutionApiConfigured ? "text-emerald-400" : "text-rose-400")}>
                     {mode.evolutionApiConfigured ? "Evolution API ✓" : "Evolution API ✗"}
                   </span>
                   <span className={cn("ml-2 font-medium", mode.webhookConfigured ? "text-emerald-400" : "text-rose-400")}>

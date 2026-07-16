@@ -40,6 +40,9 @@ const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 const APP_PUBLIC_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
 export const EVOLUTION_CONFIGURED = Boolean(EVOLUTION_API_URL && EVOLUTION_API_KEY);
 export const WEBHOOK_CONFIGURED = Boolean(APP_PUBLIC_URL);
+
+// The active provider is resolved async (Baileys health check). Exported
+// for the mode endpoint. Default: Evolution if configured, else not-live.
 export const IS_LIVE = EVOLUTION_CONFIGURED;
 
 // ── In-memory connection registry (both modes) ───────────────────────
@@ -532,9 +535,44 @@ function mapEvoContactToContact(c: any, channelId: string): Contact {
 }
 
 // ── Provider registry (channel-agnostic) ──────────────────────────────
+// Provider priority:
+//   1. Baileys (free, local mini-service — preferred when available)
+//   2. Evolution API (when configured via env vars)
+//   3. Demo mode (fallback)
+import { BaileysProvider, isBaileysAvailable } from "./baileys-provider";
+
 const PROVIDERS = new Map<ChannelType, ChannelProvider>();
 const evolution = new EvolutionApiProvider();
+const baileys = new BaileysProvider();
+
+// Set the default provider. The async resolver below can swap it at runtime.
+let activeProvider: ChannelProvider = evolution;
 PROVIDERS.set("whatsapp", evolution);
+
+/**
+ * Resolve which provider to use. Called once on first API request.
+ * Priority: Baileys (local, free) > Evolution API > Demo.
+ */
+let _resolved = false;
+export async function resolveProvider(): Promise<ChannelProvider> {
+  if (_resolved) return activeProvider;
+  _resolved = true;
+
+  if (await isBaileysAvailable()) {
+    console.log("[comms] Using Baileys provider (local mini-service)");
+    activeProvider = baileys;
+    PROVIDERS.set("whatsapp", baileys);
+    return baileys;
+  }
+  if (EVOLUTION_CONFIGURED) {
+    console.log("[comms] Using Evolution API provider");
+    activeProvider = evolution;
+    PROVIDERS.set("whatsapp", evolution);
+    return evolution;
+  }
+  console.log("[comms] Using Evolution provider in DEMO mode");
+  return evolution;
+}
 
 export function getProvider(type: ChannelType): ChannelProvider | undefined {
   return PROVIDERS.get(type);
@@ -547,6 +585,13 @@ export function listAvailableProviders(): ChannelProvider[] {
 /** Used by the webhook to find the provider for an incoming message. */
 export function getProviderByChannelType(type: ChannelType): ChannelProvider | undefined {
   return PROVIDERS.get(type);
+}
+
+/** What's actually powering WhatsApp right now? */
+export async function getActiveMode(): Promise<"baileys" | "evolution" | "demo"> {
+  if (await isBaileysAvailable()) return "baileys";
+  if (EVOLUTION_CONFIGURED) return "evolution";
+  return "demo";
 }
 
 export { MOCK_AGENTS };

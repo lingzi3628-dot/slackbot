@@ -88,7 +88,14 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
       // Immediate first fetch.
       fetchStatus(data.channelId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      // Provide a helpful message when Baileys can't reach WhatsApp
+      // (common on cloud IPs that WhatsApp blocks).
+      setError(
+        msg.includes("Timed out") || msg.includes("405") || msg.includes("Connection Failure")
+          ? "WhatsApp rejected the connection from this server's IP. This is common on cloud/datacenter IPs. Run the Baileys service on a VPS or your local machine (home internet) — WhatsApp allows those. See 'How to go live' for setup instructions."
+          : msg
+      );
       setPhase("error");
     }
   }, [fetchStatus, setChannelId]);
