@@ -536,28 +536,32 @@ function mapEvoContactToContact(c: any, channelId: string): Contact {
 
 // ── Provider registry (channel-agnostic) ──────────────────────────────
 // Provider priority:
-//   1. Baileys (free, local mini-service — preferred when available)
-//   2. Evolution API (when configured via env vars)
-//   3. Demo mode (fallback)
+//   1. Pairing Server (VPS — real WhatsApp, pairing code flow) ← highest
+//   2. Baileys (local mini-service — real WhatsApp, QR flow)
+//   3. Evolution API (when configured via env vars)
+//   4. Demo mode (fallback)
 import { BaileysProvider, isBaileysAvailable } from "./baileys-provider";
+import { PairingServerProvider, isPairingServerAvailable } from "./pairing-server-provider";
 
 const PROVIDERS = new Map<ChannelType, ChannelProvider>();
 const evolution = new EvolutionApiProvider();
 const baileys = new BaileysProvider();
+const pairingServer = new PairingServerProvider();
 
-// Set the default provider. The async resolver below can swap it at runtime.
 let activeProvider: ChannelProvider = evolution;
 PROVIDERS.set("whatsapp", evolution);
 
-/**
- * Resolve which provider to use. Called once on first API request.
- * Priority: Baileys (local, free) > Evolution API > Demo.
- */
 let _resolved = false;
 export async function resolveProvider(): Promise<ChannelProvider> {
   if (_resolved) return activeProvider;
   _resolved = true;
 
+  if (await isPairingServerAvailable()) {
+    console.log("[comms] Using Pairing Server provider (VPS — real WhatsApp)");
+    activeProvider = pairingServer;
+    PROVIDERS.set("whatsapp", pairingServer);
+    return pairingServer;
+  }
   if (await isBaileysAvailable()) {
     console.log("[comms] Using Baileys provider (local mini-service)");
     activeProvider = baileys;
@@ -582,13 +586,12 @@ export function listAvailableProviders(): ChannelProvider[] {
   return Array.from(PROVIDERS.values());
 }
 
-/** Used by the webhook to find the provider for an incoming message. */
 export function getProviderByChannelType(type: ChannelType): ChannelProvider | undefined {
   return PROVIDERS.get(type);
 }
 
-/** What's actually powering WhatsApp right now? */
-export async function getActiveMode(): Promise<"baileys" | "evolution" | "demo"> {
+export async function getActiveMode(): Promise<"pairing" | "baileys" | "evolution" | "demo"> {
+  if (await isPairingServerAvailable()) return "pairing";
   if (await isBaileysAvailable()) return "baileys";
   if (EVOLUTION_CONFIGURED) return "evolution";
   return "demo";

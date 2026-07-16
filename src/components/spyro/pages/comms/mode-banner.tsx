@@ -6,7 +6,8 @@ import { Info, X, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ModeInfo {
-  mode: "baileys" | "evolution" | "demo";
+  mode: "pairing" | "baileys" | "evolution" | "demo";
+  pairingServerAvailable: boolean;
   baileysAvailable: boolean;
   evolutionApiConfigured: boolean;
   webhookConfigured: boolean;
@@ -29,7 +30,10 @@ export function ModeBanner() {
   if (!mode || dismissed) return null;
 
   const isLive = mode.mode !== "demo";
-  const modeLabel = mode.mode === "baileys" ? "Baileys (Free)" : mode.mode === "evolution" ? "Evolution API" : "Demo";
+  const modeLabel =
+    mode.mode === "pairing" ? "VPS Pairing Server" :
+    mode.mode === "baileys" ? "Baileys (Free)" :
+    mode.mode === "evolution" ? "Evolution API" : "Demo";
 
   return (
     <>
@@ -152,14 +156,17 @@ NEXT_PUBLIC_APP_URL=https://your-spyro-app.com`}</code></pre>
 
                 <div className="mt-4 text-[11px] text-muted-foreground">
                   Current status:
-                  <span className={cn("ml-1 font-medium", mode.baileysAvailable ? "text-emerald-400" : "text-rose-400")}>
-                    {mode.baileysAvailable ? "Baileys service ✓" : "Baileys service ✗"}
+                  <span className={cn("ml-1 font-medium", mode.pairingServerAvailable ? "text-emerald-400" : "text-rose-400")}>
+                    {mode.pairingServerAvailable ? "VPS Pairing Server ✓" : "VPS Pairing Server ✗"}
+                  </span>
+                  <span className={cn("ml-2 font-medium", mode.baileysAvailable ? "text-emerald-400" : "text-rose-400")}>
+                    {mode.baileysAvailable ? "Baileys ✓" : "Baileys ✗"}
                   </span>
                   <span className={cn("ml-2 font-medium", mode.evolutionApiConfigured ? "text-emerald-400" : "text-rose-400")}>
                     {mode.evolutionApiConfigured ? "Evolution API ✓" : "Evolution API ✗"}
                   </span>
                   <span className={cn("ml-2 font-medium", mode.webhookConfigured ? "text-emerald-400" : "text-rose-400")}>
-                    {mode.webhookConfigured ? "Webhook URL ✓" : "Webhook URL ✗"}
+                    {mode.webhookConfigured ? "Webhook ✓" : "Webhook ✗"}
                   </span>
                 </div>
               </div>

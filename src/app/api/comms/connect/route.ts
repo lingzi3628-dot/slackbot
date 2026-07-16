@@ -28,16 +28,19 @@ export async function POST(req: NextRequest) {
 
     const mode = await getActiveMode();
     const id = channelId || `spyro_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    const { qrCode, expiresAt, resolvedChannelId } = await provider.initiateConnection(id);
+    const result = await provider.initiateConnection(id);
 
     return NextResponse.json({
-      channelId: resolvedChannelId,
-      qrCode,
-      expiresAt,
+      channelId: result.resolvedChannelId,
+      qrCode: result.qrCode || "",
+      expiresAt: result.expiresAt,
       channelType,
       displayName: provider.displayName,
-      mode, // "baileys" | "evolution" | "demo"
+      mode,
       live: mode !== "demo",
+      // Pairing code flow (pairing-server only)
+      pairingCode: (result as { pairingCode?: string }).pairingCode,
+      pairingLink: (result as { pairingLink?: string }).pairingLink,
     });
   } catch (err) {
     console.error("[comms/connect] error:", err);
