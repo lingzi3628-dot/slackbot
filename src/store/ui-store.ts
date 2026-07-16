@@ -5,7 +5,7 @@
  */
 import { create } from "zustand";
 
-export type View = "chat" | "dashboard" | "integrations" | "settings" | "about" | "login" | "register" | "profile";
+export type View = "chat" | "dashboard" | "integrations" | "integration-control" | "settings" | "about" | "login" | "register" | "profile";
 
 interface UIState {
   activeView: View;

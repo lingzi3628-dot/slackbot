@@ -16,8 +16,10 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Only initialize if config is present.
-const isFirebaseConfigured = !!firebaseConfig.apiKey;
+// Only initialize if config is present AND Google Sign-In is enabled.
+// Temporarily disabled — Firebase authDomain DNS issue. Will fix later.
+const GOOGLE_SIGNIN_ENABLED = false; // Set to true once Firebase is fixed
+const isFirebaseConfigured = GOOGLE_SIGNIN_ENABLED && !!firebaseConfig.apiKey;
 
 const app = isFirebaseConfigured && getApps().length === 0
   ? initializeApp(firebaseConfig)

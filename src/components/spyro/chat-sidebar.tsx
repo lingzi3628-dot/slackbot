@@ -33,7 +33,7 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Flame }[] = [
   { view: "chat", label: "Chat", icon: MessageCircle },
   { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { view: "integrations", label: "Integrations", icon: Plug },
-  { view: "settings", label: "Settings", icon: SettingsIcon },
+  { view: "integration-control", label: "AI Control", icon: SettingsIcon },
   { view: "profile", label: "Profile", icon: UserIcon },
   { view: "about", label: "About", icon: Info },
 ];

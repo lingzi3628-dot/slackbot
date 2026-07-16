@@ -105,7 +105,7 @@ const APPS: SpyroApp[] = [
     description: "Write, preview & iterate on code",
     icon: Code2,
     gradient: "from-amber-500 to-orange-600",
-    status: "live",
+    status: "maintenance",
   },
   {
     id: "god-mode",
@@ -147,7 +147,7 @@ const APPS: SpyroApp[] = [
     description: "Remove image backgrounds instantly",
     icon: Scissors,
     gradient: "from-red-500 to-rose-700",
-    status: "live",
+    status: "maintenance",
     badge: "New",
   },
   {
@@ -520,14 +520,16 @@ function Hub({ onOpenApp }: { onOpenApp: (id: string) => void }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 + i * 0.05 }}
             onClick={() => app.status === "live" && canAccessTool(app.id, localUser) && onOpenApp(app.id)}
-            disabled={app.status === "soon" || (guest && !canAccessTool(app.id, localUser))}
+            disabled={app.status !== "live" || (guest && !canAccessTool(app.id, localUser))}
             className={cn(
               "group relative overflow-hidden rounded-2xl border p-5 text-left transition-all",
               app.status === "live" && canAccessTool(app.id, localUser)
                 ? "surface-elevated hover:spyro-glow cursor-pointer"
-                : app.status === "live" && guest
+                : app.status === "maintenance"
                   ? "border-border/30 opacity-50 cursor-not-allowed"
-                  : "border-border/30 opacity-60 cursor-not-allowed"
+                  : app.status === "live" && guest
+                    ? "border-border/30 opacity-50 cursor-not-allowed"
+                    : "border-border/30 opacity-60 cursor-not-allowed"
             )}
           >
             {/* Gradient glow on hover */}
@@ -553,6 +555,11 @@ function Hub({ onOpenApp }: { onOpenApp: (id: string) => void }) {
               {app.status === "soon" && (
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                   Soon
+                </span>
+              )}
+              {app.status === "maintenance" && (
+                <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-medium text-yellow-500">
+                  🔧 Maintenance
                 </span>
               )}
               {app.status === "live" && guest && !canAccessTool(app.id, localUser) && (
