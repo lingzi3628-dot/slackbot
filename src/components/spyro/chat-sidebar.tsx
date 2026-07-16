@@ -6,7 +6,7 @@ import {
   Check, MessageSquarePlus, Pencil, Trash2, X,
   MessageCircle, Settings as SettingsIcon, Search,
   Home, FolderKanban, BookOpen, Bot, FileText, LayoutGrid,
-  Zap, BarChart3, Flame, Inbox,
+  Zap, BarChart3, Flame, Inbox, Terminal, Info,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -19,8 +19,9 @@ interface SidebarContentProps {
 }
 
 // ── SPYRO OS Global Navigation (master spec) ──────────────────────────
-// Home · Projects · Chats · Knowledge · Agents · Files · Apps ·
-// Automation · Analytics · Settings
+// Primary nav: Home · Projects · Chats · Inbox · Knowledge · Agents ·
+//              Files · Apps · Automation · Analytics · Settings
+// Developer: API Playground · About
 const NAV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
   { view: "home", label: "Home", icon: Home },
   { view: "projects", label: "Projects", icon: FolderKanban },
@@ -33,6 +34,12 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
   { view: "automation", label: "Automation", icon: Zap },
   { view: "analytics", label: "Analytics", icon: BarChart3 },
   { view: "settings", label: "Settings", icon: SettingsIcon },
+];
+
+// Developer / advanced tools — separated by a divider
+const DEV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
+  { view: "api-playground", label: "API Playground", icon: Terminal },
+  { view: "about", label: "About", icon: Info },
 ];
 
 function timeAgo(ts: number): string {
@@ -93,9 +100,39 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
       </div>
 
       {/* Navigation */}
-      <div className="px-2 pb-3">
+      <div className="px-2 pb-2">
         <nav className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
+            const isActive = activeView === item.view;
+            return (
+              <button
+                key={item.view}
+                onClick={() => handleNav(item.view)}
+                className={cn(
+                  "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all",
+                  isActive
+                    ? "bg-primary/10 text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                )}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                )}
+                <item.icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Developer tools */}
+      <div className="px-2 pb-2">
+        <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+          Developer
+        </div>
+        <nav className="space-y-0.5">
+          {DEV_ITEMS.map((item) => {
             const isActive = activeView === item.view;
             return (
               <button
