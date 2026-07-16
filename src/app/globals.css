@@ -50,38 +50,38 @@
 :root {
   --radius: 1.5rem;
 
-  /* Light theme */
-  --background: oklch(0.985 0.002 280);
-  --foreground: oklch(0.09 0.01 280);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.09 0.01 280);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.09 0.01 280);
-  --primary: oklch(0.55 0.25 295);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.005 280);
-  --secondary-foreground: oklch(0.2 0.01 280);
-  --muted: oklch(0.96 0.005 280);
-  --muted-foreground: oklch(0.5 0.01 280);
-  --accent: oklch(0.93 0.01 280);
-  --accent-foreground: oklch(0.2 0.01 280);
-  --destructive: oklch(0.55 0.24 25);
-  --border: oklch(0.9 0.005 280);
-  --input: oklch(0.92 0.005 280);
-  --ring: oklch(0.55 0.25 295);
-  --chart-1: oklch(0.55 0.25 295);
-  --chart-2: oklch(0.6 0.2 190);
-  --chart-3: oklch(0.65 0.15 150);
-  --chart-4: oklch(0.55 0.22 25);
-  --chart-5: oklch(0.7 0.18 85);
-  --sidebar: oklch(0.97 0.003 280);
-  --sidebar-foreground: oklch(0.2 0.01 280);
-  --sidebar-primary: oklch(0.55 0.25 295);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.93 0.01 280);
-  --sidebar-accent-foreground: oklch(0.2 0.01 280);
-  --sidebar-border: oklch(0.9 0.005 280);
-  --sidebar-ring: oklch(0.55 0.25 295);
+  /* SPYRO OS Light — clean, airy, premium */
+  --background: #FAFAFA;
+  --foreground: #09090B;
+  --card: #FFFFFF;
+  --card-foreground: #09090B;
+  --popover: #FFFFFF;
+  --popover-foreground: #09090B;
+  --primary: #7C3AED;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #09090B;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+  --accent: #F4F4F5;
+  --accent-foreground: #09090B;
+  --destructive: #EF4444;
+  --border: rgba(0, 0, 0, 0.06);
+  --input: #F4F4F5;
+  --ring: #7C3AED;
+  --chart-1: #7C3AED;
+  --chart-2: #06B6D4;
+  --chart-3: #10B981;
+  --chart-4: #F59E0B;
+  --chart-5: #EC4899;
+  --sidebar: #F8F8F9;
+  --sidebar-foreground: #09090B;
+  --sidebar-primary: #7C3AED;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F4F4F5;
+  --sidebar-accent-foreground: #09090B;
+  --sidebar-border: rgba(0, 0, 0, 0.05);
+  --sidebar-ring: #7C3AED;
 }
 
 .dark {
@@ -130,7 +130,7 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Premium scrollbars */
+  /* Premium scrollbars — adapt to theme */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -139,11 +139,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--muted-foreground) 20%, transparent);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
   }
 }
 
@@ -172,48 +172,48 @@
 
   /* Glass effect — used sparingly on dialogs, command palette, floating panels */
   .glass {
-    background: rgba(18, 20, 26, 0.7);
+    background: color-mix(in srgb, var(--card) 75%, transparent);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border);
   }
 
   .glass-strong {
-    background: rgba(12, 12, 15, 0.85);
+    background: color-mix(in srgb, var(--background) 88%, transparent);
     backdrop-filter: blur(32px) saturate(200%);
     -webkit-backdrop-filter: blur(32px) saturate(200%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border);
   }
 
-  /* Premium card surface */
+  /* Premium card surface — adapts to theme */
   .surface {
-    background: #12141A;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 24px;
   }
 
   .surface-elevated {
-    background: linear-gradient(180deg, #12141A 0%, #0E0F14 100%);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 24px;
-    box-shadow: 0 2px 16px -4px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 16px -4px color-mix(in srgb, var(--foreground) 8%, transparent);
   }
 
-  /* Soft shadows */
+  /* Soft shadows — adapt to theme */
   .shadow-soft {
-    box-shadow: 0 2px 12px -2px rgba(0, 0, 0, 0.2), 0 1px 4px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 12px -2px color-mix(in srgb, var(--foreground) 8%, transparent), 0 1px 4px -1px color-mix(in srgb, var(--foreground) 4%, transparent);
   }
 
   .shadow-elevated {
-    box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4), 0 2px 8px -2px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 32px -8px color-mix(in srgb, var(--foreground) 12%, transparent), 0 2px 8px -2px color-mix(in srgb, var(--foreground) 6%, transparent);
   }
 
-  /* Animated gradient mesh background */
+  /* Animated gradient mesh background — adapts to theme */
   .gradient-mesh {
     background:
-      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(124, 58, 237, 0.12) 0%, transparent 50%),
-      radial-gradient(ellipse 60% 50% at 80% 100%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse 40% 30% at 50% 50%, rgba(124, 58, 237, 0.04) 0%, transparent 50%);
+      radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in srgb, var(--primary) 10%, transparent) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 50% at 80% 100%, color-mix(in srgb, #06B6D4 6%, transparent) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 30% at 50% 50%, color-mix(in srgb, var(--primary) 3%, transparent) 0%, transparent 50%);
   }
 
   /* Floating blurred lights */
@@ -249,9 +249,9 @@
     animation: pulse-soft 3s ease-in-out infinite;
   }
 
-  /* Skeleton shimmer */
+  /* Skeleton shimmer — adapts to theme */
   .shimmer {
-    background: linear-gradient(90deg, #12141A 0%, #181B22 50%, #12141A 100%);
+    background: linear-gradient(90deg, var(--card) 0%, var(--secondary) 50%, var(--card) 100%);
     background-size: 200% 100%;
     animation: shimmer 2s linear infinite;
   }
