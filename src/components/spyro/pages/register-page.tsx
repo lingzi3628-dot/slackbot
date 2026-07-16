@@ -114,9 +114,19 @@ export function RegisterPage() {
     setError(null);
 
     try {
-      const { signInWithPopup } = await import("firebase/auth");
+      const { signInWithPopup, GoogleAuthProvider } = await import("firebase/auth");
+
+      // Set custom parameters for cleaner OAuth flow.
+      googleProvider.setCustomParameters({
+        prompt: "select_account",
+      });
+
       const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
       const user = result.user;
+
+      // Get the ID token to verify on the server.
+      const idToken = await user.getIdToken();
 
       // Send to our API to create/find user in Neon + set session cookie.
       const res = await fetch("/api/auth/google", {
@@ -127,6 +137,7 @@ export function RegisterPage() {
           name: user.displayName,
           uid: user.uid,
           photoUrl: user.photoURL,
+          idToken,
         }),
       });
       const data = await res.json();
