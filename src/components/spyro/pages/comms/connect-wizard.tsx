@@ -120,7 +120,8 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+      style={{ position: "fixed", inset: 0, zIndex: 90 }}
+      className="flex items-start justify-center overflow-y-auto p-4 sm:items-center"
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => phase === "connected" && onCancel?.()} />
 
@@ -129,10 +130,10 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 10 }}
         transition={{ type: "spring", stiffness: 300, damping: 24 }}
-        className="glass-strong relative w-full max-w-md overflow-hidden rounded-[28px] shadow-elevated"
+        className="glass-strong relative flex w-full max-w-md max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-[28px] shadow-elevated"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/15">
               <MessageCircle className="h-4 w-4 text-emerald-400" />
@@ -150,8 +151,8 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
           )}
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-8">
+        {/* Body — scrollable so all content is reachable on small screens */}
+        <div className="overflow-y-auto px-6 py-8">
           <AnimatePresence mode="wait">
             {/* IDLE */}
             {phase === "idle" && (
