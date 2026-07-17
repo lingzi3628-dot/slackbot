@@ -8,7 +8,7 @@ import {
   Home, FolderKanban, BookOpen, Bot, LayoutGrid,
   BarChart3, Flame, Inbox, Bell, Plus, ChevronDown,
   Zap, MessageSquare, FolderPlus, Upload, Globe, Rocket,
-  Server, Info,
+  Server, Info, Crown,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -42,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: "studio", label: "Launch Studio", icon: Rocket, badge: "New" },
   { view: "analytics", label: "Analytics", icon: BarChart3 },
   { view: "settings", label: "Settings", icon: SettingsIcon },
+  { view: "premium", label: "Premium", icon: Crown, badge: "Pro" },
 ];
 
 function timeAgo(ts: number): string {

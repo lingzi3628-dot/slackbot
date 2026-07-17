@@ -42,6 +42,7 @@ import { TutorialOverlay } from "@/components/spyro/pages/tutorial-overlay";
 import { VPSFeaturesPage } from "@/components/spyro/pages/vps-features-page";
 import { useProfileStore } from "@/store/profile-store";
 import { PremiumPage } from "@/components/spyro/pages/premium-page";
+import { PremiumGate } from "@/components/spyro/premium-gate";
 
 // Friendly titles for the top bar on non-chat views.
 const VIEW_TITLES: Record<string, string> = {
@@ -55,6 +56,7 @@ const VIEW_TITLES: Record<string, string> = {
   apps: "Apps",
   analytics: "Analytics",
   settings: "Settings",
+  premium: "Premium",
   integrations: "Integrations",
   "integration-control": "AI Control",
   "api-playground": "API Playground",
@@ -209,11 +211,15 @@ export default function Home() {
             />
           </>
         ) : activeView === "communication" ? (
-          /* Communication Center gets the full height — it has its own tab bar. */
-          <CommunicationCenter />
+          /* Communication Center — gated: requires Pro+ */
+          <PremiumGate feature="whatsapp">
+            <CommunicationCenter />
+          </PremiumGate>
         ) : activeView === "studio" ? (
-          /* SPYRO STUDIO — full-height AI computing environment */
-          <SpyroStudio />
+          /* SPYRO STUDIO — gated: requires Pro+ */
+          <PremiumGate feature="studio">
+            <SpyroStudio />
+          </PremiumGate>
         ) : (
           <>
             {/* Top app bar for non-chat views */}
@@ -255,8 +261,16 @@ export default function Home() {
               {activeView === "apps" && <DashboardPage />}
               {activeView === "integrations" && <IntegrationsPage />}
               {activeView === "integration-control" && <IntegrationControl />}
-              {activeView === "api-playground" && <ApiPlayground />}
-              {activeView === "agents" && <AgentBuilder />}
+              {activeView === "api-playground" && (
+                <PremiumGate feature="api">
+                  <ApiPlayground />
+                </PremiumGate>
+              )}
+              {activeView === "agents" && (
+                <PremiumGate feature="agents">
+                  <AgentBuilder />
+                </PremiumGate>
+              )}
               {activeView === "god-mode-live" && <GodModeLive onBack={() => setView("apps")} />}
               {activeView === "settings" && <SettingsPage />}
               {activeView === "profile" && <ProfilePage onBack={() => setView("home")} />}
