@@ -4,7 +4,7 @@
  * Persists in localStorage with monthly reset.
  */
 import { create } from "zustand";
-import { persist } from "zustand-middleware";
+import { persist } from "zustand/middleware";
 
 interface UsageState {
   tokensUsed: number;
