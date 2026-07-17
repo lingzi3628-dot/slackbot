@@ -168,19 +168,11 @@ export function VSCodeApp() {
         setOutput(`Error: ${e instanceof Error ? e.message : "Failed"}`);
       }
     } else if (tab.language === "python") {
-      setOutput("Executing Python via AI...\n");
+      setOutput("Executing Python on VPS...\n");
       try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages: [
-            { role: "system", content: "Execute this Python code and respond with ONLY the output (stdout). No explanations." },
-            { role: "user", content: tab.content },
-          ]}),
-        });
-        const text = await res.text();
-        try { const d = JSON.parse(text); setOutput(d.choices?.[0]?.message?.content || text); }
-        catch { setOutput(text); }
+        const { runCode } = await import("@/lib/exec-backend");
+        const result = await runCode(tab.content, "python", tab.name);
+        setOutput(result.output);
       } catch (e) { setOutput(`Error: ${e instanceof Error ? e.message : "Failed"}`); }
     } else if (tab.language === "html") {
       setOutput("HTML rendered — use Preview tab in the code editor app.");

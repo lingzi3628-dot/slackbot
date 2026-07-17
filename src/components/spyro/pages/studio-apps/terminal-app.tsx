@@ -4,6 +4,7 @@ import * as React from "react";
 import { Terminal as XTerm } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
+import { executeCommand, runCode, gitClone, isExecBackendAvailable } from "@/lib/exec-backend";
 
 /**
  * Full-featured terminal for SPYRO Studio.
@@ -372,28 +373,21 @@ export function TerminalApp() {
             const url = args[1];
             if (!url) { term.writeln("\x1b[33mUsage: git clone <url>\x1b[0m"); return ""; }
             const repoName = url.split("/").pop()?.replace(".git", "") || "repo";
-            term.writeln(`\x1b[90mCloning into '${repoName}'...\x1b[0m`);
-            term.writeln(`\x1b[90mremote: Enumerating objects: 42, done.\x1b[0m`);
-            term.writeln(`\x1b[90mremote: Counting objects: 100% (42/42), done.\x1b[0m`);
-            term.writeln(`\x1b[90mremote: Compressing objects: 100% (28/28), done.\x1b[0m`);
-            term.writeln(`\x1b[90mremote: Total 42 (delta 14), reused 38 (delta 10)\x1b[0m`);
-            term.writeln(`\x1b[90mReceiving objects: 100% (42/42), 24.5 KiB | 2.4 MiB/s, done.\x1b[0m`);
-            term.writeln(`\x1b[90mResolving deltas: 100% (14/14), done.\x1b[0m`);
-            // Try to fetch the repo README via API
-            try {
-              const apiUrl = url.replace("github.com", "api.github.com/repos").replace(".git", "") + "/readme";
-              const res = await fetch(apiUrl, { headers: { Accept: "application/vnd.github.v3.raw" } });
-              if (res.ok) {
-                const readme = await res.text();
-                VFS[`${repoName}/README.md`] = readme;
-                term.writeln(`\x1b[32m✓ Cloned ${repoName} — README.md fetched (${readme.length} bytes)\x1b[0m`);
-              } else {
-                VFS[`${repoName}/README.md`] = `# ${repoName}\n\nCloned from ${url}\n`;
-                term.writeln(`\x1b[32m✓ Cloned ${repoName}\x1b[0m`);
+            term.writeln(`\x1b[90mCloning '${url}' into '${repoName}' on VPS...\x1b[0m`);
+            // REAL git clone on the VPS
+            const result = await gitClone(url);
+            if (result.output) result.output.split("\n").forEach((l: string) => term.writeln(`\x1b[90m${l}\x1b[0m`));
+            if (result.success) {
+              term.writeln(`\x1b[32m✓ Cloned ${repoName} successfully\x1b[0m`);
+              // List the cloned files
+              const lsResult = await executeCommand(`ls -la ${repoName}/`);
+              if (lsResult.output) {
+                term.writeln("");
+                term.writeln("\x1b[36mCloned files:\x1b[0m");
+                lsResult.output.split("\n").forEach((l: string) => term.writeln(l));
               }
-            } catch {
-              VFS[`${repoName}/README.md`] = `# ${repoName}\n\nCloned from ${url}\n`;
-              term.writeln(`\x1b[32m✓ Cloned ${repoName}\x1b[0m`);
+            } else {
+              term.writeln(`\x1b[31m✗ Clone failed: ${result.output}\x1b[0m`);
             }
             return "";
           } else if (sub === "status") {
@@ -583,31 +577,45 @@ export function TerminalApp() {
 
         default:
           if (cmd.includes("=")) { const [k, v] = cmd.split("="); varsRef.current[k] = v; return ""; }
-          // AI fallback — route ANY unknown command to SPYRO AI for interpretation
-          term.writeln(`\x1b[90m${cmd}: command not found locally. Asking SPYRO AI...\x1b[0m`);
+
+          // ── REAL EXECUTION: send to the VPS backend ──────────────
+          // Try the real exec backend first for ANY command not handled above
+          term.writeln(`\x1b[90mExecuting on VPS...\x1b[0m`);
           try {
-            const fullCmd = input;
-            const res = await fetch("/api/chat", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({
-                messages: [{
-                  role: "user",
-                  content: `You are a terminal assistant inside SPYRO Studio. The user typed: "${fullCmd}"\n\nIf this is a real shell command, simulate its output (be realistic — show what the output would look like). If it's a question or request, answer it concisely. Keep responses short — this is a terminal, not a chat window. Use plain text only (no markdown).`,
-                }],
-              }),
-            });
-            const text = await res.text();
-            let reply: string;
-            try {
-              const data = JSON.parse(text);
-              reply = data.choices?.[0]?.message?.content || data.reply || text;
-            } catch { reply = text; }
-            reply.split("\n").forEach((l: string) => term.writeln(l));
-            return reply;
+            const result = await executeCommand(input);
+            if (result.output) {
+              result.output.split("\n").forEach((l: string) => term.writeln(l));
+            }
+            if (result.error && result.exitCode !== 0 && !result.output) {
+              term.writeln(`\x1b[31m${result.output || "Command failed"}\x1b[0m`);
+            }
+            return result.output;
           } catch (e) {
-            term.writeln(`\x1b[31m${cmd}: command not found and AI unavailable. Type 'help'.\x1b[0m`);
-            return "";
+            // If the VPS backend is down, fall back to AI
+            term.writeln(`\x1b[90mVPS backend unavailable, trying AI...\x1b[0m`);
+            try {
+              const res = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  messages: [{
+                    role: "user",
+                    content: `You are a terminal assistant inside SPYRO Studio. The user typed: "${input}"\n\nIf this is a real shell command, simulate its output (be realistic — show what the output would look like). If it's a question or request, answer it concisely. Keep responses short — this is a terminal, not a chat window. Use plain text only (no markdown).`,
+                  }],
+                }),
+              });
+              const text = await res.text();
+              let reply: string;
+              try {
+                const data = JSON.parse(text);
+                reply = data.choices?.[0]?.message?.content || data.reply || text;
+              } catch { reply = text; }
+              reply.split("\n").forEach((l: string) => term.writeln(l));
+              return reply;
+            } catch {
+              term.writeln(`\x1b[31m${cmd}: command not found. Type 'help'.\x1b[0m`);
+              return "";
+            }
           }
       }
     };

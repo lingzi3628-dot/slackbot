@@ -27,7 +27,7 @@ const LANGUAGES = [
 const DEFAULT_CODE: Record<string, string> = {
   javascript: `// SPYRO Studio — AI Code Editor\n// Write code and click Run to execute\n// Use AI to write, refactor, debug, or explain\n\nfunction fibonacci(n) {\n  if (n <= 1) return n;\n  let a = 0, b = 1;\n  for (let i = 2; i <= n; i++) {\n    [a, b] = [b, a + b];\n  }\n  return b;\n}\n\n// Print first 10 fibonacci numbers\nfor (let i = 0; i < 10; i++) {\n  console.log(\`fib(\${i}) = \${fibonacci(i)}\`);\n}\n`,
   typescript: `// TypeScript with type checking\ninterface User {\n  id: number;\n  name: string;\n  email: string;\n}\n\nfunction greet(user: User): string {\n  return \`Hello, \${user.name}!\`;\n}\n\nconst user: User = {\n  id: 1,\n  name: "SPYRO User",\n  email: "user@spyro.ai",\n};\n\nconsole.log(greet(user));\n`,
-  python: `# Python (executed via AI interpretation)\n# Use the Run button to execute via AI\n\ndef fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n\nfor i in range(10):\n    print(f"fib({i}) = {fibonacci(i)}")\n`,
+  python: `# Python (executed on the VPS — REAL execution)\n# Use the Run button to execute\n\ndef fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n\nfor i in range(10):\n    print(f"fib({i}) = {fibonacci(i)}")\n`,
   html: `<!DOCTYPE html>\n<html>\n<head>\n  <title>SPYRO Studio</title>\n  <style>\n    body { font-family: sans-serif; padding: 40px; background: #0a0a0b; color: #f5f5f7; }\n    h1 { color: #8B5CF6; }\n  </style>\n</head>\n<body>\n  <h1>Hello from SPYRO Studio</h1>\n  <p>Edit this HTML and click Run to preview.</p>\n</body>\n</html>`,
 };
 
@@ -146,26 +146,12 @@ export function CodeEditorApp() {
       setActiveTab("preview");
       setOutput("HTML rendered in preview tab.");
     } else if (language === "python") {
-      // Execute Python via AI
-      setOutput("Executing Python via AI...\n");
+      // Execute Python on the VPS backend (REAL execution)
+      setOutput("Executing Python on VPS...\n");
       try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            messages: [
-              { role: "system", content: "You are a Python code executor. Execute the following Python code and respond with ONLY the output (what would be printed to stdout). No explanations, no markdown. If there's an error, show the error message." },
-              { role: "user", content: code },
-            ],
-          }),
-        });
-        const text = await res.text();
-        try {
-          const data = JSON.parse(text);
-          setOutput(data.choices?.[0]?.message?.content || data.reply || text);
-        } catch {
-          setOutput(text);
-        }
+        const { runCode } = await import("@/lib/exec-backend");
+        const result = await runCode(code, "python", fileName);
+        setOutput(result.output);
       } catch (e) {
         setOutput(`Python execution error: ${e instanceof Error ? e.message : "Failed"}`);
       }
