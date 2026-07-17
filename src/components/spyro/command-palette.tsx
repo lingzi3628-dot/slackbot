@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, MessageCircle, Bot, Settings,
   Home, FolderKanban, BookOpen,
-  FileText, BarChart3, Zap, LayoutGrid, ArrowRight, Inbox,
+  FileText, BarChart3, Zap, LayoutGrid, ArrowRight, Inbox, Plug,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -70,6 +70,7 @@ export function CommandPalette() {
       { id: "nav-automation", label: "Automation", description: "AI executes repetitive work", icon: Zap, category: "Navigate", action: () => { setView("automation"); setOpen(false); }, keywords: ["automation", "workflow", "trigger", "schedule"] },
       { id: "nav-analytics", label: "Analytics", description: "Productivity & usage", icon: BarChart3, category: "Navigate", action: () => { setView("analytics"); setOpen(false); }, keywords: ["analytics", "stats", "usage", "chart"] },
       { id: "nav-settings", label: "Settings", description: "Preferences", icon: Settings, category: "Navigate", action: () => { setView("settings"); setOpen(false); }, keywords: ["settings", "preferences", "config"] },
+      { id: "nav-integrations", label: "Integrations", description: "Telegram, Discord, WhatsApp, API keys", icon: Plug, category: "Navigate", action: () => { setView("integrations"); setOpen(false); }, keywords: ["integration", "telegram", "discord", "whatsapp", "webhook", "api key", "connect"] },
     ];
 
     const convoItems: CommandItem[] = conversations.slice(0, 8).map((c) => ({

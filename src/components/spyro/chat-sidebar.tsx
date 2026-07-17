@@ -6,7 +6,7 @@ import {
   Check, MessageSquarePlus, Pencil, Trash2, X,
   MessageCircle, Settings as SettingsIcon, Search,
   Home, FolderKanban, BookOpen, Bot, FileText, LayoutGrid,
-  Zap, BarChart3, Flame, Inbox, Terminal, Info,
+  Zap, BarChart3, Flame, Inbox, Terminal, Info, Plug,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -38,6 +38,7 @@ const NAV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
 
 // Developer / advanced tools — separated by a divider
 const DEV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
+  { view: "integrations", label: "Integrations", icon: Plug },
   { view: "api-playground", label: "API Playground", icon: Terminal },
   { view: "about", label: "About", icon: Info },
 ];
