@@ -1,14 +1,10 @@
 /**
- * SPYRO Exec Backend client — talks to the real execution service
- * running on the VPS (64.181.198.8:3003).
+ * SPYRO Exec Backend client — talks to the VPS execution service
+ * through Next.js API route proxies (avoids CORS / mixed-content issues).
  *
- * This provides REAL command execution, code execution, git operations,
- * and file system access — no simulation.
+ * The browser calls /api/studio/* (same origin) which proxies to the
+ * VPS backend at http://64.181.198.8:3003.
  */
-
-const EXEC_BACKEND_URL =
-  process.env.NEXT_PUBLIC_EXEC_BACKEND_URL ||
-  "http://64.181.198.8:3003";
 
 export interface ExecResult {
   output: string;
@@ -29,8 +25,13 @@ export interface GitCloneResult {
 /** Check if the exec backend is available */
 export async function isExecBackendAvailable(): Promise<boolean> {
   try {
-    const res = await fetch(`${EXEC_BACKEND_URL}/health`, { cache: "no-store" });
-    return res.ok;
+    const res = await fetch("/api/studio/exec", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ command: "echo ok" }),
+    });
+    const data = await res.json();
+    return res.ok && !data.error;
   } catch {
     return false;
   }
@@ -39,7 +40,7 @@ export async function isExecBackendAvailable(): Promise<boolean> {
 /** Execute a real shell command on the VPS */
 export async function executeCommand(command: string): Promise<ExecResult> {
   try {
-    const res = await fetch(`${EXEC_BACKEND_URL}/execute`, {
+    const res = await fetch("/api/studio/exec", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ command }),
@@ -52,7 +53,7 @@ export async function executeCommand(command: string): Promise<ExecResult> {
     };
   } catch (e) {
     return {
-      output: `Connection error: ${e instanceof Error ? e.message : "Failed to connect to exec backend"}`,
+      output: `Connection error: ${e instanceof Error ? e.message : "Failed to connect"}`,
       exitCode: 1,
       error: true,
     };
@@ -66,7 +67,7 @@ export async function runCode(
   filename?: string
 ): Promise<CodeResult> {
   try {
-    const res = await fetch(`${EXEC_BACKEND_URL}/run-code`, {
+    const res = await fetch("/api/studio/run-code", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ code, language, filename }),
@@ -87,7 +88,7 @@ export async function runCode(
 /** Clone a git repository on the VPS */
 export async function gitClone(url: string): Promise<GitCloneResult> {
   try {
-    const res = await fetch(`${EXEC_BACKEND_URL}/git-clone`, {
+    const res = await fetch("/api/studio/git-clone", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url }),
@@ -108,7 +109,7 @@ export async function gitClone(url: string): Promise<GitCloneResult> {
 /** List files in the VPS workspace */
 export async function listFiles(): Promise<string[]> {
   try {
-    const res = await fetch(`${EXEC_BACKEND_URL}/files`, { cache: "no-store" });
+    const res = await fetch("/api/studio/files", { cache: "no-store" });
     const data = await res.json();
     return data.files || [];
   } catch {
@@ -119,7 +120,7 @@ export async function listFiles(): Promise<string[]> {
 /** Read a file from the VPS workspace */
 export async function readFile(filepath: string): Promise<string | null> {
   try {
-    const res = await fetch(`${EXEC_BACKEND_URL}/file`, {
+    const res = await fetch("/api/studio/file", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path: filepath, action: "read" }),
@@ -134,7 +135,7 @@ export async function readFile(filepath: string): Promise<string | null> {
 /** Write a file to the VPS workspace */
 export async function writeFile(filepath: string, content: string): Promise<boolean> {
   try {
-    const res = await fetch(`${EXEC_BACKEND_URL}/file`, {
+    const res = await fetch("/api/studio/file", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path: filepath, content, action: "write" }),
@@ -145,5 +146,3 @@ export async function writeFile(filepath: string, content: string): Promise<bool
     return false;
   }
 }
-
-export { EXEC_BACKEND_URL };
