@@ -37,12 +37,14 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
   const [mode, setMode] = React.useState<string>("demo");
   const [phone, setPhone] = React.useState("");
   const [copied, setCopied] = React.useState(false);
+  const [retryCount, setRetryCount] = React.useState(0);
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const stopRef = React.useRef(false);
   const phaseRef = React.useRef<Phase>("idle");
   React.useEffect(() => { phaseRef.current = phase; }, [phase]);
   const qrRef = React.useRef<string | null>(null);
   React.useEffect(() => { qrRef.current = qrCode; }, [qrCode]);
+  const startTimeRef = React.useRef<number>(0);
 
   const stopPolling = React.useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -54,6 +56,26 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
       const res = await fetch(`/api/comms/status?channelId=${id}&channelType=whatsapp`, { cache: "no-store" });
       const data = await res.json();
       setConnection(data);
+
+      // Check if we've been waiting too long (90s) — WhatsApp is likely
+      // blocking the server's IP. Show a helpful error instead of spinning.
+      if (data.status === "connecting" && startTimeRef.current > 0) {
+        const elapsed = Date.now() - startTimeRef.current;
+        if (elapsed > 90_000) {
+          stopPolling();
+          setError(
+            "WhatsApp is blocking the connection from this server's IP. This is a known issue with datacenter/cloud IPs — WhatsApp blocks them to prevent spam.\n\n" +
+            "Solutions:\n" +
+            "1. Run the Baileys service on your local machine (home internet)\n" +
+            "2. Set up a SOCKS/HTTPS proxy with a residential IP (set SOCKS_PROXY_URL on the VPS)\n" +
+            "3. Use a residential VPS provider (not Oracle/AWS/GCP)\n\n" +
+            "The code was generated but WhatsApp terminated the session before you could enter it."
+          );
+          setPhase("error");
+          return;
+        }
+      }
+
       if (data.status === "connected") {
         stopPolling();
         setPhase("syncing");
@@ -86,6 +108,8 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
     setPairingCode(null);
     setPairingLink(null);
     setCopied(false);
+    setRetryCount(0);
+    startTimeRef.current = Date.now();
     setPhase("generating");
 
     try {
@@ -440,12 +464,14 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
 
             {/* ERROR */}
             {phase === "error" && (
-              <motion.div key="err" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center py-8 text-center">
-                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-destructive/15 text-destructive">
-                  <AlertCircle className="h-8 w-8" />
+              <motion.div key="err" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center py-6 text-center">
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-destructive/15 text-destructive">
+                  <AlertCircle className="h-7 w-7" />
                 </div>
-                <h3 className="mt-4 text-base font-semibold">Connection failed</h3>
-                <p className="mt-1 max-w-xs text-xs text-muted-foreground">{error || "Something went wrong."}</p>
+                <h3 className="mt-3 text-base font-semibold">Connection failed</h3>
+                <div className="mt-2 max-w-sm whitespace-pre-line text-left text-[11px] leading-relaxed text-muted-foreground">
+                  {error || "Something went wrong."}
+                </div>
                 <button
                   onClick={() => setPhase("idle")}
                   className="mt-4 inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-xs font-medium hover:bg-secondary"

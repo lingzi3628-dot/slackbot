@@ -114,7 +114,7 @@ const APPS: SpyroApp[] = [
     description: "Multi-agent collaboration engine",
     icon: Zap,
     gradient: "from-red-500 to-rose-700",
-    status: "live",
+    status: "maintenance",
     badge: "Pro",
   },
   {
@@ -123,8 +123,17 @@ const APPS: SpyroApp[] = [
     description: "20 agents collaborating in real-time",
     icon: Zap,
     gradient: "from-red-600 to-orange-600",
-    status: "live",
+    status: "maintenance",
     badge: "New",
+  },
+  {
+    id: "god-mode-plus",
+    name: "God Mode Plus",
+    description: "Unlimited agents · deep research · code execution",
+    icon: Zap,
+    gradient: "from-violet-500 to-fuchsia-600",
+    status: "maintenance",
+    badge: "Soon",
   },
   {
     id: "voice-studio",
