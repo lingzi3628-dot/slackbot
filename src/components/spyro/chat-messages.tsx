@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
-import { ArrowDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowDown, Rocket, X } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
+import { useUIStore } from "@/store/ui-store";
 import { MessageBubble } from "./message-bubble";
 import { WelcomeScreen } from "./welcome-screen";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,31 @@ export function ChatMessages({
   const stickToBottom = React.useRef(true);
 
   const messages = active?.messages ?? [];
+  const setView = useUIStore((s) => s.setView);
+
+  // ── Auto-migration: detect when this is a "deep project" that would
+  // benefit from Studio. Show a banner suggesting to open Studio. ──
+  const [showStudioBanner, setShowStudioBanner] = React.useState(false);
+  const [dismissedBanner, setDismissedBanner] = React.useState(false);
+
+  React.useEffect(() => {
+    if (dismissedBanner || messages.length < 3) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role !== "assistant") return;
+
+    // Detect deep work indicators in the AI response
+    const content = lastMsg.content || "";
+    const hasCodeBlock = content.includes("```") || content.includes("function ") || content.includes("const ") || content.includes("import ");
+    const isLongResponse = content.length > 1500;
+    const hasResearchTerms = /research|analysis|study|investigat|compar|evaluat|architect/i.test(content);
+    const hasCodeTerms = /code|function|API|endpoint|database|deploy|debug|refactor/i.test(content);
+    const conversationLength = messages.length;
+
+    // Show banner if: code-heavy response OR long research OR 6+ messages
+    if (hasCodeBlock || (isLongResponse && hasResearchTerms) || (conversationLength >= 6 && (hasCodeTerms || hasResearchTerms))) {
+      setShowStudioBanner(true);
+    }
+  }, [messages, dismissedBanner]);
 
   // Track whether the user is pinned to the bottom.
   const onScroll = () => {
@@ -100,6 +126,42 @@ export function ChatMessages({
           <ArrowDown className="h-4 w-4" />
         </motion.button>
       )}
+
+      {/* ── Studio auto-migration banner ── */}
+      <AnimatePresence>
+        {showStudioBanner && !dismissedBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 24 }}
+            className="absolute bottom-4 left-4 right-4 z-30"
+          >
+            <div className="mx-auto flex max-w-2xl items-center gap-3 rounded-2xl border border-primary/20 bg-card/95 p-3 shadow-elevated backdrop-blur-xl">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl spyro-bg-gradient text-white">
+                <Rocket className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold">This looks like deep work</p>
+                <p className="text-[10px] text-muted-foreground">Open SPYRO Studio for a full workspace with code editor, terminal, and AI tools.</p>
+              </div>
+              <button
+                onClick={() => { setView("studio"); setDismissedBanner(true); }}
+                className="shrink-0 rounded-lg spyro-bg-gradient px-3 py-1.5 text-[11px] font-medium text-white"
+              >
+                Open Studio
+              </button>
+              <button
+                onClick={() => setDismissedBanner(true)}
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

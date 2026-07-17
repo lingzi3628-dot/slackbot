@@ -12,6 +12,11 @@ import { useStudioStore } from "@/store/studio-store";
 import { STUDIO_TYPES, getStudioType, type StudioApp } from "@/lib/studio-types";
 import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
+import { TerminalApp } from "./studio-apps/terminal-app";
+import { CodeEditorApp } from "./studio-apps/code-editor-app";
+import { AIWordApp } from "./studio-apps/ai-word-app";
+import { AISpreadsheetApp } from "./studio-apps/ai-spreadsheet-app";
+import { AIChatApp, RestClientApp, ResearchBrowserApp } from "./studio-apps/ai-chat-app";
 
 // ── Main Studio Entry Point ───────────────────────────────────────────
 export function SpyroStudio() {
@@ -491,46 +496,38 @@ function SingleView({ windows, onClose, onMinimize, onMaximize }: any) {
 
 // ── App Content (renders inside windows) ──────────────────────────────
 function AppContent({ appId, appName }: { appId: string; appName: string }) {
-  // Each app renders a workspace with an AI assistant built in
-  return (
-    <div className="flex h-full flex-col">
-      {/* App header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
-        <h3 className="text-sm font-semibold">{appName}</h3>
-        <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[9px] font-medium text-violet-400">AI enabled</span>
-      </div>
-
-      {/* App body — placeholder with AI prompt */}
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6 text-center">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-secondary/60">
-          <Sparkles className="h-6 w-6 text-primary" />
-        </div>
-        <p className="mt-3 text-sm font-medium">{appName}</p>
-        <p className="mt-1 max-w-xs text-[11px] text-muted-foreground">
-          This app has a built-in AI assistant that knows your current context — projects, knowledge, chats, and agents.
-        </p>
-
-        {/* AI prompt bar */}
-        <div className="mt-4 w-full max-w-md">
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-2">
-            <input
-              placeholder={`Ask AI about ${appName}…`}
-              className="flex-1 bg-transparent text-xs placeholder:text-muted-foreground focus:outline-none"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && e.currentTarget.value.trim()) {
-                  // Delegate to the main chat
-                  useUIStore.getState().setView("chat");
-                }
-              }}
-            />
-            <button className="grid h-7 w-7 place-items-center rounded-lg spyro-bg-gradient text-white">
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // Route to functional app components based on appId
+  switch (appId) {
+    case "terminal":
+      return <TerminalApp />;
+    case "code-editor":
+      return <CodeEditorApp />;
+    case "word":
+    case "ai-word":
+    case "pdf":
+      return <AIWordApp />;
+    case "spreadsheet":
+    case "excel":
+    case "ai-spreadsheet":
+      return <AISpreadsheetApp />;
+    case "rest-client":
+    case "api-testing":
+      return <RestClientApp />;
+    case "browser":
+    case "research-browser":
+    case "academic-search":
+    case "research":
+      return <ResearchBrowserApp />;
+    case "ai-assistant":
+    case "ai-tutor":
+    case "ai-coding":
+    case "ai-research":
+    case "ai-pair-programmer":
+      return <AIChatApp appName={appName} />;
+    default:
+      // For all other apps, use the AI chat interface with the app name as context
+      return <AIChatApp appName={appName} />;
+  }
 }
 
 // ── Studio App Store ──────────────────────────────────────────────────
