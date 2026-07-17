@@ -17,7 +17,7 @@ export type View =
   // Legacy Apps view (accessible but not in primary nav)
   | "apps"
   // Secondary views
-  | "about" | "profile" | "vps-features"
+  | "about" | "profile" | "vps-features" | "premium"
   | "login" | "register"
   // App sub-views
   | "api-playground" | "agent-builder" | "god-mode-live"

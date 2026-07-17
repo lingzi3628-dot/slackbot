@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, MessageCircle, Bot, Settings,
   Home, FolderKanban, BookOpen,
-  BarChart3, LayoutGrid, ArrowRight, Inbox, Rocket, Server,
+  BarChart3, LayoutGrid, ArrowRight, Inbox, Rocket, Server, Crown,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -69,6 +69,7 @@ export function CommandPalette() {
       { id: "nav-analytics", label: "Analytics", description: "Productivity & usage", icon: BarChart3, category: "Navigate", action: () => { setView("analytics"); setOpen(false); }, keywords: ["analytics", "stats", "usage", "chart"] },
       { id: "nav-settings", label: "Settings", description: "Preferences & configuration", icon: Settings, category: "Navigate", action: () => { setView("settings"); setOpen(false); }, keywords: ["settings", "preferences", "config", "profile", "billing"] },
       { id: "nav-vps", label: "VPS Features", description: "Real terminal, code execution, git, upgrades", icon: Server, category: "Navigate", action: () => { setView("vps-features"); setOpen(false); }, keywords: ["vps", "server", "terminal", "upgrade", "features", "hosting", "deploy"] },
+      { id: "nav-premium", label: "Premium Plans", description: "Upgrade — M-Pesa, cards, KES pricing", icon: Crown, category: "Navigate", action: () => { setView("premium"); setOpen(false); }, keywords: ["premium", "upgrade", "pricing", "plans", "pay", "subscription", "mpesa", "paystack", "pro", "ultra"] },
     ];
 
     const convoItems: CommandItem[] = conversations.slice(0, 8).map((c) => ({

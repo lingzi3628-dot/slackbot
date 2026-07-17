@@ -41,6 +41,7 @@ import { OnboardingSurvey } from "@/components/spyro/pages/onboarding-survey";
 import { TutorialOverlay } from "@/components/spyro/pages/tutorial-overlay";
 import { VPSFeaturesPage } from "@/components/spyro/pages/vps-features-page";
 import { useProfileStore } from "@/store/profile-store";
+import { PremiumPage } from "@/components/spyro/pages/premium-page";
 
 // Friendly titles for the top bar on non-chat views.
 const VIEW_TITLES: Record<string, string> = {
@@ -261,6 +262,7 @@ export default function Home() {
               {activeView === "profile" && <ProfilePage onBack={() => setView("home")} />}
               {activeView === "about" && <AboutPage />}
               {activeView === "vps-features" && <VPSFeaturesPage />}
+              {activeView === "premium" && <PremiumPage />}
             </div>
           </>
         )}
