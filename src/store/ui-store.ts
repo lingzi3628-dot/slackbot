@@ -13,7 +13,9 @@ import { create } from "zustand";
 export type View =
   // Primary nav (spec — max 9)
   | "home" | "projects" | "chat" | "agents" | "knowledge"
-  | "communication" | "apps" | "analytics" | "settings"
+  | "communication" | "studio" | "analytics" | "settings"
+  // Legacy Apps view (accessible but not in primary nav)
+  | "apps"
   // Secondary views (not in primary nav)
   | "about" | "profile"
   | "login" | "register"

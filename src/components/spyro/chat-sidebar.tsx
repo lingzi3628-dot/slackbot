@@ -7,7 +7,7 @@ import {
   MessageCircle, Settings as SettingsIcon, Search,
   Home, FolderKanban, BookOpen, Bot, LayoutGrid,
   BarChart3, Flame, Inbox, Bell, Plus, ChevronDown,
-  Zap, MessageSquare, FolderPlus, Upload, Globe,
+  Zap, MessageSquare, FolderPlus, Upload, Globe, Rocket,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -38,7 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { view: "agents", label: "Agents", icon: Bot },
   { view: "knowledge", label: "Knowledge", icon: BookOpen },
   { view: "communication", label: "Communication", icon: Inbox, badge: "New" },
-  { view: "apps", label: "Apps", icon: LayoutGrid },
+  { view: "studio", label: "Launch Studio", icon: Rocket, badge: "New" },
   { view: "analytics", label: "Analytics", icon: BarChart3 },
   { view: "settings", label: "Settings", icon: SettingsIcon },
 ];

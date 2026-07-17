@@ -36,6 +36,7 @@ import { CommunicationCenter } from "@/components/spyro/pages/comms/communicatio
 import { FloatingActionButton } from "@/components/spyro/floating-action-button";
 import { WorkspaceOnboarding } from "@/components/spyro/pages/workspace-onboarding";
 import { useWorkspaceStore } from "@/store/workspace-store";
+import { SpyroStudio } from "@/components/spyro/pages/spyro-studio";
 
 // Friendly titles for the top bar on non-chat views.
 const VIEW_TITLES: Record<string, string> = {
@@ -45,6 +46,7 @@ const VIEW_TITLES: Record<string, string> = {
   knowledge: "Knowledge",
   agents: "Agents",
   communication: "Communication",
+  studio: "Launch Studio",
   apps: "Apps",
   analytics: "Analytics",
   settings: "Settings",
@@ -194,6 +196,9 @@ export default function Home() {
         ) : activeView === "communication" ? (
           /* Communication Center gets the full height — it has its own tab bar. */
           <CommunicationCenter />
+        ) : activeView === "studio" ? (
+          /* SPYRO STUDIO — full-height AI computing environment */
+          <SpyroStudio />
         ) : (
           <>
             {/* Top app bar for non-chat views */}

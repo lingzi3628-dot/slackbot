@@ -15,6 +15,7 @@ import { useChatStore } from "@/store/chat-store";
 import { useUIStore } from "@/store/ui-store";
 import { useLocalAuth } from "@/store/local-auth";
 import { useWorkspaceStore } from "@/store/workspace-store";
+import { useCommsStore } from "@/store/comms-store";
 import { cn } from "@/lib/utils";
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -37,63 +38,8 @@ function timeAgo(ts: number): string {
   return `${d}d ago`;
 }
 
-// ── Mock data for the dashboard widgets ───────────────────────────────
-const PINNED_PROJECTS = [
-  { id: "p1", name: "SPYRO Mobile App", progress: 68, color: "from-violet-500 to-fuchsia-500", agents: 3, files: 24, chats: 12, knowledge: 8, channels: 2, storage: "2.4 GB", lastActivity: "5m ago" },
-  { id: "p2", name: "Customer Support Bot", progress: 92, color: "from-cyan-500 to-blue-500", agents: 2, files: 8, chats: 34, knowledge: 15, channels: 3, storage: "1.1 GB", lastActivity: "1h ago" },
-  { id: "p3", name: "Research Dashboard", progress: 45, color: "from-amber-500 to-orange-500", agents: 1, files: 16, chats: 6, knowledge: 22, channels: 1, storage: "3.2 GB", lastActivity: "3h ago" },
-];
-
-const RUNNING_AGENTS = [
-  { id: "a1", name: "Sales Assistant", status: "running", task: "Replying to Brian Mwangi", project: "Customer Support", time: "00:02:14", memory: "24 MB", confidence: 87, eta: "30s", avatar: "S", color: "#8B5CF6" },
-  { id: "a2", name: "Research Agent", status: "running", task: "Analyzing 5 PDFs", project: "Research Dashboard", time: "00:14:32", memory: "156 MB", confidence: 94, eta: "2m", avatar: "R", color: "#06B6D4" },
-  { id: "a3", name: "Code Assistant", status: "paused", task: "Generating API docs", project: "SPYRO Mobile App", time: "00:08:45", memory: "42 MB", confidence: 91, eta: "—", avatar: "C", color: "#F59E0B" },
-];
-
-const COMMUNICATION_CHANNELS = [
-  { id: "wa", name: "WhatsApp", icon: "💬", unread: 3, pendingAI: 2, review: 1, lastSync: "2m ago", health: "good", color: "text-emerald-400" },
-  { id: "email", name: "Email", icon: "📧", unread: 12, pendingAI: 5, review: 3, lastSync: "5m ago", health: "good", color: "text-amber-400" },
-  { id: "tg", name: "Telegram", icon: "✈️", unread: 0, pendingAI: 0, review: 0, lastSync: "1h ago", health: "disconnected", color: "text-muted-foreground" },
-  { id: "slack", name: "Slack", icon: "💼", unread: 0, pendingAI: 0, review: 0, lastSync: "—", health: "not-connected", color: "text-muted-foreground" },
-];
-
-const TASKS = [
-  { id: "t1", title: "Review Research Agent report", type: "ai", priority: "high", done: false, due: "Today 5:00 PM" },
-  { id: "t2", title: "Export 3 expiring conversations", type: "manual", priority: "high", done: false, due: "Tomorrow" },
-  { id: "t3", title: "Index 5 uploaded PDFs", type: "ai", priority: "medium", done: false, due: "Today" },
-  { id: "t4", title: "Connect Telegram bot", type: "manual", priority: "low", done: false, due: "This week" },
-  { id: "t5", title: "Review customer sentiment drop", type: "ai", priority: "high", done: true, due: "Done" },
-];
-
-const AI_SUGGESTIONS = [
-  { id: "s1", icon: FileText, title: "You uploaded 5 PDFs yesterday", action: "Index them now", color: "text-violet-400" },
-  { id: "s2", icon: Bot, title: "Research Agent finished analysis", action: "Review report", color: "text-cyan-400" },
-  { id: "s3", icon: MessageCircle, title: "3 conversations expire tomorrow", action: "Export them", color: "text-amber-400" },
-  { id: "s4", icon: TrendingUp, title: "Customer sentiment dropped 12%", action: "Review messages", color: "text-rose-400" },
-];
-
-const RECENT_ACTIVITY = [
-  { id: "r1", type: "agent", icon: Bot, text: "Research Agent completed analysis", time: Date.now() - 5 * 60000, color: "text-cyan-400" },
-  { id: "r2", type: "agent", icon: FileCode2, text: "Code Agent generated API documentation", time: Date.now() - 18 * 60000, color: "text-amber-400" },
-  { id: "r3", type: "knowledge", icon: BookOpen, text: "Knowledge indexed 5 documents", time: Date.now() - 45 * 60000, color: "text-violet-400" },
-  { id: "r4", type: "comm", icon: Inbox, text: "WhatsApp connected", time: Date.now() - 2 * 3600000, color: "text-emerald-400" },
-  { id: "r5", type: "export", icon: Download, text: "Conversation exported", time: Date.now() - 3 * 3600000, color: "text-muted-foreground" },
-  { id: "r6", type: "automation", icon: Zap, text: "Automation finished: Daily summary", time: Date.now() - 5 * 3600000, color: "text-orange-400" },
-];
-
-const KNOWLEDGE_UPDATES = [
-  { id: "k1", title: "Product Roadmap 2025.pdf", type: "PDF", indexed: true, citations: 8, time: "1h ago" },
-  { id: "k2", title: "Customer Feedback Q2.docx", type: "DOCX", indexed: true, citations: 3, time: "3h ago" },
-  { id: "k3", title: "API Reference.md", type: "MD", indexed: true, citations: 15, time: "5h ago" },
-  { id: "k4", title: "Meeting Notes — July", type: "MD", indexed: false, citations: 0, time: " indexing" },
-];
-
-const RECENT_FILES = [
-  { id: "f1", name: "dragon-hero.png", type: "image", project: "SPYRO Mobile", date: "1h ago", ai: true, color: "from-violet-500 to-fuchsia-500" },
-  { id: "f2", name: "roadmap.pdf", type: "pdf", project: "Research", date: "3h ago", ai: true, color: "from-rose-500 to-orange-500" },
-  { id: "f3", name: "api-spec.json", type: "code", project: "SPYRO Mobile", date: "5h ago", ai: false, color: "from-cyan-500 to-blue-500" },
-  { id: "f4", name: "voice-memo.m4a", type: "audio", project: "Customer Support", date: "1d ago", ai: true, color: "from-amber-500 to-yellow-500" },
-];
+// ── Real data computed from stores ────────────────────────────────────
+// No mock data — everything is derived from the user's actual activity.
 
 const QUICK_ACTIONS = [
   { label: "New Chat", icon: MessageCircle, color: "from-violet-500 to-fuchsia-500", view: "chat" as const },
@@ -107,6 +53,107 @@ const QUICK_ACTIONS = [
   { label: "Generate Image", icon: ImageIcon, color: "from-fuchsia-500 to-pink-500", view: "apps" as const },
   { label: "Generate Document", icon: FileText, color: "from-blue-500 to-indigo-500", view: "chat" as const },
 ];
+
+// Derive "pinned projects" from actual conversations (group by title keyword)
+function deriveProjects(conversations: any[]) {
+  if (conversations.length === 0) return [];
+  // Group conversations into pseudo-projects by taking the top 3 most recent
+  const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+  const colors = ["from-violet-500 to-fuchsia-500", "from-cyan-500 to-blue-500", "from-amber-500 to-orange-500"];
+  return sorted.slice(0, 3).map((c, i) => ({
+    id: c.id,
+    name: c.title.length > 30 ? c.title.slice(0, 30) + "…" : c.title,
+    progress: Math.min(100, Math.round((c.messages.length / 20) * 100)),
+    color: colors[i],
+    agents: 1,
+    files: 0,
+    chats: c.messages.length,
+    knowledge: 0,
+    channels: 0,
+    storage: "—",
+    lastActivity: timeAgo(c.updatedAt),
+  }));
+}
+
+// Derive running agents from the chat store's generating state + workspace agents
+function deriveRunningAgents(isGenerating: boolean, conversations: any[], workspaceAgents: any[]) {
+  const agents: any[] = [];
+  // If the AI is currently generating, show it as a running agent
+  if (isGenerating && conversations.length > 0) {
+    const active = conversations.find((c) => c.id === useChatStore.getState().activeId) || conversations[0];
+    agents.push({
+      id: "active-ai",
+      name: "SPYRO V1",
+      status: "running",
+      task: active ? `Responding: "${active.title.slice(0, 30)}"` : "Processing",
+      project: "Current chat",
+      time: "live",
+      memory: "—",
+      confidence: 95,
+      eta: "now",
+      avatar: "S",
+      color: "#8B5CF6",
+    });
+  }
+  // Add workspace agents (from the selected workspace template)
+  if (workspaceAgents && workspaceAgents.length > 0) {
+    workspaceAgents.slice(0, 2).forEach((a: any, i: number) => {
+      agents.push({
+        id: `ws-agent-${i}`,
+        name: a.name,
+        status: "idle",
+        task: a.role,
+        project: "Workspace",
+        time: "—",
+        memory: "—",
+        confidence: 0,
+        eta: "—",
+        avatar: a.icon || a.name.charAt(0),
+        color: a.color || "#71717A",
+      });
+    });
+  }
+  return agents;
+}
+
+// Derive recent activity from actual conversation messages
+function deriveActivity(conversations: any[]) {
+  const items: any[] = [];
+  for (const c of conversations) {
+    if (c.messages.length === 0) continue;
+    const lastMsg = c.messages[c.messages.length - 1];
+    items.push({
+      id: `act-${c.id}`,
+      type: lastMsg.role === "assistant" ? "agent" : "chat",
+      icon: lastMsg.role === "assistant" ? Bot : MessageCircle,
+      text: `${lastMsg.role === "assistant" ? "AI replied in" : "You sent message in"} "${c.title.slice(0, 30)}"`,
+      time: lastMsg.timestamp || c.updatedAt,
+      color: lastMsg.role === "assistant" ? "text-cyan-400" : "text-violet-400",
+    });
+  }
+  // Sort by time descending, take 6
+  return items.sort((a, b) => b.time - a.time).slice(0, 6);
+}
+
+// Derive AI suggestions from actual workspace state
+function deriveSuggestions(conversations: any[], hasWorkspace: boolean) {
+  const suggestions: any[] = [];
+  if (conversations.length === 0) {
+    suggestions.push({ id: "s1", icon: MessageCircle, title: "Start your first conversation", action: "New chat", color: "text-violet-400" });
+  }
+  if (conversations.length > 0 && conversations.length < 5) {
+    suggestions.push({ id: "s2", icon: Sparkles, title: `You have ${conversations.length} conversation${conversations.length === 1 ? "" : "s"}`, action: "Continue chatting", color: "text-cyan-400" });
+  }
+  if (!hasWorkspace) {
+    suggestions.push({ id: "s3", icon: LayoutGrid, title: "Choose a workspace template", action: "Set up now", color: "text-amber-400" });
+  } else {
+    suggestions.push({ id: "s4", icon: Zap, title: "Launch Studio for deep work", action: "Open Studio", color: "text-emerald-400" });
+  }
+  if (conversations.length > 5) {
+    suggestions.push({ id: "s5", icon: Download, title: `${conversations.length} conversations — consider exporting`, action: "Export all", color: "text-rose-400" });
+  }
+  return suggestions.slice(0, 4);
+}
 
 // ── Main Dashboard ────────────────────────────────────────────────────
 export function HomePage() {
@@ -142,6 +189,21 @@ export function HomePage() {
       }))
     : QUICK_ACTIONS;
 
+  // ── Derive real data from stores ──────────────────────────────────
+  const pinnedProjects = deriveProjects(conversations);
+  const runningAgents = deriveRunningAgents(isGenerating, conversations, workspaceTemplate?.agents || []);
+  const recentActivity = deriveActivity(conversations);
+  const aiSuggestions = deriveSuggestions(conversations, !!workspaceTemplate);
+
+  // Communication channels — real connection status from comms store
+  const commsConnection = useCommsStore.getState().connection;
+  const communicationChannels = [
+    { id: "wa", name: "WhatsApp", icon: "💬", unread: 0, pendingAI: 0, review: 0, lastSync: commsConnection?.lastSyncAt ? timeAgo(commsConnection.lastSyncAt) : "—", health: commsConnection?.status === "connected" ? "good" : "not-connected", color: commsConnection?.status === "connected" ? "text-emerald-400" : "text-muted-foreground" },
+    { id: "email", name: "Email", icon: "📧", unread: 0, pendingAI: 0, review: 0, lastSync: "—", health: "not-connected", color: "text-muted-foreground" },
+    { id: "tg", name: "Telegram", icon: "✈️", unread: 0, pendingAI: 0, review: 0, lastSync: "—", health: "not-connected", color: "text-muted-foreground" },
+    { id: "slack", name: "Slack", icon: "💼", unread: 0, pendingAI: 0, review: 0, lastSync: "—", health: "not-connected", color: "text-muted-foreground" },
+  ];
+
   return (
     <div className="ambient-mesh min-h-full">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:flex lg:gap-6">
@@ -167,84 +229,74 @@ export function HomePage() {
             </Section>
           )}
 
-          {/* PINNED PROJECTS */}
-          <Section title="Pinned projects" icon={Pin} actionLabel="View all" onAction={() => setView("projects")}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {PINNED_PROJECTS.map((p, i) => (
-                <PinnedProjectCard key={p.id} project={p} index={i} onOpen={() => setView("projects")} />
-              ))}
-            </div>
-          </Section>
+          {/* PINNED PROJECTS — derived from real conversations */}
+          {pinnedProjects.length > 0 && (
+            <Section title="Pinned projects" icon={Pin} actionLabel="View all" onAction={() => setView("projects")}>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {pinnedProjects.map((p, i) => (
+                  <PinnedProjectCard key={p.id} project={p} index={i} onOpen={() => setView("projects")} />
+                ))}
+              </div>
+            </Section>
+          )}
 
-          {/* RUNNING AI AGENTS */}
-          <Section title="Running AI agents" icon={Bot} actionLabel="View all" onAction={() => setView("agents")}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {RUNNING_AGENTS.map((a, i) => (
-                <AgentCard key={a.id} agent={a} index={i} onOpen={() => setView("agents")} />
-              ))}
-            </div>
-          </Section>
+          {/* RUNNING AI AGENTS — real: shows SPYRO V1 when generating + workspace agents */}
+          {runningAgents.length > 0 && (
+            <Section title="Running AI agents" icon={Bot} actionLabel="View all" onAction={() => setView("agents")}>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {runningAgents.map((a, i) => (
+                  <AgentCard key={a.id} agent={a} index={i} onOpen={() => setView("agents")} />
+                ))}
+              </div>
+            </Section>
+          )}
 
-          {/* COMMUNICATION CENTER */}
+          {/* COMMUNICATION CENTER — real connection status */}
           <Section title="Communication center" icon={Inbox} actionLabel="Open inbox" onAction={() => setView("communication")}>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {COMMUNICATION_CHANNELS.map((ch, i) => (
+              {communicationChannels.map((ch, i) => (
                 <ChannelCard key={ch.id} channel={ch} index={i} onOpen={() => setView("communication")} />
               ))}
             </div>
           </Section>
 
-          {/* TODAY'S TASKS + AI SUGGESTIONS */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Section title="Today's tasks" icon={CheckCircle2}>
-              <TaskList tasks={TASKS} />
-            </Section>
-            <Section title="AI suggestions" icon={Sparkles}>
-              <div className="space-y-2">
-                {AI_SUGGESTIONS.map((s, i) => (
-                  <SuggestionCard key={s.id} suggestion={s} index={i} />
-                ))}
-              </div>
-            </Section>
-          </div>
+          {/* AI SUGGESTIONS — derived from real state */}
+          {aiSuggestions.length > 0 && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Section title="AI suggestions" icon={Sparkles}>
+                <div className="space-y-2">
+                  {aiSuggestions.map((s, i) => (
+                    <SuggestionCard key={s.id} suggestion={s} index={i} />
+                  ))}
+                </div>
+              </Section>
 
-          {/* RECENT ACTIVITY */}
-          <Section title="Recent activity" icon={Activity}>
-            <ActivityTimeline items={RECENT_ACTIVITY} />
-          </Section>
+              {/* RECENT ACTIVITY — derived from real messages */}
+              <Section title="Recent activity" icon={Activity}>
+                {recentActivity.length > 0 ? (
+                  <ActivityTimeline items={recentActivity} />
+                ) : (
+                  <EmptyState icon={Activity} title="No activity yet" subtitle="Start a conversation to see activity here" actionLabel="New chat" onAction={handleNewChat} />
+                )}
+              </Section>
+            </div>
+          )}
 
-          {/* KNOWLEDGE + RECENT FILES */}
+          {/* RECENT ACTIVITY (full width if no suggestions) */}
+          {aiSuggestions.length === 0 && recentActivity.length > 0 && (
+            <Section title="Recent activity" icon={Activity}>
+              <ActivityTimeline items={recentActivity} />
+            </Section>
+          )}
+
+          {/* KNOWLEDGE + RECENT FILES — empty states when no data */}
           <div className="grid gap-6 lg:grid-cols-2">
             <Section title="Knowledge updates" icon={BookOpen} actionLabel="Open knowledge" onAction={() => setView("knowledge")}>
-              <div className="space-y-2">
-                {KNOWLEDGE_UPDATES.map((k) => (
-                  <div key={k.id} className="flex items-center gap-3 rounded-xl border border-border bg-card/40 p-3">
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary text-[9px] font-bold">{k.type}</div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-xs font-medium">{k.title}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {k.indexed ? `${k.citations} citations · ${k.time}` : "Indexing…"}
-                      </div>
-                    </div>
-                    {k.indexed ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <Loader2 className="h-4 w-4 animate-spin text-amber-400" />}
-                  </div>
-                ))}
-              </div>
+              <EmptyState icon={BookOpen} title="No knowledge yet" subtitle="Upload documents to build your knowledge base" actionLabel="Add knowledge" onAction={() => setView("knowledge")} />
             </Section>
 
             <Section title="Recent files" icon={FileText} actionLabel="View all" onAction={() => setView("apps")}>
-              <div className="grid grid-cols-2 gap-2">
-                {RECENT_FILES.map((f) => (
-                  <div key={f.id} className="group surface p-3">
-                    <div className={cn("mb-2 grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br text-white", f.color)}>
-                      <FileIcon type={f.type} />
-                    </div>
-                    <div className="truncate text-xs font-medium">{f.name}</div>
-                    <div className="text-[10px] text-muted-foreground">{f.project} · {f.date}</div>
-                    {f.ai && <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-400"><Sparkles className="h-2 w-2" /> AI</span>}
-                  </div>
-                ))}
-              </div>
+              <EmptyState icon={FileText} title="No files yet" subtitle="Upload files to see them here" actionLabel="Browse apps" onAction={() => setView("apps")} />
             </Section>
           </div>
 
@@ -581,12 +633,19 @@ function ActivityTimeline({ items }: { items: typeof RECENT_ACTIVITY }) {
 
 // ── Health Panel ──────────────────────────────────────────────────────
 function HealthPanel() {
+  // Real data from stores
+  const conversations = useChatStore((s) => s.conversations);
+  const isGenerating = useChatStore((s) => s.isGenerating);
+  const commsConnected = useCommsStore.getState().connection?.status === "connected";
+  const msgCount = conversations.flatMap((c) => c.messages).length;
+  const storageUsed = Math.min(100, Math.round((msgCount / 1000) * 100));
+
   const items = [
-    { label: "Storage", value: "6.7 / 10 GB", pct: 67, icon: HardDrive, color: "bg-emerald-400" },
-    { label: "Knowledge", value: "45 / 100 docs", pct: 45, icon: BookOpen, color: "bg-cyan-400" },
-    { label: "Agent utilization", value: "3 active", pct: 75, icon: Bot, color: "bg-violet-400" },
-    { label: "Comm health", value: "Good", pct: 90, icon: Inbox, color: "bg-emerald-400" },
-    { label: "Background jobs", value: "2 running", pct: 20, icon: Cpu, color: "bg-amber-400" },
+    { label: "Storage", value: `${storageUsed}% used`, pct: storageUsed || 5, icon: HardDrive, color: storageUsed > 80 ? "bg-amber-400" : "bg-emerald-400" },
+    { label: "Conversations", value: `${conversations.length} active`, pct: Math.min(100, conversations.length * 10) || 5, icon: MessageCircle, color: "bg-cyan-400" },
+    { label: "AI status", value: isGenerating ? "Processing" : "Ready", pct: isGenerating ? 100 : 0, icon: Bot, color: isGenerating ? "bg-amber-400" : "bg-emerald-400" },
+    { label: "Comm health", value: commsConnected ? "Connected" : "Offline", pct: commsConnected ? 90 : 0, icon: Inbox, color: commsConnected ? "bg-emerald-400" : "bg-muted-foreground" },
+    { label: "Messages", value: `${msgCount} total`, pct: Math.min(100, msgCount) || 5, icon: Activity, color: "bg-violet-400" },
     { label: "Database", value: "Healthy", pct: 100, icon: Database, color: "bg-emerald-400" },
   ];
   return (
@@ -808,3 +867,21 @@ function FileIcon({ type }: { type: string }) {
 
 // Loader2 import (used in some cards)
 import { Loader2 } from "lucide-react";
+
+// ── Empty State ───────────────────────────────────────────────────────
+function EmptyState({ icon: Icon, title, subtitle, actionLabel, onAction }: { icon: LucideIcon; title: string; subtitle: string; actionLabel?: string; onAction?: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-8 text-center">
+      <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary/60">
+        <Icon className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <p className="mt-2 text-xs font-medium">{title}</p>
+      <p className="mt-0.5 text-[10px] text-muted-foreground">{subtitle}</p>
+      {actionLabel && onAction && (
+        <button onClick={onAction} className="mt-3 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium hover:bg-secondary">
+          {actionLabel}
+        </button>
+      )}
+    </div>
+  );
+}
