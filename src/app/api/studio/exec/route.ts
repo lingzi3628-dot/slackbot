@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const EXEC_BACKEND_URL = process.env.EXEC_BACKEND_URL || "http://64.181.198.8:3003";
+const EXEC_BACKEND_URL = process.env.EXEC_BACKEND_URL || "http://seth1.sethtech.duckdns.org/studio-api";
 
 /**
  * POST /api/studio/exec
