@@ -12,11 +12,31 @@ import { useStudioStore } from "@/store/studio-store";
 import { STUDIO_TYPES, getStudioType, type StudioApp } from "@/lib/studio-types";
 import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
-import { TerminalApp } from "./studio-apps/terminal-app";
-import { CodeEditorApp } from "./studio-apps/code-editor-app";
+import dynamic from "next/dynamic";
 import { AIWordApp } from "./studio-apps/ai-word-app";
 import { AISpreadsheetApp } from "./studio-apps/ai-spreadsheet-app";
 import { AIChatApp, RestClientApp, ResearchBrowserApp } from "./studio-apps/ai-chat-app";
+
+// Terminal uses xterm.js which references browser globals (self, window).
+// Must be loaded client-side only — no SSR.
+const TerminalApp = dynamic(() => import("./studio-apps/terminal-app").then((m) => m.TerminalApp), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center bg-[#0a0a0b] text-muted-foreground">
+      <span className="text-xs">Loading terminal…</span>
+    </div>
+  ),
+});
+
+// Monaco editor also uses browser globals — load client-side only.
+const CodeEditorApp = dynamic(() => import("./studio-apps/code-editor-app").then((m) => m.CodeEditorApp), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-muted-foreground">
+      <span className="text-xs">Loading code editor…</span>
+    </div>
+  ),
+});
 
 // ── Main Studio Entry Point ───────────────────────────────────────────
 export function SpyroStudio() {
