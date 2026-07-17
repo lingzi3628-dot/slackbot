@@ -272,6 +272,7 @@ export function CodeEditorApp() {
               value={code}
               onChange={(v) => setCode(v || "")}
               theme="vs-dark"
+              loading={<div className="flex h-full items-center justify-center bg-[#0a0a0b]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
               options={{
                 fontSize: 13,
                 fontFamily: "Geist Mono, 'Fira Code', monospace",

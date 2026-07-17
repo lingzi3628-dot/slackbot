@@ -3,7 +3,7 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { Check, Copy, ExternalLink, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -35,7 +35,10 @@ function buildPreviewDoc(code: string, lang: string): string {
 
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = React.useState(false);
+  const [showOutput, setShowOutput] = React.useState(false);
+  const [output, setOutput] = React.useState<string | null>(null);
   const canPreview = PREVIEWABLE.has(language.toLowerCase());
+  const canRun = ["javascript", "js", "typescript", "ts"].includes(language.toLowerCase());
 
   const copy = async () => {
     try {
@@ -53,8 +56,40 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
     const blob = new Blob([doc], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank", "noopener,noreferrer");
-    // Revoke after 1 minute (tab will have loaded by then).
     setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
+  /** Run JS/TS code in-browser and show output. */
+  const runCode = () => {
+    setShowOutput(true);
+    setOutput("Running...\n");
+    try {
+      const logs: string[] = [];
+      const errors: string[] = [];
+      const consoleMock = {
+        log: (...args: any[]) => logs.push(args.map(a => typeof a === "object" ? JSON.stringify(a, null, 2) : String(a)).join(" ")),
+        error: (...args: any[]) => errors.push("ERROR: " + args.join(" ")),
+        warn: (...args: any[]) => logs.push("⚠ " + args.join(" ")),
+        info: (...args: any[]) => logs.push("ℹ " + args.join(" ")),
+      };
+      // Strip TS types
+      let jsCode = code;
+      if (language.toLowerCase() === "typescript" || language.toLowerCase() === "ts") {
+        jsCode = code
+          .replace(/:\s*[A-Za-z<>[\]|&{},\s]+(?=\s*[=;)])/g, "")
+          .replace(/interface\s+\w+\s*\{[^}]*\}/g, "")
+          .replace(/type\s+\w+\s*=\s*[^;]+;/g, "")
+          .replace(/import\s+.*from\s+['"][^'"]+['"];?/g, "")
+          .replace(/export\s+/g, "");
+      }
+      
+      const fn = new Function("console", jsCode);
+      fn(consoleMock);
+      const result = [...logs, ...errors].join("\n") || "(no output)";
+      setOutput(result);
+    } catch (e) {
+      setOutput(`Error: ${e instanceof Error ? e.message : "Failed to execute"}`);
+    }
   };
 
   return (
@@ -72,6 +107,16 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
               title="Open live preview in new tab"
             >
               <ExternalLink className="h-3 w-3" /> Preview
+            </button>
+          )}
+          {canRun && (
+            <button
+              onClick={runCode}
+              className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[11px] text-emerald-400 transition-colors hover:bg-emerald-500/25"
+              aria-label="Run code"
+              title="Run code"
+            >
+              <Play className="h-3 w-3" /> Run
             </button>
           )}
           <button
@@ -94,6 +139,12 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
       <pre className="overflow-x-auto p-3 text-[13px] leading-relaxed">
         <code className="font-mono text-foreground/90">{code}</code>
       </pre>
+      {showOutput && output && (
+        <div className="border-t border-border/70 bg-[#0a0a0b] p-3">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Output</div>
+          <pre className="whitespace-pre-wrap font-mono text-[12px] text-emerald-400">{output}</pre>
+        </div>
+      )}
     </div>
   );
 }

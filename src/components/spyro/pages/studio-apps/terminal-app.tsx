@@ -552,8 +552,32 @@ export function TerminalApp() {
 
         default:
           if (cmd.includes("=")) { const [k, v] = cmd.split("="); varsRef.current[k] = v; return ""; }
-          term.writeln(`\x1b[31m${cmd}: command not found. Type 'help' for available commands.\x1b[0m`);
-          return "";
+          // AI fallback — route ANY unknown command to SPYRO AI for interpretation
+          term.writeln(`\x1b[90m${cmd}: command not found locally. Asking SPYRO AI...\x1b[0m`);
+          try {
+            const fullCmd = input;
+            const res = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                messages: [{
+                  role: "user",
+                  content: `You are a terminal assistant inside SPYRO Studio. The user typed: "${fullCmd}"\n\nIf this is a real shell command, simulate its output (be realistic — show what the output would look like). If it's a question or request, answer it concisely. Keep responses short — this is a terminal, not a chat window. Use plain text only (no markdown).`,
+                }],
+              }),
+            });
+            const text = await res.text();
+            let reply: string;
+            try {
+              const data = JSON.parse(text);
+              reply = data.choices?.[0]?.message?.content || data.reply || text;
+            } catch { reply = text; }
+            reply.split("\n").forEach((l: string) => term.writeln(l));
+            return reply;
+          } catch (e) {
+            term.writeln(`\x1b[31m${cmd}: command not found and AI unavailable. Type 'help'.\x1b[0m`);
+            return "";
+          }
       }
     };
 

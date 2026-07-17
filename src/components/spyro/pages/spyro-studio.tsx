@@ -279,6 +279,8 @@ function StudioEnvironment() {
   const exitStudio = useStudioStore((s) => s.exitStudio);
   const layout = useStudioStore((s) => s.layout);
   const setLayout = useStudioStore((s) => s.setLayout);
+  const installApp = useStudioStore((s) => s.installApp);
+  const uninstallApp = useStudioStore((s) => s.uninstallApp);
   const setView = useUIStore((s) => s.setView);
   const [showAppStore, setShowAppStore] = React.useState(false);
 
@@ -339,16 +341,16 @@ function StudioEnvironment() {
       </div>
 
       {/* ── Studio Body ─────────────────────────────────────────────── */}
-      <div className="flex min-h-0 flex-1">
-        {/* App Dock (left) */}
-        <div className="w-16 shrink-0 overflow-y-auto border-r border-border bg-sidebar/40 p-2">
-          <div className="space-y-1">
+      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+        {/* App Dock — vertical on desktop, horizontal scroll on mobile */}
+        <div className="flex shrink-0 flex-row overflow-x-auto border-b border-border bg-sidebar/40 p-2 sm:w-16 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r">
+          <div className="flex flex-row gap-1 sm:flex-col sm:gap-1">
             {allApps.map((app) => (
               <button
                 key={app.id}
                 onClick={() => openApp(app.id, app.name)}
                 className={cn(
-                  "group grid w-full place-items-center rounded-xl p-2 transition-all",
+                  "group grid shrink-0 place-items-center rounded-xl p-2 transition-all",
                   openWindows.some((w) => w.appId === app.id) ? "bg-primary/10" : "hover:bg-secondary/50"
                 )}
                 title={app.name}
@@ -358,19 +360,19 @@ function StudioEnvironment() {
                 </div>
               </button>
             ))}
-          </div>
 
-          {/* Divider + AI */}
-          <div className="my-2 h-px bg-border" />
-          <button
-            onClick={() => openApp("ai-assistant", "AI Assistant")}
-            className="group grid w-full place-items-center rounded-xl p-2 hover:bg-secondary/50"
-            title="AI Assistant"
-          >
-            <div className="grid h-9 w-9 place-items-center rounded-xl spyro-bg-gradient text-white shadow-soft transition-transform group-hover:scale-110">
-              <Sparkles className="h-4 w-4" />
-            </div>
-          </button>
+            {/* Divider + AI */}
+            <div className="mx-1 h-px w-px bg-border sm:my-2 sm:h-px sm:w-full" />
+            <button
+              onClick={() => openApp("ai-assistant", "AI Assistant")}
+              className="group grid shrink-0 place-items-center rounded-xl p-2 hover:bg-secondary/50"
+              title="AI Assistant"
+            >
+              <div className="grid h-9 w-9 place-items-center rounded-xl spyro-bg-gradient text-white shadow-soft transition-transform group-hover:scale-110">
+                <Sparkles className="h-4 w-4" />
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Workspace area */}
@@ -393,8 +395,8 @@ function StudioEnvironment() {
           <StudioAppStore
             studioType={studioType}
             installedAppIds={installedAppIds}
-            onInstall={(id) => useStudioStore.getState().installApp(id)}
-            onUninstall={(id) => useStudioStore.getState().uninstallApp(id)}
+            onInstall={(id) => installApp(id)}
+            onUninstall={(id) => uninstallApp(id)}
             onClose={() => setShowAppStore(false)}
           />
         )}
