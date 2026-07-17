@@ -6,7 +6,7 @@ import {
   Rocket, Check, X, Plus, Minus, Maximize2, LayoutGrid,
   Columns, Square, Search, Download, Settings as SettingsIcon,
   Power, ChevronLeft, Sparkles, Bot, MessageCircle, Zap,
-  Clock, Folder, Smartphone, Shield, ArrowRight, Loader2,
+  Clock, Folder, Smartphone, Shield, ArrowRight, Loader2, Lock, Crown,
 } from "lucide-react";
 import { useStudioStore } from "@/store/studio-store";
 import { STUDIO_TYPES, getStudioType, type StudioApp } from "@/lib/studio-types";
@@ -282,7 +282,7 @@ function StudioEnvironment() {
   const studioType = useStudioStore((s) => s.studioType);
   const installedAppIds = useStudioStore((s) => s.installedAppIds);
   const openWindows = useStudioStore((s) => s.openWindows);
-  const openApp = useStudioStore((s) => s.openApp);
+  const openAppStore = useStudioStore((s) => s.openApp);
   const closeWindow = useStudioStore((s) => s.closeWindow);
   const minimizeWindow = useStudioStore((s) => s.minimizeWindow);
   const maximizeWindow = useStudioStore((s) => s.maximizeWindow);
@@ -293,6 +293,34 @@ function StudioEnvironment() {
   const uninstallApp = useStudioStore((s) => s.uninstallApp);
   const setView = useUIStore((s) => s.setView);
   const [showAppStore, setShowAppStore] = React.useState(false);
+  const [paywallApp, setPaywallApp] = React.useState<string | null>(null);
+  const [isPremium, setIsPremium] = React.useState(false);
+  const [freePeeks, setFreePeeks] = React.useState(0);
+
+  // Check premium status on mount
+  React.useEffect(() => {
+    fetch("/api/premium/usage", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "studio" }),
+    }).then((r) => r.json()).then((data) => {
+      setIsPremium(data.allowed);
+    }).catch(() => setIsPremium(false));
+  }, []);
+
+  // Wrap openApp with paywall check — free users get 3 app opens, then paywall
+  const openApp = React.useCallback((appId: string, appName: string) => {
+    if (!isPremium) {
+      if (freePeeks < 3) {
+        setFreePeeks((n) => n + 1);
+        openAppStore(appId, appName);
+      } else {
+        setPaywallApp(appName);
+      }
+    } else {
+      openAppStore(appId, appName);
+    }
+  }, [isPremium, freePeeks, openAppStore]);
 
   // All apps = core apps + installed apps from the store
   const allApps = React.useMemo(() => {
@@ -306,46 +334,48 @@ function StudioEnvironment() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      {/* ── Studio Top Bar ──────────────────────────────────────────── */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border bg-card/60 px-3 py-2 backdrop-blur-xl">
+      {/* ── Studio Top Bar (responsive) ────────────────────────────── */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card/60 px-3 py-2 backdrop-blur-xl">
         {/* Exit */}
         <button
           onClick={() => { exitStudio(); setView("home"); }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-medium hover:bg-secondary"
+          className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-medium hover:bg-secondary"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
-          Exit Studio
+          <span className="hidden sm:inline">Exit Studio</span>
         </button>
 
         {/* Studio name */}
-        <div className="flex items-center gap-2">
-          <div className={cn("grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br", studioType?.color || "from-violet-500 to-cyan-500")}>
-            {studioType && <studioType.icon className="h-3.5 w-3.5 text-white" />}
+        <div className="flex items-center gap-1.5">
+          <div className={cn("grid h-5 w-5 place-items-center rounded bg-gradient-to-br", studioType?.color || "from-violet-500 to-cyan-500")}>
+            {studioType && <studioType.icon className="h-3 w-3 text-white" />}
           </div>
           <span className="text-xs font-semibold">{studioType?.name} Studio</span>
         </div>
 
-        {/* Layout switcher */}
+        {/* Right controls */}
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={() => setLayout("tabs")} className={cn("grid h-7 w-7 place-items-center rounded-lg", layout === "tabs" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary")} aria-label="Tabs">
-            <Square className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={() => setLayout("split")} className={cn("grid h-7 w-7 place-items-center rounded-lg", layout === "split" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary")} aria-label="Split">
-            <Columns className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={() => setLayout("single")} className={cn("grid h-7 w-7 place-items-center rounded-lg", layout === "single" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary")} aria-label="Single">
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-
-          <div className="mx-1 h-4 w-px bg-border" />
+          {/* Layout switcher — hidden on mobile to save space */}
+          <div className="hidden items-center gap-1 sm:flex">
+            <button onClick={() => setLayout("tabs")} className={cn("grid h-7 w-7 place-items-center rounded-lg", layout === "tabs" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary")} aria-label="Tabs">
+              <Square className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setLayout("split")} className={cn("grid h-7 w-7 place-items-center rounded-lg", layout === "split" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary")} aria-label="Split">
+              <Columns className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setLayout("single")} className={cn("grid h-7 w-7 place-items-center rounded-lg", layout === "single" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary")} aria-label="Single">
+              <LayoutGrid className="h-3.5 w-3.5" />
+            </button>
+            <div className="mx-1 h-4 w-px bg-border" />
+          </div>
 
           {/* App Store */}
           <button
             onClick={() => setShowAppStore(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-medium hover:bg-secondary"
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[11px] font-medium hover:bg-secondary"
           >
             <Download className="h-3.5 w-3.5" />
-            App Store
+            <span className="hidden sm:inline">App Store</span>
           </button>
         </div>
       </div>
@@ -409,6 +439,60 @@ function StudioEnvironment() {
             onUninstall={(id) => uninstallApp(id)}
             onClose={() => setShowAppStore(false)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Free user banner */}
+      {!isPremium && (
+        <div className="flex shrink-0 items-center gap-2 border-t border-amber-500/20 bg-amber-500/5 px-3 py-1.5">
+          <Lock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+          <span className="flex-1 text-[10px] text-amber-400">
+            Free preview: {3 - freePeeks} app {3 - freePeeks === 1 ? "open" : "opens"} remaining
+          </span>
+          <button
+            onClick={() => setView("premium")}
+            className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-medium text-amber-400 hover:bg-amber-500/25"
+          >
+            Upgrade →
+          </button>
+        </div>
+      )}
+
+      {/* Paywall modal */}
+      <AnimatePresence>
+        {paywallApp && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: "fixed", inset: 0, zIndex: 95 }}
+            className="flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setPaywallApp(null)} />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-strong relative w-full max-w-sm overflow-hidden rounded-[24px] shadow-elevated"
+            >
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="grid h-7 w-7 place-items-center rounded-lg spyro-bg-gradient"><Crown className="h-3.5 w-3.5 text-white" /></div>
+                  <h2 className="text-xs font-semibold">Upgrade to use {paywallApp}</h2>
+                </div>
+                <button onClick={() => setPaywallApp(null)} className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" /></button>
+              </div>
+              <div className="px-5 py-4 text-center">
+                <p className="text-xs text-muted-foreground">You've used all 3 free app previews. Upgrade to Pro for unlimited access to all Studio apps.</p>
+                <button onClick={() => { setPaywallApp(null); setView("premium"); }} className="mt-3 w-full rounded-xl spyro-bg-gradient py-2 text-xs font-semibold text-white">
+                  View Plans — from KSh 499/mo
+                </button>
+                <button onClick={() => setPaywallApp(null)} className="mt-1.5 w-full rounded-xl border border-border bg-card py-1.5 text-[11px] text-muted-foreground hover:bg-secondary">
+                  Maybe later
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

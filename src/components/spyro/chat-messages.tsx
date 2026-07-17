@@ -35,6 +35,7 @@ export function ChatMessages({
   // ── Auto-migration: detect when this is a "deep project" that would
   // benefit from Studio. Show a banner suggesting to open Studio. ──
   const [showStudioBanner, setShowStudioBanner] = React.useState(false);
+  const [studioTargetApp, setStudioTargetApp] = React.useState<string | null>(null);
   const [dismissedBanner, setDismissedBanner] = React.useState(false);
 
   React.useEffect(() => {
@@ -42,16 +43,30 @@ export function ChatMessages({
     const lastMsg = messages[messages.length - 1];
     if (lastMsg?.role !== "assistant") return;
 
-    // Detect deep work indicators in the AI response
     const content = lastMsg.content || "";
     const hasCodeBlock = content.includes("```") || content.includes("function ") || content.includes("const ") || content.includes("import ");
     const isLongResponse = content.length > 1500;
-    const hasResearchTerms = /research|analysis|study|investigat|compar|evaluat|architect/i.test(content);
-    const hasCodeTerms = /code|function|API|endpoint|database|deploy|debug|refactor/i.test(content);
+    const hasResearchTerms = /research|analysis|study|investigat|compar|evaluat|architect|literature|citation/i.test(content);
+    const hasCodeTerms = /code|function|API|endpoint|database|deploy|debug|refactor|npm|python|javascript/i.test(content);
+    const hasDataTerms = /spreadsheet|data|chart|graph|statistic|formula|calculate/i.test(content);
+    const hasDocTerms = /document|report|proposal|letter|write|summarize/i.test(content);
     const conversationLength = messages.length;
 
-    // Show banner if: code-heavy response OR long research OR 6+ messages
-    if (hasCodeBlock || (isLongResponse && hasResearchTerms) || (conversationLength >= 6 && (hasCodeTerms || hasResearchTerms))) {
+    // Determine which Studio app to suggest
+    if (hasCodeBlock || (conversationLength >= 4 && hasCodeTerms)) {
+      setStudioTargetApp("code-editor");
+      setShowStudioBanner(true);
+    } else if (isLongResponse && hasResearchTerms) {
+      setStudioTargetApp("research-browser");
+      setShowStudioBanner(true);
+    } else if (hasDataTerms && conversationLength >= 4) {
+      setStudioTargetApp("spreadsheet");
+      setShowStudioBanner(true);
+    } else if (hasDocTerms && isLongResponse) {
+      setStudioTargetApp("word");
+      setShowStudioBanner(true);
+    } else if (conversationLength >= 6) {
+      setStudioTargetApp(null);
       setShowStudioBanner(true);
     }
   }, [messages, dismissedBanner]);
@@ -142,8 +157,20 @@ export function ChatMessages({
                 <Rocket className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold">This looks like deep work</p>
-                <p className="text-[10px] text-muted-foreground">Open SPYRO Studio for a full workspace with code editor, terminal, and AI tools.</p>
+                <p className="text-xs font-semibold">
+                  {studioTargetApp === "code-editor" ? "This looks like coding work" :
+                   studioTargetApp === "research-browser" ? "This looks like research" :
+                   studioTargetApp === "spreadsheet" ? "This looks like data analysis" :
+                   studioTargetApp === "word" ? "This looks like document writing" :
+                   "This looks like deep work"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {studioTargetApp === "code-editor" ? "Open the Code Editor in SPYRO Studio for a full IDE with terminal." :
+                   studioTargetApp === "research-browser" ? "Open the Research Browser in SPYRO Studio for deeper analysis." :
+                   studioTargetApp === "spreadsheet" ? "Open the AI Spreadsheet in SPYRO Studio for data work." :
+                   studioTargetApp === "word" ? "Open AI Word in SPYRO Studio for document editing." :
+                   "Open SPYRO Studio for a full workspace with code editor, terminal, and AI tools."}
+                </p>
               </div>
               <button
                 onClick={() => { setView("studio"); setDismissedBanner(true); }}

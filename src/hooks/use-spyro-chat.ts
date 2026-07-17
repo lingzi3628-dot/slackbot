@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useChatStore, type Message } from "@/store/chat-store";
 import type { SpyroModelId } from "@/lib/spyro-engine";
+import { useUsageStore } from "@/store/usage-store";
 
 interface SendOptions {
   conversationId?: string;
@@ -156,6 +157,9 @@ export function useSpyroChat() {
               ? "**SPYRO V1 returned an empty response.** Try rephrasing your prompt."
               : acc,
         });
+        // Track token usage (approximate: 1 token ≈ 4 chars)
+        const tokensUsed = Math.ceil(acc.length / 4);
+        useUsageStore.getState().incrementTokens(tokensUsed);
       } catch (err) {
         if ((err as Error)?.name === "AbortError") {
           store.getState().setMessage(assistantId, {
@@ -224,6 +228,7 @@ export function useSpyroChat() {
             imageUrl: data.image,
             streaming: false,
           });
+          useUsageStore.getState().incrementImages();
         } else {
           store.getState().setMessage(msgId, {
             content: `**Image generation failed.** ${data.error ?? "Unknown error"}`,

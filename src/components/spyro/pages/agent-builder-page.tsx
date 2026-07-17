@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Plus, Trash2, Save, Copy, Check, Loader2, Sparkles, Send,
   Key, MessageSquare, Sliders, Palette, Eye, EyeOff, Zap, Terminal,
-  RefreshCw, Settings2,
+  RefreshCw, Settings2, Lock, Crown,
 } from "lucide-react";
+import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
 
 interface Agent {
@@ -314,20 +315,22 @@ export function AgentBuilder() {
             {/* Tabs */}
             <div className="flex gap-1 rounded-xl border border-border/40 bg-card/20 p-1">
               {[
-                { id: "train" as const, label: "Train", icon: Sliders },
-                { id: "test" as const, label: "Test", icon: MessageSquare },
-                { id: "integrate" as const, label: "Integrate", icon: Key },
+                { id: "train" as const, label: "Train", icon: Sliders, locked: false },
+                { id: "test" as const, label: "Test", icon: MessageSquare, locked: false },
+                { id: "integrate" as const, label: "Integrate", icon: Key, locked: true },
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => !tab.locked && setActiveTab(tab.id)}
                   className={cn(
                     "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-all",
+                    tab.locked ? "text-muted-foreground/40 cursor-not-allowed" :
                     activeTab === tab.id ? "spyro-bg-gradient text-white" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   <tab.icon className="h-4 w-4" />
                   {tab.label}
+                  {tab.locked && <Lock className="h-3 w-3" />}
                 </button>
               ))}
             </div>
@@ -475,8 +478,30 @@ export function AgentBuilder() {
               </motion.div>
             )}
 
-            {/* Integrate tab */}
+            {/* Integrate tab — LOCKED for free users */}
             {activeTab === "integrate" && (
+              <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="surface-elevated space-y-4 rounded-2xl p-5">
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="grid h-14 w-14 place-items-center rounded-2xl bg-amber-500/15">
+                    <Lock className="h-7 w-7 text-amber-400" />
+                  </div>
+                  <h3 className="mt-3 text-sm font-bold">Integration & API Keys locked</h3>
+                  <p className="mt-1 max-w-xs text-[11px] text-muted-foreground">
+                    Free plan can create and test agents, but connecting them to WhatsApp, Telegram, or generating API keys requires Pro or higher.
+                  </p>
+                  <button
+                    onClick={() => useUIStore.getState().setView("premium")}
+                    className="mt-4 inline-flex items-center gap-2 rounded-xl spyro-bg-gradient px-4 py-2 text-xs font-medium text-white"
+                  >
+                    <Crown className="h-3.5 w-3.5" />
+                    Upgrade to Pro — KSh 499/mo
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Original Integrate tab content — only shown for premium users (not accessible for free) */}
+            {false && activeTab === "integrate" && (
               <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="surface-elevated space-y-4 rounded-2xl p-5">
                 <div className="flex items-center gap-2">
                   <Key className="h-4 w-4 text-primary" />

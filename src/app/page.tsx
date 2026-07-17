@@ -211,15 +211,11 @@ export default function Home() {
             />
           </>
         ) : activeView === "communication" ? (
-          /* Communication Center — gated: requires Pro+ */
-          <PremiumGate feature="whatsapp">
-            <CommunicationCenter />
-          </PremiumGate>
+          /* Communication Center — free users get 3 peeks then paywall */
+          <CommunicationCenter />
         ) : activeView === "studio" ? (
-          /* SPYRO STUDIO — gated: requires Pro+ */
-          <PremiumGate feature="studio">
-            <SpyroStudio />
-          </PremiumGate>
+          /* SPYRO STUDIO — free users can VIEW but apps are paywalled inside */
+          <SpyroStudio />
         ) : (
           <>
             {/* Top app bar for non-chat views */}

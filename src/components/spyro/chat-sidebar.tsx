@@ -8,7 +8,7 @@ import {
   Home, FolderKanban, BookOpen, Bot, LayoutGrid,
   BarChart3, Flame, Inbox, Bell, Plus, ChevronDown,
   Zap, MessageSquare, FolderPlus, Upload, Globe, Rocket,
-  Server, Info, Crown,
+  Server, Info, Crown, Terminal, Plug,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -213,6 +213,38 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
               </button>
             );
           })}
+        </nav>
+      </div>
+
+      {/* ── Developer tools ──────────────────────────────────────────── */}
+      <div className="px-2 pb-2">
+        <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+          Developer
+        </div>
+        <nav className="space-y-0.5">
+          <button
+            onClick={() => handleNav("integrations")}
+            className={cn(
+              "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all",
+              activeView === "integrations" ? "bg-primary/10 text-foreground font-semibold" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+            )}
+          >
+            {activeView === "integrations" && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />}
+            <Plug className={cn("h-4 w-4 transition-colors", activeView === "integrations" ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+            Integrations
+          </button>
+          <button
+            onClick={() => handleNav("api-playground")}
+            className={cn(
+              "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all",
+              activeView === "api-playground" ? "bg-primary/10 text-foreground font-semibold" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+            )}
+          >
+            {activeView === "api-playground" && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />}
+            <Terminal className={cn("h-4 w-4 transition-colors", activeView === "api-playground" ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+            API Playground
+            <span className="ml-auto rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[8px] font-bold uppercase text-amber-400">Pro</span>
+          </button>
         </nav>
       </div>
 
