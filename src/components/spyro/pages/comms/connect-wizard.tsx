@@ -57,19 +57,25 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
       const data = await res.json();
       setConnection(data);
 
-      // Check if we've been waiting too long (90s) — WhatsApp is likely
+      // Check if we've been waiting too long (45s) — WhatsApp is likely
       // blocking the server's IP. Show a helpful error instead of spinning.
       if (data.status === "connecting" && startTimeRef.current > 0) {
         const elapsed = Date.now() - startTimeRef.current;
-        if (elapsed > 90_000) {
+        if (elapsed > 45_000) {
           stopPolling();
           setError(
-            "WhatsApp is blocking the connection from this server's IP. This is a known issue with datacenter/cloud IPs — WhatsApp blocks them to prevent spam.\n\n" +
-            "Solutions:\n" +
-            "1. Run the Baileys service on your local machine (home internet)\n" +
-            "2. Set up a SOCKS/HTTPS proxy with a residential IP (set SOCKS_PROXY_URL on the VPS)\n" +
-            "3. Use a residential VPS provider (not Oracle/AWS/GCP)\n\n" +
-            "The code was generated but WhatsApp terminated the session before you could enter it."
+            "WhatsApp is blocking the connection from the VPS IP (64.181.198.8 — Oracle Cloud).\n\n" +
+            "What's happening: The pairing code IS generated correctly, but WhatsApp terminates the connection within ~3 seconds because it detects a datacenter IP. By the time you enter the code in WhatsApp, the session is dead → \"couldn't link\".\n\n" +
+            "How Mr Unique Hacker's bots work: He deploys on Koyeb/Render/Railway (residential-style IPs that WhatsApp doesn't block). Oracle Cloud, AWS, and GCP IPs are all blocked.\n\n" +
+            "SOLUTIONS (pick one):\n\n" +
+            "1. BEST: Deploy the pairing-server on Koyeb (free) — koyeb.com. WhatsApp doesn't block Koyeb IPs.\n\n" +
+            "2. Run it on your local machine (home internet):\n" +
+            "   git clone https://github.com/seth-16-one/pairing-server\n" +
+            "   cd pairing-server && npm install && npm start\n\n" +
+            "3. Set up a SOCKS5 proxy with a residential IP on the VPS:\n" +
+            "   Add to .env: SOCKS_PROXY_URL=socks5://user:pass@proxy:port\n" +
+            "   (residential proxies from IPRoyal, Smartproxy, etc.)\n\n" +
+            "4. Use a different VPS provider (Hetzner, Contabo, DigitalOcean — some IPs work)"
           );
           setPhase("error");
           return;
