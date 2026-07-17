@@ -16,10 +16,10 @@ export type View =
   | "communication" | "studio" | "analytics" | "settings"
   // Legacy Apps view (accessible but not in primary nav)
   | "apps"
-  // Secondary views (not in primary nav)
-  | "about" | "profile"
+  // Secondary views
+  | "about" | "profile" | "vps-features"
   | "login" | "register"
-  // App sub-views (accessed via Apps)
+  // App sub-views
   | "api-playground" | "agent-builder" | "god-mode-live"
   | "integrations" | "integration-control";
 

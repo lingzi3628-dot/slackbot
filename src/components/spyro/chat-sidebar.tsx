@@ -8,6 +8,7 @@ import {
   Home, FolderKanban, BookOpen, Bot, LayoutGrid,
   BarChart3, Flame, Inbox, Bell, Plus, ChevronDown,
   Zap, MessageSquare, FolderPlus, Upload, Globe, Rocket,
+  Server, Info,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";

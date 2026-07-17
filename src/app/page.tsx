@@ -37,6 +37,10 @@ import { FloatingActionButton } from "@/components/spyro/floating-action-button"
 import { WorkspaceOnboarding } from "@/components/spyro/pages/workspace-onboarding";
 import { useWorkspaceStore } from "@/store/workspace-store";
 import { SpyroStudio } from "@/components/spyro/pages/spyro-studio";
+import { OnboardingSurvey } from "@/components/spyro/pages/onboarding-survey";
+import { TutorialOverlay } from "@/components/spyro/pages/tutorial-overlay";
+import { VPSFeaturesPage } from "@/components/spyro/pages/vps-features-page";
+import { useProfileStore } from "@/store/profile-store";
 
 // Friendly titles for the top bar on non-chat views.
 const VIEW_TITLES: Record<string, string> = {
@@ -117,6 +121,10 @@ export default function Home() {
   // Workspace onboarding — shown after auth if no workspace selected yet.
   const hasWorkspace = useWorkspaceStore((s) => s.hasSelectedWorkspace);
 
+  // Onboarding survey — shown after workspace selection if not completed
+  const surveyCompleted = useProfileStore((s) => s.surveyCompleted);
+  const tutorialCompleted = useProfileStore((s) => s.tutorialCompleted);
+
   // Register/Login views are full-screen (no sidebar, no header) — must be after all hooks.
   if (activeView === "register" || activeView === "login") {
     return activeView === "login" ? <LoginPage /> : <RegisterPage />;
@@ -126,11 +134,17 @@ export default function Home() {
     return <WorkspaceOnboarding onComplete={() => setView("home")} />;
   }
 
+  // Show onboarding survey after workspace selection
+  if (isAuthed && hasWorkspace && !surveyCompleted) {
+    return <OnboardingSurvey onComplete={() => setView("home")} onSkip={() => { useProfileStore.getState().completeSurvey(); setView("home"); }} />;
+  }
+
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
       <EmberBackground />
       <CommandPalette />
       <FloatingActionButton />
+      {!tutorialCompleted && <TutorialOverlay />}
 
       {/* Desktop sidebar */}
       <aside className="relative z-10 hidden w-72 shrink-0 overflow-hidden border-r border-border bg-sidebar/60 backdrop-blur-xl lg:flex">
@@ -246,6 +260,7 @@ export default function Home() {
               {activeView === "settings" && <SettingsPage />}
               {activeView === "profile" && <ProfilePage onBack={() => setView("home")} />}
               {activeView === "about" && <AboutPage />}
+              {activeView === "vps-features" && <VPSFeaturesPage />}
             </div>
           </>
         )}
