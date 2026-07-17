@@ -19,8 +19,13 @@ import type {
   Contact, DashboardStats,
 } from "./types";
 
+// The pairing-server URL. Set PAIRING_SERVER_URL in your env to point
+// at your own deployment (Koyeb, Render, Railway, or local + tunnel).
+// The VPS at seth1.sethtech.duckdns.org is WhatsApp-IP-blocked — deploy
+// on Koyeb (free) for it to actually work.
 const PAIRING_SERVER_URL =
   process.env.PAIRING_SERVER_URL ||
+  process.env.NEXT_PUBLIC_PAIRING_SERVER_URL ||
   "http://seth1.sethtech.duckdns.org";
 
 let _healthCache: { ok: boolean; checkedAt: number } = { ok: false, checkedAt: 0 };

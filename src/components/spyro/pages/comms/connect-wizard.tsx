@@ -64,18 +64,18 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
         if (elapsed > 45_000) {
           stopPolling();
           setError(
-            "WhatsApp is blocking the connection from the VPS IP (64.181.198.8 — Oracle Cloud).\n\n" +
-            "What's happening: The pairing code IS generated correctly, but WhatsApp terminates the connection within ~3 seconds because it detects a datacenter IP. By the time you enter the code in WhatsApp, the session is dead → \"couldn't link\".\n\n" +
-            "How Mr Unique Hacker's bots work: He deploys on Koyeb/Render/Railway (residential-style IPs that WhatsApp doesn't block). Oracle Cloud, AWS, and GCP IPs are all blocked.\n\n" +
-            "SOLUTIONS (pick one):\n\n" +
-            "1. BEST: Deploy the pairing-server on Koyeb (free) — koyeb.com. WhatsApp doesn't block Koyeb IPs.\n\n" +
-            "2. Run it on your local machine (home internet):\n" +
-            "   git clone https://github.com/seth-16-one/pairing-server\n" +
-            "   cd pairing-server && npm install && npm start\n\n" +
-            "3. Set up a SOCKS5 proxy with a residential IP on the VPS:\n" +
-            "   Add to .env: SOCKS_PROXY_URL=socks5://user:pass@proxy:port\n" +
-            "   (residential proxies from IPRoyal, Smartproxy, etc.)\n\n" +
-            "4. Use a different VPS provider (Hetzner, Contabo, DigitalOcean — some IPs work)"
+            "WhatsApp is blocking the connection from this server's IP.\n\n" +
+            "The pairing code generates fine, but WhatsApp kills the connection within 3 seconds (datacenter IP block). By the time you enter the code, the session is dead.\n\n" +
+            "FIX — Deploy the pairing-server on Koyeb (free, 2 minutes):\n\n" +
+            "1. Go to koyeb.com → sign up (free)\n" +
+            "2. Create Service → GitHub → select 'lingzi3628-dot/pairing-server'\n" +
+            "3. It auto-detects the Dockerfile → Deploy\n" +
+            "4. Copy your Koyeb URL (e.g. https://spyro-pairing-xxx.koyeb.app)\n" +
+            "5. Set PAIRING_SERVER_URL=<that-url> in your SPYRO app env vars\n" +
+            "6. Redeploy SPYRO — WhatsApp will connect!\n\n" +
+            "Why Koyeb: WhatsApp doesn't block Koyeb IPs (unlike Oracle/AWS/GCP). " +
+            "Mr Unique Hacker's bots work for the same reason — he uses Koyeb/Render.\n\n" +
+            "Repo: github.com/lingzi3628-dot/pairing-server"
           );
           setPhase("error");
           return;
