@@ -1,9 +1,16 @@
 "use client";
 
 import * as React from "react";
-import Editor from "@monaco-editor/react";
-import { Sparkles, Play, Save, FileCode2, FolderOpen, Plus, Download, Terminal as TerminalIcon } from "lucide-react";
+import Editor, { loader } from "@monaco-editor/react";
+import { Sparkles, Play, Save, FileCode2, FolderOpen, Plus, Download, Terminal as TerminalIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Configure Monaco to load from a fast CDN
+loader.config({
+  paths: {
+    vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs",
+  },
+});
 
 const LANGUAGES = [
   { id: "javascript", label: "JavaScript", ext: ".js" },
