@@ -27,26 +27,62 @@ const FEATURES = [
 export function RegisterPage() {
   const { signIn } = useLocalAuth();
   const setView = useUIStore((s) => s.setView);
-  const [name, setName] = React.useState("");
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
+  const [name, setName] = React.useState(() => { try { return sessionStorage.getItem("spyro-reg-name") || ""; } catch { return ""; } });
+  const [email, setEmail] = React.useState(() => { try { return sessionStorage.getItem("spyro-reg-email") || ""; } catch { return ""; } });
+  const [password, setPassword] = React.useState(() => { try { return sessionStorage.getItem("spyro-reg-password") || ""; } catch { return ""; } });
   const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [mode, setMode] = React.useState<"register" | "login">("register");
+
+  // Persist form fields on change
+  React.useEffect(() => { try { sessionStorage.setItem("spyro-reg-name", name); } catch {} }, [name]);
+  React.useEffect(() => { try { sessionStorage.setItem("spyro-reg-email", email); } catch {} }, [email]);
+  React.useEffect(() => { try { sessionStorage.setItem("spyro-reg-password", password); } catch {} }, [password]);
   const [showForgot, setShowForgot] = React.useState(false);
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [forgotSent, setForgotSent] = React.useState(false);
   const [forgotLoading, setForgotLoading] = React.useState(false);
 
-  // Verification state
-  const [step, setStep] = React.useState<"form" | "verify">("form");
-  const [verifyEmail, setVerifyEmail] = React.useState("");
+  // Verification state — persist in sessionStorage so refresh doesn't lose it
+  const [step, setStep] = React.useState<"form" | "verify">(() => {
+    try { return sessionStorage.getItem("spyro-verify-step") === "verify" ? "verify" : "form"; } catch { return "form"; }
+  });
+  const [verifyEmail, setVerifyEmail] = React.useState(() => {
+    try { return sessionStorage.getItem("spyro-verify-email") || ""; } catch { return ""; }
+  });
   const [code, setCode] = React.useState("");
   const [codeLoading, setCodeLoading] = React.useState(false);
   const [codeError, setCodeError] = React.useState<string | null>(null);
   const [devCode, setDevCode] = React.useState<string | null>(null);
   const [resendDisabled, setResendDisabled] = React.useState(false);
+
+  // Persist verification state
+  React.useEffect(() => {
+    try {
+      if (step === "verify") {
+        sessionStorage.setItem("spyro-verify-step", "verify");
+        sessionStorage.setItem("spyro-verify-email", verifyEmail);
+      } else {
+        sessionStorage.removeItem("spyro-verify-step");
+        sessionStorage.removeItem("spyro-verify-email");
+      }
+    } catch { /* ignore */ }
+  }, [step, verifyEmail]);
+
+  // Auto-resend code on refresh if we're in verify step but code wasn't sent this session
+  React.useEffect(() => {
+    if (step === "verify" && verifyEmail && !devCode) {
+      // Silently resend the code
+      fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: verifyEmail }),
+      }).then((r) => r.json()).then((data) => {
+        if (data.devCode) setDevCode(data.devCode);
+      }).catch(() => {});
+    }
+  }, [step, verifyEmail, devCode]);
 
   const submit = async () => {
     if (!email.trim() || !password.trim()) { setError("Email and password are required."); return; }
@@ -61,7 +97,10 @@ export function RegisterPage() {
       if (mode === "register" && data.needsVerification) {
         setVerifyEmail(data.email); await sendCode(data.email); setStep("verify"); setLoading(false); return;
       }
-      if (data.id) { signIn(data.email, data.name); setView("home"); }
+      if (data.id) {
+        try { sessionStorage.removeItem("spyro-reg-name"); sessionStorage.removeItem("spyro-reg-email"); sessionStorage.removeItem("spyro-reg-password"); } catch {}
+        signIn(data.email, data.name); setView("home");
+      }
       else { setError(data.error || "Something went wrong."); }
     } catch { setError("Network error. Please try again."); }
     finally { setLoading(false); }
@@ -83,7 +122,11 @@ export function RegisterPage() {
     try {
       const res = await fetch("/api/auth/verify-code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: verifyEmail, code: code.trim() }) });
       const data = await res.json();
-      if (data.verified) { signIn(data.email, data.name); setView("home"); }
+      if (data.verified) {
+        // Clear persisted form data on success
+        try { sessionStorage.removeItem("spyro-reg-name"); sessionStorage.removeItem("spyro-reg-email"); sessionStorage.removeItem("spyro-reg-password"); sessionStorage.removeItem("spyro-verify-step"); sessionStorage.removeItem("spyro-verify-email"); } catch {}
+        signIn(data.email, data.name); setView("home");
+      }
       else { setCodeError(data.error || "Invalid code."); }
     } catch { setCodeError("Network error."); }
     finally { setCodeLoading(false); }

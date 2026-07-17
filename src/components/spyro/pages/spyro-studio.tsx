@@ -6,7 +6,7 @@ import {
   Rocket, Check, X, Plus, Minus, Maximize2, LayoutGrid,
   Columns, Square, Search, Download, Settings as SettingsIcon,
   Power, ChevronLeft, Sparkles, Bot, MessageCircle, Zap,
-  Clock, Folder, Smartphone, Shield, ArrowRight,
+  Clock, Folder, Smartphone, Shield, ArrowRight, Loader2,
 } from "lucide-react";
 import { useStudioStore } from "@/store/studio-store";
 import { STUDIO_TYPES, getStudioType, type StudioApp } from "@/lib/studio-types";
@@ -24,6 +24,16 @@ const TerminalApp = dynamic(() => import("./studio-apps/terminal-app").then((m) 
   loading: () => (
     <div className="flex h-full items-center justify-center bg-[#0a0a0b] text-muted-foreground">
       <span className="text-xs">Loading terminal…</span>
+    </div>
+  ),
+});
+
+// Full VS Code IDE — Monaco + file explorer + terminal panel
+const VSCodeApp = dynamic(() => import("./studio-apps/vscode-app").then((m) => m.VSCodeApp), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center bg-[#0a0a0b] text-muted-foreground">
+      <Loader2 className="h-6 w-6 animate-spin text-primary" />
     </div>
   ),
 });
@@ -523,7 +533,7 @@ function AppContent({ appId, appName }: { appId: string; appName: string }) {
     case "terminal":
       return <TerminalApp />;
     case "code-editor":
-      return <CodeEditorApp />;
+      return <VSCodeApp />;
     case "word":
     case "ai-word":
     case "pdf":

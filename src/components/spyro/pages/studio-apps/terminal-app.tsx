@@ -368,28 +368,59 @@ export function TerminalApp() {
 
         case "git": {
           const sub = args[0] || "";
-          if (sub === "status") {
+          if (sub === "clone") {
+            const url = args[1];
+            if (!url) { term.writeln("\x1b[33mUsage: git clone <url>\x1b[0m"); return ""; }
+            const repoName = url.split("/").pop()?.replace(".git", "") || "repo";
+            term.writeln(`\x1b[90mCloning into '${repoName}'...\x1b[0m`);
+            term.writeln(`\x1b[90mremote: Enumerating objects: 42, done.\x1b[0m`);
+            term.writeln(`\x1b[90mremote: Counting objects: 100% (42/42), done.\x1b[0m`);
+            term.writeln(`\x1b[90mremote: Compressing objects: 100% (28/28), done.\x1b[0m`);
+            term.writeln(`\x1b[90mremote: Total 42 (delta 14), reused 38 (delta 10)\x1b[0m`);
+            term.writeln(`\x1b[90mReceiving objects: 100% (42/42), 24.5 KiB | 2.4 MiB/s, done.\x1b[0m`);
+            term.writeln(`\x1b[90mResolving deltas: 100% (14/14), done.\x1b[0m`);
+            // Try to fetch the repo README via API
+            try {
+              const apiUrl = url.replace("github.com", "api.github.com/repos").replace(".git", "") + "/readme";
+              const res = await fetch(apiUrl, { headers: { Accept: "application/vnd.github.v3.raw" } });
+              if (res.ok) {
+                const readme = await res.text();
+                VFS[`${repoName}/README.md`] = readme;
+                term.writeln(`\x1b[32m✓ Cloned ${repoName} — README.md fetched (${readme.length} bytes)\x1b[0m`);
+              } else {
+                VFS[`${repoName}/README.md`] = `# ${repoName}\n\nCloned from ${url}\n`;
+                term.writeln(`\x1b[32m✓ Cloned ${repoName}\x1b[0m`);
+              }
+            } catch {
+              VFS[`${repoName}/README.md`] = `# ${repoName}\n\nCloned from ${url}\n`;
+              term.writeln(`\x1b[32m✓ Cloned ${repoName}\x1b[0m`);
+            }
+            return "";
+          } else if (sub === "status") {
             term.writeln("\x1b[32mOn branch main\x1b[0m");
             term.writeln("Your branch is up to date with 'origin/main'.");
             term.writeln("");
             const files = Object.keys(VFS);
-            if (files.length) {
-              term.writeln("Changes not staged for commit:");
-              files.forEach((f) => term.writeln(`  \x1b[31mmodified:   ${f}\x1b[0m`));
-            } else { term.writeln("nothing to commit, working tree clean"); }
+            if (files.length) { term.writeln("Changes not staged for commit:"); files.forEach((f) => term.writeln(`  \x1b[31mmodified:   ${f}\x1b[0m`)); }
+            else { term.writeln("nothing to commit, working tree clean"); }
           } else if (sub === "log") {
             term.writeln("\x1b[33mcommit a1b2c3d4\x1b[0m (HEAD -> main, origin/main)");
             term.writeln("Author: SPYRO User <user@spyro.ai>");
             term.writeln("Date:   " + new Date().toString());
-            term.writeln("");
-            term.writeln("    Initial SPYRO Studio commit");
+            term.writeln(""); term.writeln("    Initial SPYRO Studio commit");
           } else if (sub === "init") { term.writeln("Initialized empty Git repository in /home/spyro/.git/"); }
           else if (sub === "add") { term.writeln(`Added: ${args.slice(1).join(" ") || "all files"}`); }
           else if (sub === "commit") { term.writeln(`\x1b[32m[main ${Math.random().toString(36).slice(2, 8)}] Committed: ${args.slice(1).join(" ") || "update"}\x1b[0m`); }
           else if (sub === "push") { term.writeln("Pushing to origin/main... \x1b[32mDone!\x1b[0m"); }
           else if (sub === "pull") { term.writeln("Pulling from origin/main... \x1b[32mUp to date.\x1b[0m"); }
           else if (sub === "branch") { term.writeln("* \x1b[32mmain\x1b[0m"); }
-          else { term.writeln(`\x1b[33mgit: '${sub}' is not a command. Try: status, log, init, add, commit, push, pull, branch\x1b[0m`); }
+          else if (sub === "remote") { term.writeln("origin  https://github.com/spyro-user/project.git (fetch)\norigin  https://github.com/spyro-user/project.git (push)"); }
+          else if (sub === "diff") { term.writeln("\x1b[90m(no changes to display)\x1b[0m"); }
+          else if (sub === "checkout") { term.writeln(`Switched to branch '${args[1] || "main"}'`); }
+          else if (sub === "merge") { term.writeln(`\x1b[32mMerge made by the 'ort' strategy.\x1b[0m`); }
+          else if (sub === "stash") { term.writeln("Saved working directory and index state"); }
+          else if (sub === "fetch") { term.writeln("From origin/main\n * branch            main       -> FETCH_HEAD"); }
+          else { term.writeln(`\x1b[33mgit: '${sub}' — try: clone, status, log, init, add, commit, push, pull, branch, remote, diff, checkout, merge, stash, fetch\x1b[0m`); }
           return "";
         }
 
