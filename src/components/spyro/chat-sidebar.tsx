@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Check, MessageSquarePlus, Pencil, Trash2, X,
   MessageCircle, Settings as SettingsIcon, Search,
-  Home, FolderKanban, BookOpen, Bot, FileText, LayoutGrid,
-  Zap, BarChart3, Flame, Inbox, Terminal, Info, Plug,
+  Home, FolderKanban, BookOpen, Bot, LayoutGrid,
+  BarChart3, Flame, Inbox, Bell, Plus, ChevronDown,
+  Zap, MessageSquare, FolderPlus, Upload, Globe,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
@@ -18,29 +19,27 @@ interface SidebarContentProps {
   onNavigate?: () => void;
 }
 
-// ── SPYRO OS Global Navigation (master spec) ──────────────────────────
-// Primary nav: Home · Projects · Chats · Inbox · Knowledge · Agents ·
-//              Files · Apps · Automation · Analytics · Settings
-// Developer: API Playground · About
-const NAV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
+// ── Navigation configuration (data-driven) ───────────────────────────
+// Supports: permissions, badges, notification counts, nested routes,
+// and future plugins. Per the spec: max 9 primary items.
+interface NavItem {
+  view: View;
+  label: string;
+  icon: typeof Home;
+  badge?: string;
+  notificationCount?: number;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { view: "home", label: "Home", icon: Home },
   { view: "projects", label: "Projects", icon: FolderKanban },
   { view: "chat", label: "Chats", icon: MessageCircle },
-  { view: "communication", label: "Inbox", icon: Inbox },
-  { view: "knowledge", label: "Knowledge", icon: BookOpen },
   { view: "agents", label: "Agents", icon: Bot },
-  { view: "files", label: "Files", icon: FileText },
+  { view: "knowledge", label: "Knowledge", icon: BookOpen },
+  { view: "communication", label: "Communication", icon: Inbox, badge: "New" },
   { view: "apps", label: "Apps", icon: LayoutGrid },
-  { view: "automation", label: "Automation", icon: Zap },
   { view: "analytics", label: "Analytics", icon: BarChart3 },
   { view: "settings", label: "Settings", icon: SettingsIcon },
-];
-
-// Developer / advanced tools — separated by a divider
-const DEV_ITEMS: { view: View; label: string; icon: typeof Home }[] = [
-  { view: "integrations", label: "Integrations", icon: Plug },
-  { view: "api-playground", label: "API Playground", icon: Terminal },
-  { view: "about", label: "About", icon: Info },
 ];
 
 function timeAgo(ts: number): string {
@@ -71,6 +70,8 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState("");
   const [search, setSearch] = React.useState("");
+  const [showQuickCreate, setShowQuickCreate] = React.useState(false);
+  const [showNotifications, setShowNotifications] = React.useState(false);
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return conversations;
@@ -87,20 +88,40 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
   const startEdit = (id: string, current: string) => { setEditingId(id); setDraft(current); };
   const commitEdit = () => { if (editingId) renameConversation(editingId, draft); setEditingId(null); setDraft(""); };
 
+  const openSearch = () => {
+    // Dispatch ⌘K
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+  };
+
   return (
     <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
-      {/* Brand */}
-      <div className="px-5 pt-5 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="grid h-7 w-7 place-items-center rounded-lg spyro-bg-gradient">
+      {/* ── Top: Logo + Workspace Switcher ──────────────────────────── */}
+      <div className="px-3 pt-4 pb-2">
+        <button className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-secondary/60">
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg spyro-bg-gradient">
             <Flame className="h-4 w-4 text-white" />
           </div>
-          <span className="text-sm font-bold tracking-tight">SPYRO</span>
-          <span className="ml-auto text-[10px] text-muted-foreground/40">⌘K</span>
-        </div>
+          <div className="min-w-0 flex-1 text-left">
+            <div className="truncate text-sm font-bold tracking-tight">SPYRO</div>
+            <div className="truncate text-[9px] text-muted-foreground">AI Operating System</div>
+          </div>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </button>
       </div>
 
-      {/* Navigation */}
+      {/* ── Global Search (⌘K) ──────────────────────────────────────── */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={openSearch}
+          className="flex w-full items-center gap-2 rounded-xl border border-border bg-secondary/30 px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="flex-1 text-left">Search…</span>
+          <kbd className="rounded border border-border bg-secondary px-1 py-0.5 text-[9px] font-medium">⌘K</kbd>
+        </button>
+      </div>
+
+      {/* ── Primary Navigation ──────────────────────────────────────── */}
       <div className="px-2 pb-2">
         <nav className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
@@ -117,52 +138,33 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
                 )}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
+                  <motion.span
+                    layoutId="nav-active"
+                    className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                  />
                 )}
                 <item.icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                {item.label}
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.badge && (
+                  <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+                    {item.badge}
+                  </span>
+                )}
+                {item.notificationCount && item.notificationCount > 0 && (
+                  <span className="grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    {item.notificationCount}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
       </div>
 
-      {/* Developer tools */}
-      <div className="px-2 pb-2">
-        <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">
-          Developer
-        </div>
-        <nav className="space-y-0.5">
-          {DEV_ITEMS.map((item) => {
-            const isActive = activeView === item.view;
-            return (
-              <button
-                key={item.view}
-                onClick={() => handleNav(item.view)}
-                className={cn(
-                  "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] transition-all",
-                  isActive
-                    ? "bg-primary/10 text-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                )}
-              >
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />
-                )}
-                <item.icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      <div className="mx-3 h-px bg-border" />
-
-      {/* Conversations (only on chat view) */}
+      {/* ── Conversations (only on chat view) ───────────────────────── */}
       {activeView === "chat" && (
         <>
-          <div className="px-3 pt-3">
+          <div className="px-3 pt-1">
             <Button onClick={handleNew} className="w-full justify-start gap-2 rounded-xl bg-secondary text-foreground hover:bg-secondary/70">
               <MessageSquarePlus className="h-4 w-4" /> New chat
             </Button>
@@ -182,7 +184,7 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
             </div>
           )}
 
-          <div className="mt-3 flex-1 overflow-y-auto px-2 pb-2">
+          <div className="mt-2 flex-1 overflow-y-auto px-2 pb-2">
             {filtered.length === 0 ? (
               <div className="px-3 py-8 text-center text-xs text-muted-foreground/40">No conversations</div>
             ) : (
@@ -220,23 +222,95 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
         </>
       )}
 
-      {/* Footer */}
-      <div className="mt-auto border-t border-border p-3">
-        {isAuthed && localUser ? (
-          <button onClick={() => { setView("profile"); onNavigate?.(); }} className="flex w-full items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-secondary/50">
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white" style={{ background: localUser.avatarColor }}>{localUser.name.charAt(0).toUpperCase()}</div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium">{localUser.name}</div>
-              <div className="truncate text-[10px] text-muted-foreground">{localUser.email}</div>
-            </div>
+      {/* ── Bottom: Notifications + Profile ─────────────────────────── */}
+      <div className="mt-auto border-t border-border p-2">
+        {/* Quick create FAB (in-sidebar version) */}
+        <div className="relative mb-1">
+          <button
+            onClick={() => setShowQuickCreate((v) => !v)}
+            className="flex w-full items-center gap-2 rounded-xl spyro-bg-gradient px-3 py-2 text-xs font-medium text-white shadow-soft transition-transform hover:scale-[1.02]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Quick Create
           </button>
-        ) : (
-          <button onClick={() => { setView("register"); onNavigate?.(); }} className="flex w-full items-center justify-center gap-1.5 rounded-xl spyro-bg-gradient py-2 text-xs font-medium text-white">Sign In</button>
-        )}
+          <AnimatePresence>
+            {showQuickCreate && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowQuickCreate(false)} />
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  className="absolute bottom-full left-0 right-0 z-20 mb-2 overflow-hidden rounded-xl border border-border bg-popover p-1 shadow-elevated"
+                >
+                  {QUICK_CREATE_ITEMS.map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => { item.action(setView, createConversation); setShowQuickCreate(false); onNavigate?.(); }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition-colors hover:bg-secondary"
+                    >
+                      <item.icon className="h-3.5 w-3.5 text-primary" />
+                      {item.label}
+                    </button>
+                  ))}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Notifications + Profile row */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowNotifications((v) => !v)}
+            className="relative grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-label="Notifications"
+          >
+            <Bell className="h-4 w-4" />
+            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+          </button>
+
+          {isAuthed && localUser ? (
+            <button
+              onClick={() => { setView("profile"); onNavigate?.(); }}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-secondary/50"
+            >
+              <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-xs font-bold text-white" style={{ background: localUser.avatarColor }}>
+                {localUser.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium">{localUser.name}</div>
+                <div className="truncate text-[10px] text-muted-foreground">{localUser.email}</div>
+              </div>
+            </button>
+          ) : (
+            <button
+              onClick={() => { setView("register"); onNavigate?.(); }}
+              className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg spyro-bg-gradient py-2 text-xs font-medium text-white"
+            >
+              Sign In
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+// ── Quick Create items (data-driven) ──────────────────────────────────
+const QUICK_CREATE_ITEMS: Array<{
+  label: string;
+  icon: typeof Plus;
+  action: (setView: (v: View) => void, createConversation: () => void) => void;
+}> = [
+  { label: "New Chat", icon: MessageSquare, action: (setView, create) => { create(); setView("chat"); } },
+  { label: "New Project", icon: FolderPlus, action: (setView) => setView("projects") },
+  { label: "New Agent", icon: Bot, action: (setView) => setView("agents") },
+  { label: "Upload File", icon: Upload, action: (setView) => setView("apps") },
+  { label: "Research Topic", icon: Globe, action: (setView) => setView("chat") },
+  { label: "Connect WhatsApp", icon: Inbox, action: (setView) => setView("communication") },
+  { label: "Automation", icon: Zap, action: (setView) => setView("apps") },
+];
 
 export function SidebarCloseButton({ onClose }: { onClose: () => void }) {
   return (

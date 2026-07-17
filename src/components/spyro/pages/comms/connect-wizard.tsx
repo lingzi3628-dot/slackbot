@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, RefreshCw, Check, Loader2, X,
   ShieldCheck, Zap, Phone, ArrowRight, Copy, AlertCircle,
-  ExternalLink,
+  ExternalLink, Sparkles, Clock,
 } from "lucide-react";
 import { useCommsStore } from "@/store/comms-store";
 import { cn } from "@/lib/utils";
@@ -18,9 +18,8 @@ interface ConnectWizardProps {
 type Phase =
   | "idle"           // Step 1: Enter phone number
   | "generating"     // Requesting pairing code
-  | "pairing-code"   // Step 2: Show code + instructions
+  | "pairing-code"   // Step 2: Show code + instructions (SIMULATION)
   | "entered"        // Step 3: User confirmed they entered the code
-  | "qr"             // QR flow (Baileys/Evolution)
   | "syncing"        // Connected, syncing
   | "connected"      // Done
   | "error";         // Failed
@@ -30,164 +29,82 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
   const setConnection = useCommsStore((s) => s.setConnection);
 
   const [phase, setPhase] = React.useState<Phase>("idle");
-  const [qrCode, setQrCode] = React.useState<string | null>(null);
   const [pairingCode, setPairingCode] = React.useState<string | null>(null);
-  const [pairingLink, setPairingLink] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [mode, setMode] = React.useState<string>("demo");
   const [phone, setPhone] = React.useState("");
   const [copied, setCopied] = React.useState(false);
-  const [retryCount, setRetryCount] = React.useState(0);
-  const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-  const stopRef = React.useRef(false);
-  const phaseRef = React.useRef<Phase>("idle");
-  React.useEffect(() => { phaseRef.current = phase; }, [phase]);
-  const qrRef = React.useRef<string | null>(null);
-  React.useEffect(() => { qrRef.current = qrCode; }, [qrCode]);
-  const startTimeRef = React.useRef<number>(0);
+  const simTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const stopPolling = React.useCallback(() => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  const clearTimers = React.useCallback(() => {
+    if (simTimerRef.current) { clearTimeout(simTimerRef.current); simTimerRef.current = null; }
   }, []);
 
-  const fetchStatus = React.useCallback(async (id: string) => {
-    if (stopRef.current) return;
-    try {
-      const res = await fetch(`/api/comms/status?channelId=${id}&channelType=whatsapp`, { cache: "no-store" });
-      const data = await res.json();
-      setConnection(data);
-
-      // Check if we've been waiting too long (45s) — WhatsApp is likely
-      // blocking the server's IP. Show a helpful error instead of spinning.
-      if (data.status === "connecting" && startTimeRef.current > 0) {
-        const elapsed = Date.now() - startTimeRef.current;
-        if (elapsed > 45_000) {
-          stopPolling();
-          setError(
-            "WhatsApp is blocking the connection.\n\n" +
-            "What's happening: The pairing code generates correctly, but WhatsApp terminates the connection within 3 seconds. By the time you enter the code, the session is dead.\n\n" +
-            "Your VPS already has Cloudflare WARP installed (free proxy), but WhatsApp also blocks Cloudflare IPs. Both Oracle Cloud AND Cloudflare WARP IPs are blocked.\n\n" +
-            "TO FIX THIS (pick one):\n\n" +
-            "1. Residential proxy (RECOMMENDED):\n" +
-            "   Buy a SOCKS5 residential proxy (IPRoyal ~$1.75, Smartproxy, etc.)\n" +
-            "   SSH into VPS → edit ~/pairing-server/.env:\n" +
-            "   SOCKS_PROXY_URL=socks5://user:pass@proxy:port\n" +
-            "   Then: sudo systemctl restart spyro-pairing\n\n" +
-            "2. Deploy on Koyeb (free, different IP range):\n" +
-            "   Fork github.com/lingzi3628-dot/pairing-server\n" +
-            "   Deploy on koyeb.com → set PAIRING_SERVER_URL in SPYRO\n\n" +
-            "3. Run on your home computer (residential IP):\n" +
-            "   git clone https://github.com/lingzi3628-dot/pairing-server\n" +
-            "   cd pairing-server && npm install && npm start\n" +
-            "   Set PAIRING_SERVER_URL=http://localhost:3000 in SPYRO\n\n" +
-            "WhatsApp blocks ALL datacenter IPs (Oracle, AWS, GCP, Cloudflare).\n" +
-            "Only residential IPs work. That's why Mr Unique Hacker uses Koyeb."
-          );
-          setPhase("error");
-          return;
-        }
-      }
-
-      if (data.status === "connected") {
-        stopPolling();
-        setPhase("syncing");
-        try {
-          await fetch("/api/comms/sync", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ channelId: id, channelType: "whatsapp" }),
-          });
-        } catch { /* ignore */ }
-        setPhase("connected");
-        setTimeout(() => onConnected?.(), 1500);
-      } else if (data.status === "connecting") {
-        // Stay on current screen — don't switch phases.
-        if (data.qrCode && data.qrCode !== qrRef.current && phaseRef.current === "qr") {
-          setQrCode(data.qrCode);
-        }
-      } else if (data.status === "error") {
-        stopPolling();
-        setError(data.errorMessage || "Connection failed");
-        setPhase("error");
-      }
-    } catch { /* transient */ }
-  }, [setConnection, stopPolling, onConnected]);
+  // Generate a realistic-looking pairing code (simulation)
+  const generateSimCode = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    return code;
+  };
 
   const start = React.useCallback(async () => {
-    stopRef.current = false;
     setError(null);
-    setQrCode(null);
     setPairingCode(null);
-    setPairingLink(null);
     setCopied(false);
-    setRetryCount(0);
-    startTimeRef.current = Date.now();
     setPhase("generating");
 
-    try {
-      const channelId = phone.trim() || `spyro_${Date.now().toString(36)}`;
-      const res = await fetch("/api/comms/connect", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channelType: "whatsapp", channelId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to start");
+    // SIMULATION MODE — real-time WhatsApp coming soon
+    // Generate a demo pairing code after a brief delay
+    await new Promise((r) => setTimeout(r, 1500));
 
-      setChannelId(data.channelId);
-      setMode(data.mode || "demo");
+    const code = generateSimCode();
+    const sessionId = `sim_${Date.now().toString(36)}`;
+    setPairingCode(code);
+    setChannelId(sessionId);
+    setConnection({
+      channelId: sessionId,
+      type: "whatsapp",
+      status: "connecting",
+      phoneNumber: phone.trim(),
+      health: { score: 100 },
+    });
+    setPhase("pairing-code");
+  }, [phone, setChannelId, setConnection]);
 
-      if (data.pairingCode) {
-        setPairingCode(data.pairingCode);
-        setPairingLink(data.pairingLink || null);
-        setPhase("pairing-code");
-      } else if (data.qrCode) {
-        setQrCode(data.qrCode);
-        setPhase("qr");
-      } else {
-        throw new Error("No QR or pairing code returned");
+  // Step 3: User clicked "I've entered the code" → simulate connection
+  const confirmEntered = React.useCallback(async () => {
+    setPhase("entered");
+    // Simulate the linking process (3 seconds)
+    simTimerRef.current = setTimeout(async () => {
+      const channelId = useCommsStore.getState().channelId;
+      if (channelId) {
+        setConnection({
+          channelId,
+          type: "whatsapp",
+          status: "connected",
+          deviceName: "WhatsApp Web",
+          phoneNumber: phone.trim(),
+          connectedAt: Date.now(),
+          lastSyncAt: Date.now(),
+          health: { score: 96, latencyMs: 240 },
+        });
       }
+      setPhase("syncing");
+      await new Promise((r) => setTimeout(r, 1000));
+      setPhase("connected");
+      simTimerRef.current = setTimeout(() => onConnected?.(), 1500);
+    }, 3000);
+  }, [phone, setConnection, onConnected]);
 
-      pollRef.current = setInterval(() => fetchStatus(data.channelId), 1500);
-      fetchStatus(data.channelId);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      setError(
-        msg.includes("Timed out") || msg.includes("405") || msg.includes("Connection Failure") || msg.includes("Connection Terminated")
-          ? "WhatsApp rejected the connection from this server's IP. The VPS is retrying automatically — wait a moment and try again, or try from a different network."
-          : msg
-      );
-      setPhase("error");
-    }
-  }, [phone, fetchStatus, setChannelId]);
-
-  const refreshCode = React.useCallback(async () => {
+  const refreshCode = React.useCallback(() => {
     setPhase("generating");
-    try {
-      const channelId = phone.trim() || useCommsStore.getState().channelId || "";
-      const res = await fetch("/api/comms/connect", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ channelType: "whatsapp", channelId }),
-      });
-      const data = await res.json();
-      if (data.pairingCode) {
-        setPairingCode(data.pairingCode);
-        setPairingLink(data.pairingLink || null);
-        setPhase("pairing-code");
-      } else if (data.qrCode) {
-        setQrCode(data.qrCode);
-        setPhase("qr");
-      }
-    } catch {
-      setPhase("error");
-    }
-  }, [phone]);
+    setTimeout(() => {
+      setPairingCode(generateSimCode());
+      setPhase("pairing-code");
+    }, 800);
+  }, []);
 
-  React.useEffect(() => () => {
-    stopRef.current = true;
-    stopPolling();
-  }, [stopPolling]);
+  React.useEffect(() => () => { clearTimers(); }, [clearTimers]);
 
   const copyCode = () => {
     if (pairingCode) {
@@ -197,7 +114,6 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
     }
   };
 
-  // Format the pairing code with a dash for readability (e.g. "RP8S-TRDM")
   const formattedCode = pairingCode
     ? pairingCode.length === 8
       ? `${pairingCode.slice(0, 4)}-${pairingCode.slice(4)}`
@@ -228,11 +144,11 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
               <MessageCircle className="h-4 w-4 text-emerald-400" />
             </div>
             <h2 className="text-sm font-semibold">Connect WhatsApp</h2>
-            {mode !== "demo" && (
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-                Live
-              </span>
-            )}
+            {/* Simulation badge */}
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400">
+              <Sparkles className="h-2.5 w-2.5" />
+              Preview
+            </span>
           </div>
           {onCancel && (
             <button
@@ -298,6 +214,14 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
                   <ArrowRight className="h-4 w-4" />
                   Get pairing code
                 </button>
+
+                {/* Coming soon banner */}
+                <div className="mx-auto mt-5 flex max-w-xs items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-left">
+                  <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <div className="text-[10px] leading-relaxed text-amber-400/90">
+                    <span className="font-semibold">Real-time WhatsApp coming soon.</span> This is a preview of the connection flow. Real device pairing requires a residential IP proxy (WhatsApp blocks datacenter IPs).
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -309,7 +233,7 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
               </motion.div>
             )}
 
-            {/* STEP 2: PAIRING CODE — show code + instructions */}
+            {/* STEP 2: PAIRING CODE */}
             {phase === "pairing-code" && pairingCode && (
               <motion.div key="pairing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
                 {/* Step indicator */}
@@ -322,6 +246,12 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
                 </div>
 
                 <h3 className="text-base font-semibold">Step 2: Enter code in WhatsApp</h3>
+
+                {/* Simulation notice */}
+                <div className="mx-auto mt-2 flex max-w-xs items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-[10px] text-amber-400">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Simulation — real-time coming soon
+                </div>
 
                 {/* Big pairing code */}
                 <div className="relative mx-auto mt-4 w-full max-w-xs">
@@ -353,42 +283,28 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
                     <li className="flex gap-2"><span className="font-bold text-primary">3.</span> Tap "Link with phone number instead"</li>
                     <li className="flex gap-2"><span className="font-bold text-primary">4.</span> Enter the code above</li>
                   </ol>
-                  {pairingLink && (
-                    <a
-                      href={pairingLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-primary hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Open WhatsApp
-                    </a>
-                  )}
                 </div>
 
-                {/* Waiting + actions */}
-                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                  Waiting for you to enter the code…
-                </div>
+                {/* Confirm button — advances to step 3 */}
+                <button
+                  onClick={confirmEntered}
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl spyro-bg-gradient px-5 py-2.5 text-sm font-medium text-white shadow-soft transition-transform hover:scale-[1.02]"
+                >
+                  <Check className="h-4 w-4" />
+                  I've entered the code
+                </button>
 
-                <div className="mt-4 flex items-center justify-center gap-3">
-                  <button
-                    onClick={refreshCode}
-                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    New code
-                  </button>
-                </div>
-
-                <p className="mt-3 text-[10px] text-muted-foreground/60">
-                  The server auto-retries if WhatsApp drops the connection. Keep this window open.
-                </p>
+                <button
+                  onClick={refreshCode}
+                  className="mx-auto mt-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  New code
+                </button>
               </motion.div>
             )}
 
-            {/* STEP 3: ENTERED — user confirmed they entered the code */}
+            {/* STEP 3: ENTERED — linking */}
             {phase === "entered" && (
               <motion.div key="entered" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center py-8 text-center">
                 <div className="mb-5 flex items-center justify-center gap-2">
@@ -403,36 +319,11 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
                 <p className="mt-1 text-xs text-muted-foreground">
                   WhatsApp is connecting to SPYRO. This takes a few seconds.
                 </p>
-              </motion.div>
-            )}
-
-            {/* QR — for Baileys/Evolution flows */}
-            {phase === "qr" && qrCode && (
-              <motion.div key="qr" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
-                <h3 className="text-base font-semibold">Scan with your WhatsApp</h3>
-                <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
-                  Open WhatsApp → Settings → Linked Devices → Link a Device
-                </p>
-                <div className="relative mx-auto mt-5 grid h-64 w-64 place-items-center rounded-3xl bg-white p-4 shadow-elevated ring-4 ring-primary/10">
-                  <img src={qrCode} alt="WhatsApp pairing QR code" className="h-full w-full rounded-2xl object-contain" />
-                  <motion.div
-                    initial={{ y: 0 }}
-                    animate={{ y: [0, 240, 0] }}
-                    transition={{ repeat: Infinity, duration: 2.4, ease: "linear" }}
-                    className="absolute inset-x-4 h-0.5 bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,0.6)]"
-                  />
+                {/* Simulation notice */}
+                <div className="mt-3 flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-[10px] text-amber-400">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  Simulating connection
                 </div>
-                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                  Waiting for scan…
-                </div>
-                <button
-                  onClick={refreshCode}
-                  className="mx-auto mt-3 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  Refresh code
-                </button>
               </motion.div>
             )}
 
@@ -471,6 +362,10 @@ export function ConnectWizard({ onConnected, onCancel }: ConnectWizardProps) {
                 <p className="mx-auto mt-1 max-w-xs text-xs text-muted-foreground">
                   Your WhatsApp is now linked. The AI agent will auto-reply from your number.
                 </p>
+                <div className="mt-3 flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-[10px] text-amber-400">
+                  <Clock className="h-2.5 w-2.5" />
+                  Simulation mode — real messages coming soon
+                </div>
               </motion.div>
             )}
 

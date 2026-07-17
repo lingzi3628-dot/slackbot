@@ -22,8 +22,6 @@ import { DashboardPage } from "@/components/spyro/pages/dashboard-page";
 import { HomePage } from "@/components/spyro/pages/home-page";
 import { ProjectsPage } from "@/components/spyro/pages/projects-page";
 import { KnowledgePage } from "@/components/spyro/pages/knowledge-page";
-import { FilesPage } from "@/components/spyro/pages/files-page";
-import { AutomationPage } from "@/components/spyro/pages/automation-page";
 import { AnalyticsPage } from "@/components/spyro/pages/analytics-page";
 import { LoginPage } from "@/components/spyro/pages/login-page";
 import { RegisterPage } from "@/components/spyro/pages/register-page";
@@ -35,6 +33,7 @@ import { GodModeLive } from "@/components/spyro/pages/god-mode-live-page";
 import { CommandPalette } from "@/components/spyro/command-palette";
 import { ThemeToggle } from "@/components/spyro/theme-toggle";
 import { CommunicationCenter } from "@/components/spyro/pages/comms/communication-center-page";
+import { FloatingActionButton } from "@/components/spyro/floating-action-button";
 
 // Friendly titles for the top bar on non-chat views.
 const VIEW_TITLES: Record<string, string> = {
@@ -43,12 +42,10 @@ const VIEW_TITLES: Record<string, string> = {
   chat: "Chats",
   knowledge: "Knowledge",
   agents: "Agents",
-  files: "Files",
+  communication: "Communication",
   apps: "Apps",
-  automation: "Automation",
   analytics: "Analytics",
   settings: "Settings",
-  communication: "Communication Center",
   integrations: "Integrations",
   "integration-control": "AI Control",
   "api-playground": "API Playground",
@@ -121,6 +118,7 @@ export default function Home() {
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
       <EmberBackground />
       <CommandPalette />
+      <FloatingActionButton />
 
       {/* Desktop sidebar */}
       <aside className="relative z-10 hidden w-72 shrink-0 overflow-hidden border-r border-border bg-sidebar/60 backdrop-blur-xl lg:flex">
@@ -223,8 +221,6 @@ export default function Home() {
               {activeView === "home" && <HomePage />}
               {activeView === "projects" && <ProjectsPage />}
               {activeView === "knowledge" && <KnowledgePage />}
-              {activeView === "files" && <FilesPage />}
-              {activeView === "automation" && <AutomationPage />}
               {activeView === "analytics" && <AnalyticsPage />}
               {activeView === "apps" && <DashboardPage />}
               {activeView === "integrations" && <IntegrationsPage />}
