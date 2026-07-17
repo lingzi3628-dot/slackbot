@@ -12,6 +12,7 @@ import {
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore, type View } from "@/store/ui-store";
 import { useLocalAuth } from "@/store/local-auth";
+import { useWorkspaceStore } from "@/store/workspace-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -88,6 +89,15 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
   const startEdit = (id: string, current: string) => { setEditingId(id); setDraft(current); };
   const commitEdit = () => { if (editingId) renameConversation(editingId, draft); setEditingId(null); setDraft(""); };
 
+  // Workspace switcher
+  const workspaceTemplate = useWorkspaceStore((s) => s.template);
+  const resetWorkspace = useWorkspaceStore((s) => s.resetWorkspace);
+  const [showWorkspaceMenu, setShowWorkspaceMenu] = React.useState(false);
+  const handleSwitchWorkspace = () => {
+    resetWorkspace();
+    setShowWorkspaceMenu(false);
+  };
+
   const openSearch = () => {
     // Dispatch ⌘K
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
@@ -96,17 +106,60 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
   return (
     <div className="flex h-full w-full min-w-0 flex-col overflow-hidden">
       {/* ── Top: Logo + Workspace Switcher ──────────────────────────── */}
-      <div className="px-3 pt-4 pb-2">
-        <button className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-secondary/60">
-          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-lg spyro-bg-gradient">
-            <Flame className="h-4 w-4 text-white" />
+      <div className="relative px-3 pt-4 pb-2">
+        <button
+          onClick={() => setShowWorkspaceMenu((v) => !v)}
+          className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-secondary/60"
+        >
+          <div className={cn(
+            "grid h-7 w-7 shrink-0 place-items-center rounded-lg",
+            workspaceTemplate ? cn("bg-gradient-to-br", workspaceTemplate.color) : "spyro-bg-gradient"
+          )}>
+            {workspaceTemplate ? <workspaceTemplate.icon className="h-4 w-4 text-white" /> : <Flame className="h-4 w-4 text-white" />}
           </div>
           <div className="min-w-0 flex-1 text-left">
-            <div className="truncate text-sm font-bold tracking-tight">SPYRO</div>
-            <div className="truncate text-[9px] text-muted-foreground">AI Operating System</div>
+            <div className="truncate text-sm font-bold tracking-tight">
+              {workspaceTemplate ? workspaceTemplate.name : "SPYRO"}
+            </div>
+            <div className="truncate text-[9px] text-muted-foreground">
+              {workspaceTemplate ? "Workspace" : "AI Operating System"}
+            </div>
           </div>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         </button>
+
+        {/* Workspace switcher dropdown */}
+        <AnimatePresence>
+          {showWorkspaceMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowWorkspaceMenu(false)} />
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="absolute left-3 right-3 top-full z-20 mt-1 overflow-hidden rounded-xl border border-border bg-popover p-1 shadow-elevated"
+              >
+                <div className="px-2 py-1.5 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Current workspace
+                </div>
+                <div className="flex items-center gap-2 rounded-lg px-2 py-2">
+                  <div className={cn("grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br", workspaceTemplate?.color || "from-violet-500 to-cyan-500")}>
+                    {workspaceTemplate ? <workspaceTemplate.icon className="h-3 w-3 text-white" /> : <Flame className="h-3 w-3 text-white" />}
+                  </div>
+                  <span className="text-xs font-medium">{workspaceTemplate?.name || "Default"}</span>
+                </div>
+                <div className="my-1 h-px bg-border" />
+                <button
+                  onClick={handleSwitchWorkspace}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Switch workspace
+                </button>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ── Global Search (⌘K) ──────────────────────────────────────── */}

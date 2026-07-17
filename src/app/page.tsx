@@ -34,6 +34,8 @@ import { CommandPalette } from "@/components/spyro/command-palette";
 import { ThemeToggle } from "@/components/spyro/theme-toggle";
 import { CommunicationCenter } from "@/components/spyro/pages/comms/communication-center-page";
 import { FloatingActionButton } from "@/components/spyro/floating-action-button";
+import { WorkspaceOnboarding } from "@/components/spyro/pages/workspace-onboarding";
+import { useWorkspaceStore } from "@/store/workspace-store";
 
 // Friendly titles for the top bar on non-chat views.
 const VIEW_TITLES: Record<string, string> = {
@@ -61,6 +63,7 @@ export default function Home() {
   const activeView = useUIStore((s) => s.activeView);
   const setView = useUIStore((s) => s.setView);
   const initAuth = useLocalAuth((s) => s.init);
+  const isAuthed = useLocalAuth((s) => s.isAuthed);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const inputFocusRef = React.useRef<() => void>(() => {});
@@ -109,9 +112,16 @@ export default function Home() {
     onCloseSidebar: () => setMobileOpen(false),
   });
 
+  // Workspace onboarding — shown after auth if no workspace selected yet.
+  const hasWorkspace = useWorkspaceStore((s) => s.hasSelectedWorkspace);
+
   // Register/Login views are full-screen (no sidebar, no header) — must be after all hooks.
   if (activeView === "register" || activeView === "login") {
     return activeView === "login" ? <LoginPage /> : <RegisterPage />;
+  }
+
+  if (isAuthed && !hasWorkspace) {
+    return <WorkspaceOnboarding onComplete={() => setView("home")} />;
   }
 
   return (

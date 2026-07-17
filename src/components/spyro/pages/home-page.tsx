@@ -14,6 +14,7 @@ import {
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore } from "@/store/ui-store";
 import { useLocalAuth } from "@/store/local-auth";
+import { useWorkspaceStore } from "@/store/workspace-store";
 import { cn } from "@/lib/utils";
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -130,16 +131,27 @@ export function HomePage() {
   const handleNewChat = () => { createConversation(); setView("chat"); };
   const handleOpenConvo = (id: string) => { setActive(id); setView("chat"); };
 
+  // Workspace-aware quick actions — use the template's actions if available
+  const workspaceTemplate = useWorkspaceStore((s) => s.template);
+  const workspaceActions = workspaceTemplate?.quickActions
+    ? workspaceTemplate.quickActions.map((qa) => ({
+        label: qa.label,
+        icon: qa.icon,
+        color: "from-violet-500 to-fuchsia-500",
+        view: qa.view as any,
+      }))
+    : QUICK_ACTIONS;
+
   return (
     <div className="ambient-mesh min-h-full">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:flex lg:gap-6">
         {/* ── Main column (left + center) ──────────────────────────── */}
         <div className="min-w-0 flex-1 space-y-6">
           {/* HERO */}
-          <HeroSection greeting={greeting} user={user} stats={stats} />
+          <HeroSection greeting={greeting} user={user} stats={stats} workspace={workspaceTemplate} />
 
-          {/* QUICK ACTIONS */}
-          <QuickActions actions={QUICK_ACTIONS} onAction={(v) => {
+          {/* QUICK ACTIONS — workspace-aware */}
+          <QuickActions actions={workspaceActions} onAction={(v) => {
             if (v === "chat") handleNewChat();
             else setView(v);
           }} />
@@ -257,7 +269,7 @@ export function HomePage() {
 }
 
 // ── Hero Section ──────────────────────────────────────────────────────
-function HeroSection({ greeting, user, stats }: { greeting: { text: string; icon: string }; user: any; stats: any }) {
+function HeroSection({ greeting, user, stats, workspace }: { greeting: { text: string; icon: string }; user: any; stats: any; workspace: any }) {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ambient-mesh surface-elevated overflow-hidden">
       <div className="p-5 sm:p-6">
@@ -268,6 +280,13 @@ function HeroSection({ greeting, user, stats }: { greeting: { text: string; icon
             {stats.status === "Thinking" && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />}
             <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", stats.status === "Thinking" ? "bg-primary" : "bg-emerald-500")} />
           </span>
+          {/* Workspace badge */}
+          {workspace && (
+            <span className={cn("ml-auto inline-flex items-center gap-1 rounded-full bg-gradient-to-br px-2.5 py-1 text-[10px] font-medium text-white", workspace.color)}>
+              <workspace.icon className="h-3 w-3" />
+              {workspace.name}
+            </span>
+          )}
         </div>
         <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
           {user?.name ? <>Welcome back, <span className="spyro-text-gradient">{user.name.split(" ")[0]}</span></> : <>Welcome to <span className="spyro-text-gradient">SPYRO</span></>}
