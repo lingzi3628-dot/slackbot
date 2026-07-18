@@ -26,9 +26,9 @@ export async function createAdminSession(admin: { id: string; email: string; nam
   cookieStore.set(ADMIN_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: SESSION_DURATION / 1000,
-    path: "/admin",
+    path: "/", // Must be "/" so the cookie is sent to /api/admin/* routes too
   });
 }
 
