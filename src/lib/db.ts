@@ -3,11 +3,14 @@ import fs from 'fs'
 import path from 'path'
 
 // ── Load DATABASE_URL from multiple sources ───────────────────────────
+// MUST run before PrismaClient is instantiated.
 function getDbUrl(): string | undefined {
-  // 1. Check process.env (Vercel sets this)
-  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  // 1. Check process.env (Vercel/Next.js sets this)
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgresql://')) {
+    return process.env.DATABASE_URL;
+  }
 
-  // 2. Try .env file (local dev)
+  // 2. Try .env file (local dev — Next.js may load it with quotes)
   try {
     const envPath = path.join(process.cwd(), '.env');
     if (fs.existsSync(envPath)) {
@@ -15,8 +18,10 @@ function getDbUrl(): string | undefined {
       const match = content.match(/^DATABASE_URL=(.+)$/m);
       if (match) {
         const url = match[1].trim().replace(/^["']|["']$/g, '');
-        process.env.DATABASE_URL = url;
-        return url;
+        if (url.startsWith('postgresql://') || url.startsWith('postgres://')) {
+          process.env.DATABASE_URL = url; // Force-set so Prisma can find it
+          return url;
+        }
       }
     }
   } catch {
@@ -31,7 +36,6 @@ function getDbUrl(): string | undefined {
 
   // 4. Try POSTGRES_PRISMA_URL (Vercel Postgres Prisma template)
   if (process.env.POSTGRES_PRISMA_URL) {
-    // Remove channel_binding if present (Prisma doesn't support it)
     const url = process.env.POSTGRES_PRISMA_URL.replace(/&?channel_binding=require/g, '');
     process.env.DATABASE_URL = url;
     return url;
