@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowUp, Square, Sparkles, Mic, Loader2, Search, Trash2, HelpCircle } from "lucide-react";
+import { ArrowUp, Square, Sparkles, Mic, Loader2, Search, Trash2, HelpCircle, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chat-store";
 import { SlashMenu, type SlashCommand } from "./slash-menu";
@@ -93,6 +93,7 @@ export function ChatInput({ onSend, onStop, onSlashCommand, registerFocus }: Cha
 
   const slashCommands: SlashCommand[] = React.useMemo(() => {
     const cmds: SlashCommand[] = [
+      { command: "/imagine", label: "Generate image", description: "Generate a photo from a text prompt (also works in plain English)", icon: ImageIcon, action: () => { const q = value.replace(/^\/imagine\s*/, "").trim(); if (q) onSend(q.startsWith("/imagine") ? q : `/imagine ${q}`); else { setValue("/imagine "); requestAnimationFrame(() => taRef.current?.focus()); } setSlashOpen(false); } },
       { command: "/search", label: "Web search", description: "Search the web for current information", icon: Search, action: () => { const q = value.replace(/^\/search\s*/, "").trim(); if (q) onSend(q); setValue(""); setSlashOpen(false); } },
       { command: "/clear", label: "Clear chat", description: "Delete all messages in this conversation", icon: Trash2, action: () => { if (onSlashCommand) onSlashCommand("/clear"); setValue(""); setSlashOpen(false); } },
       { command: "/help", label: "Help", description: "Show available commands and features", icon: HelpCircle, action: () => { if (onSlashCommand) onSlashCommand("/help"); setValue(""); setSlashOpen(false); } },
@@ -151,7 +152,7 @@ export function ChatInput({ onSend, onStop, onSlashCommand, registerFocus }: Cha
       </div>
       <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground/40">
         <Sparkles className="h-3 w-3" />
-        SPYRO V1 can make mistakes. Verify important info.
+        SPYRO V1 can write code, search the web, and generate photos. Verify important info.
       </p>
     </div>
   );

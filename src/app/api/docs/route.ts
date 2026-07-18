@@ -68,7 +68,7 @@ export async function GET() {
       {
         path: "/api/image-gen",
         method: "POST",
-        description: "Generate an image from text (Pollinations AI + SPYRO watermark).",
+        description: "Generate an image from text via the SPYRO Image Engine (watermarked).",
         parameters: {
           prompt: "string — required",
           size: "string — '1024x1024' (default), '768x1344', '1344x768'",

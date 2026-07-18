@@ -335,7 +335,7 @@ export function TerminalApp() {
         case "spyro": {
           term.writeln("\x1b[1;35mSPYRO V1\x1b[0m — AI Operating System");
           term.writeln("  Version:    2.0.0");
-          term.writeln("  Model:      SPYRO V1 (Pollinations AI)");
+          term.writeln("  Model:      SPYRO V1 Engine");
           term.writeln("  Studio:     \x1b[32mActive\x1b[0m");
           term.writeln("  Shell:      spyro-sh 2.0");
           term.writeln("  Files:      " + Object.keys(VFS).length + " in VFS");

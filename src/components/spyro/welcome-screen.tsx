@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Code2, Flame, GraduationCap, Lightbulb, PenLine, Sparkles } from "lucide-react";
+import { Code2, Flame, GraduationCap, Image as ImageIcon, Lightbulb, PenLine, Sparkles } from "lucide-react";
 import { SpyroLogo } from "./spyro-logo";
 
 const SUGGESTIONS = [
+  { icon: ImageIcon, title: "Generate a photo", prompt: "generate a photo of a dragon perched on Mount Kenya at sunset" },
   { icon: Code2, title: "Write some code", prompt: "Write a TypeScript function that debounces an async function, with comments explaining how it works." },
   { icon: Lightbulb, title: "Brainstorm ideas", prompt: "Give me 5 creative product ideas that combine AI with everyday household objects." },
   { icon: GraduationCap, title: "Explain a concept", prompt: "Explain how vector embeddings work, as if I'm a curious beginner." },
@@ -28,7 +29,7 @@ export function WelcomeScreen({ onPick }: { onPick: (prompt: string) => void }) 
           How can I help you today?
         </h1>
         <p className="mt-2 max-w-md text-balance text-sm text-muted-foreground sm:text-base">
-          Ask anything — SPYRO V1 is your intelligent operating system for work, coding, research, and creativity.
+          Ask anything, write code, or generate a photo — SPYRO V1 is your intelligent operating system for work, coding, research, and creativity.
         </p>
         <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-card/40 px-3 py-1 text-xs text-muted-foreground">
           <span className="relative flex h-1.5 w-1.5">
@@ -63,6 +64,17 @@ export function WelcomeScreen({ onPick }: { onPick: (prompt: string) => void }) 
           </motion.button>
         ))}
       </div>
+
+      {/* Inline hint */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6 }}
+        className="mt-6 max-w-md text-center text-[11px] text-muted-foreground/60"
+      >
+        Tip: just ask in plain English — <span className="text-foreground/70">“generate a photo of…”</span> or{" "}
+        <span className="text-foreground/70">“draw a…”</span> — and SPYRO will render it inline.
+      </motion.p>
     </div>
   );
 }

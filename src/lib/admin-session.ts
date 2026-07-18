@@ -93,9 +93,9 @@ export async function createAdmin(email: string, name: string, password: string,
 
 /** Role permissions matrix */
 export const ADMIN_PERMISSIONS: Record<string, string[]> = {
-  support: ["users.view", "tickets.view", "tickets.reply", "announcements.view"],
+  support: ["users.view", "tickets.view", "tickets.reply", "support.*", "announcements.view"],
   moderator: ["users.view", "users.suspend", "users.ban", "moderation.view", "moderation.act", "audit.view"],
-  operations: ["users.view", "users.act", "feature_flags.*", "system.health", "announcements.*", "analytics.view"],
+  operations: ["users.view", "users.act", "feature_flags.*", "system.health", "announcements.*", "analytics.view", "billing.*"],
   security: ["users.view", "users.act", "security.*", "audit.view", "audit.export"],
   developer: ["system.*", "feature_flags.*", "analytics.view", "ai_training.view"],
   super: ["*"], // all permissions

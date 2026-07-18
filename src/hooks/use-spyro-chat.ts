@@ -10,6 +10,50 @@ interface SendOptions {
   webSearch?: boolean;
 }
 
+// ── Inline image-generation intent detection ─────────────────────────
+// Lets users say things like "generate a photo of a sunset over Nairobi"
+// or "draw a dragon in the cyberpunk style" directly in chat — no slash
+// command needed. Returns the prompt to render, or null if the message
+// is not an image-generation request.
+const CODE_KEYWORDS =
+  /\b(code|function|html|css|javascript|typescript|python|java|sql|api|component|class|method|algorithm|script|program|snippet|tutorial|explain|how (do|to)|what is|why|regex)\b/i;
+
+// Matches "generate a photo of X", "create an image of X", "make a picture of X", etc.
+const IMAGE_OF_PATTERN =
+  /^(?:generate|create|draw|make|render|paint|design|illustrate|produce|sketch)\s+(?:a|an|me|some|the)?\s*(?:photo|image|picture|pic|drawing|painting|illustration|render|rendering|artwork|art|wallpaper|logo|portrait|landscape|scene)\s+(?:of|showing|depicting|with|that|where|about)?\s*(.+)/i;
+
+// Matches "draw a cat", "paint a sunset" — pure-image-verb + subject, no object noun.
+const DIRECT_VERB_PATTERN =
+  /^(?:draw|paint|render|sketch)\s+(?:a|an|the)?\s*(.+)/i;
+
+export function detectImageIntent(text: string): string | null {
+  const t = text.trim();
+  if (!t) return null;
+
+  // 1. Explicit /imagine slash command.
+  const cmdMatch = t.match(/^\/imagine\s+(.+)/i);
+  if (cmdMatch) return cmdMatch[1].trim();
+
+  // 2. Only attempt on reasonably short, non-code messages.
+  if (t.length > 320 || CODE_KEYWORDS.test(t)) return null;
+
+  // 2a. "generate a photo of X" / "create an image of X"
+  const ofMatch = t.match(IMAGE_OF_PATTERN);
+  if (ofMatch && ofMatch[1] && ofMatch[1].trim().length > 2) {
+    return ofMatch[1].trim();
+  }
+
+  // 2b. Bare "draw a cat" / "paint a sunset" — only when the message is short.
+  if (t.split(/\s+/).length < 14) {
+    const direct = t.match(DIRECT_VERB_PATTERN);
+    if (direct && direct[1] && direct[1].trim().length > 2) {
+      return direct[1].trim();
+    }
+  }
+
+  return null;
+}
+
 /** Build a Markdown progress display from God Mode steps. */
 function buildGodModeProgress(
   steps: Array<{ agent: string; icon: string; status: string; output?: string }>
@@ -75,10 +119,13 @@ export function useSpyroChat() {
         return;
       }
 
-      // Handle /imagine command → image generation
-      const imagineMatch = trimmed.match(/^\/imagine\s+(.+)/i);
-      if (imagineMatch) {
-        await generateImage(imagineMatch[1], opts?.conversationId);
+      // Inline image generation: detect natural-language requests like
+      // "generate a photo of a sunset" or "draw a dragon" (and the
+      // explicit /imagine command). Routes to the image engine instead
+      // of the chat API so the user gets a real, watermarked image.
+      const imagePrompt = detectImageIntent(trimmed);
+      if (imagePrompt) {
+        await generateImage(imagePrompt, opts?.conversationId, trimmed);
         return;
       }
 
@@ -190,7 +237,7 @@ export function useSpyroChat() {
 
   /** Generate an image from a prompt and add it to the conversation. */
   const generateImage = useCallback(
-    async (prompt: string, conversationId?: string) => {
+    async (prompt: string, conversationId?: string, rawUserText?: string) => {
       const trimmed = prompt.trim();
       if (!trimmed) return;
 
@@ -199,10 +246,13 @@ export function useSpyroChat() {
         convoId = store.getState().createConversation();
       }
 
-      // Add the user's /imagine prompt as a user message.
+      // Show the user's original text (e.g. "generate a photo of a
+      // dragon") so the conversation reads naturally. Falls back to
+      // "/imagine <prompt>" only when invoked via the slash command.
+      const displayText = rawUserText?.trim() || `/imagine ${trimmed}`;
       store.getState().addMessage(convoId, {
         role: "user",
-        content: `/imagine ${trimmed}`,
+        content: displayText,
       });
 
       // Add a placeholder assistant image message.
@@ -229,9 +279,20 @@ export function useSpyroChat() {
             streaming: false,
           });
           useUsageStore.getState().incrementImages();
+        } else if (data.rateLimited) {
+          store.getState().setMessage(msgId, {
+            content: `**You're generating images a little too fast.** ${
+              data.error ?? "Please try again shortly."
+            }`,
+            streaming: false,
+            error: true,
+            type: "text",
+          });
         } else {
           store.getState().setMessage(msgId, {
-            content: `**Image generation failed.** ${data.error ?? "Unknown error"}`,
+            content: `**Image generation failed.** ${
+              data.error ?? "The SPYRO image engine is busy — try again in a moment."
+            }`,
             streaming: false,
             error: true,
             type: "text",
@@ -240,7 +301,7 @@ export function useSpyroChat() {
       } catch (err) {
         store.getState().setMessage(msgId, {
           content: `**Image generation failed.** ${
-            err instanceof Error ? err.message : "Unknown error"
+            err instanceof Error ? err.message : "The SPYRO image engine is busy — try again in a moment."
           }`,
           streaming: false,
           error: true,
