@@ -77,6 +77,10 @@ export async function POST(req: NextRequest) {
       allowed = limits.apiAccess;
       if (!allowed) reason = "API access requires Pro or higher.";
       break;
+    case "integrations":
+      allowed = limits.apiAccess; // integrations same tier as API
+      if (!allowed) reason = "Connecting Telegram, Discord, WhatsApp, and other integrations requires Pro or higher.";
+      break;
     default:
       allowed = true;
   }

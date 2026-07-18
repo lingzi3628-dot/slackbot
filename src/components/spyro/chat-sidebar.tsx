@@ -232,6 +232,7 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
             {activeView === "integrations" && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary" />}
             <Plug className={cn("h-4 w-4 transition-colors", activeView === "integrations" ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
             Integrations
+            <span className="ml-auto rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[8px] font-bold uppercase text-amber-400">Pro</span>
           </button>
           <button
             onClick={() => handleNav("api-playground")}

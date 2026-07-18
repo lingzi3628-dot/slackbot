@@ -9,7 +9,7 @@ import { PLANS, type PlanId } from "@/lib/premium-plans";
 
 interface PremiumGateProps {
   /** The feature being gated */
-  feature: "terminal" | "agents" | "studio" | "whatsapp" | "image" | "email" | "api";
+  feature: "terminal" | "agents" | "studio" | "whatsapp" | "image" | "email" | "api" | "integrations";
   /** Children to render if allowed */
   children: React.ReactNode;
   /** Fallback to render if blocked (optional) */
@@ -177,6 +177,7 @@ function UpgradeModal({ onClose, feature }: { onClose: () => void; feature: stri
       case "image": return p.features.imageGen > 3;
       case "email": return p.features.emailVerif > 3;
       case "api": return p.features.apiAccess;
+      case "integrations": return p.features.apiAccess; // integrations requires same tier as API
       default: return false;
     }
   });

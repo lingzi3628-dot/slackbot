@@ -255,7 +255,11 @@ export default function Home() {
               {activeView === "knowledge" && <KnowledgePage />}
               {activeView === "analytics" && <AnalyticsPage />}
               {activeView === "apps" && <DashboardPage />}
-              {activeView === "integrations" && <IntegrationsPage />}
+              {activeView === "integrations" && (
+                <PremiumGate feature="integrations">
+                  <IntegrationsPage />
+                </PremiumGate>
+              )}
               {activeView === "integration-control" && <IntegrationControl />}
               {activeView === "api-playground" && (
                 <PremiumGate feature="api">
