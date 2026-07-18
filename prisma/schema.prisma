@@ -272,3 +272,98 @@ model ActivityLog {
   @@index([userId])
   @@index([createdAt])
 }
+
+// ── Admin (separate auth from users) ─────────────────────────────────
+model Admin {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  passwordHash  String
+  role          String   @default("support") // "support" | "moderator" | "operations" | "security" | "developer" | "super"
+  mfaSecret     String?
+  mfaEnabled    Boolean  @default(false)
+  active        Boolean  @default(true)
+  lastLoginAt   DateTime?
+  lastLoginIP   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  auditLogs     AuditLog[]
+}
+
+// ── Audit Log (admin actions, immutable) ──────────────────────────────
+model AuditLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  action      String   // e.g. "user.ban", "feature.toggle", "announcement.send"
+  target      String?  // what was acted upon (e.g. user ID)
+  targetType  String?  // "user" | "feature" | "announcement" | "system"
+  result      String   @default("success") // "success" | "failed"
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  admin       Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+// ── Feature Flags ─────────────────────────────────────────────────────
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique // e.g. "launch_studio", "developer_studio"
+  name        String
+  description String?
+  enabled     Boolean  @default(true)
+  rolloutPct  Int      @default(100) // percentage of users
+  planRequired String? // minimum plan required (null = all plans)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ── Support Tickets ───────────────────────────────────────────────────
+model SupportTicket {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  message     String
+  priority    String   @default("medium") // "low" | "medium" | "high" | "urgent"
+  status      String   @default("open") // "open" | "pending" | "resolved" | "closed"
+  assignedTo  String?  // admin ID
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ── Announcements ─────────────────────────────────────────────────────
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  message     String
+  type        String   @default("info") // "info" | "maintenance" | "feature" | "security" | "welcome"
+  targetPlan  String?  // null = all plans
+  targetWorkspace String?
+  scheduledFor DateTime?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ── Content Reports (moderation) ──────────────────────────────────────
+model ContentReport {
+  id          String   @id @default(cuid())
+  reporterId  String?
+  reportedUserId String?
+  type        String   // "spam" | "abuse" | "prompt_injection" | "malicious_upload" | "rate_limit"
+  content     String?
+  status      String   @default("pending") // "pending" | "reviewing" | "resolved" | "dismissed"
+  action      String?  // "warn" | "suspend" | "ban" | "delete" | "none"
+  notes       String?
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+
+  @@index([status])
+}
