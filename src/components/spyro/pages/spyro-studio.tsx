@@ -295,7 +295,6 @@ function StudioEnvironment() {
   const [showAppStore, setShowAppStore] = React.useState(false);
   const [paywallApp, setPaywallApp] = React.useState<string | null>(null);
   const [isPremium, setIsPremium] = React.useState(false);
-  const [freePeeks, setFreePeeks] = React.useState(0);
 
   // Check premium status on mount
   React.useEffect(() => {
@@ -308,19 +307,14 @@ function StudioEnvironment() {
     }).catch(() => setIsPremium(false));
   }, []);
 
-  // Wrap openApp with paywall check — free users get 3 app opens, then paywall
+  // Free users can VIEW Studio but can't open any app — paywall immediately
   const openApp = React.useCallback((appId: string, appName: string) => {
     if (!isPremium) {
-      if (freePeeks < 3) {
-        setFreePeeks((n) => n + 1);
-        openAppStore(appId, appName);
-      } else {
-        setPaywallApp(appName);
-      }
+      setPaywallApp(appName);
     } else {
       openAppStore(appId, appName);
     }
-  }, [isPremium, freePeeks, openAppStore]);
+  }, [isPremium, openAppStore]);
 
   // All apps = core apps + installed apps from the store
   const allApps = React.useMemo(() => {
@@ -447,7 +441,7 @@ function StudioEnvironment() {
         <div className="flex shrink-0 items-center gap-2 border-t border-amber-500/20 bg-amber-500/5 px-3 py-1.5">
           <Lock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
           <span className="flex-1 text-[10px] text-amber-400">
-            Free preview: {3 - freePeeks} app {3 - freePeeks === 1 ? "open" : "opens"} remaining
+            You're viewing SPYRO Studio. Upgrade to Pro to use the code editor, terminal, and all apps.
           </span>
           <button
             onClick={() => setView("premium")}
@@ -483,7 +477,7 @@ function StudioEnvironment() {
                 <button onClick={() => setPaywallApp(null)} className="grid h-7 w-7 place-items-center rounded-lg text-muted-foreground hover:bg-secondary"><X className="h-4 w-4" /></button>
               </div>
               <div className="px-5 py-4 text-center">
-                <p className="text-xs text-muted-foreground">You've used all 3 free app previews. Upgrade to Pro for unlimited access to all Studio apps.</p>
+                <p className="text-xs text-muted-foreground">SPYRO Studio apps require Pro or higher. You can browse Studio for free — upgrade to open apps and start working.</p>
                 <button onClick={() => { setPaywallApp(null); setView("premium"); }} className="mt-3 w-full rounded-xl spyro-bg-gradient py-2 text-xs font-semibold text-white">
                   View Plans — from KSh 499/mo
                 </button>
