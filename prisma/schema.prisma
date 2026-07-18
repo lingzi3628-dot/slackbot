@@ -1,5 +1,6 @@
 // Prisma schema — Neon Postgres (serverless)
-// Set DATABASE_URL in .env or Vercel env vars to your Neon connection string.
+// Full database for SPYRO AI OS: users, conversations, projects, agents,
+// knowledge, files, tasks, usage tracking, subscriptions, notifications.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,39 +11,264 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Core: Users ───────────────────────────────────────────────────────
 model User {
   id              String   @id @default(cuid())
   email           String   @unique
   name            String
   password        String
   role            String   @default("user") // "user" | "guest" | "admin"
-  avatarColor     String   @default("#ff7a1a")
+  avatarColor     String   @default("#8B5CF6")
+  plan            String   @default("free") // "free" | "pro" | "plus" | "ultra" | "business" | "enterprise"
+  workspaceType   String?  // selected workspace template ID
+  studioType      String?  // selected studio type ID
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   resetToken      String?
   resetTokenExpiry DateTime?
+  verified        Boolean  @default(false)
+
+  // Relations
+  conversations   Conversation[]
+  projects        Project[]
+  agents          Agent[]
+  knowledgeDocs   KnowledgeDoc[]
+  files           File[]
+  tasks           Task[]
+  notifications   Notification[]
+  usageRecords    UsageRecord[]
+  apiKeys         ApiKey[]
+  subscriptions   Subscription[]
+  activityLog     ActivityLog[]
 }
 
+// ── Conversations & Messages ──────────────────────────────────────────
 model Conversation {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String   @default("New chat")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  messages  Message[]
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String?
+  title       String   @default("New chat")
+  pinned      Boolean  @default(false)
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages    Message[]
 
   @@index([userId])
+  @@index([projectId])
 }
 
 model Message {
   id              String   @id @default(cuid())
   conversationId  String
-  role            String   // "user" | "assistant"
+  role            String   // "user" | "assistant" | "system"
   content         String
-  type            String   @default("text") // "text" | "image"
+  type            String   @default("text") // "text" | "image" | "code" | "error"
   imageUrl        String?
+  codeLanguage    String?
+  tokenCount      Int      @default(0)
   createdAt       DateTime @default(now())
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
+}
+
+// ── Projects ──────────────────────────────────────────────────────────
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  status      String   @default("active") // "active" | "archived" | "completed"
+  color       String   @default("#8B5CF6")
+  pinned      Boolean  @default(false)
+  progress    Int      @default(0) // 0-100
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  agents      Agent[]
+  knowledge   KnowledgeDoc[]
+  files       File[]
+  tasks       Task[]
+
+  @@index([userId])
+}
+
+// ── AI Agents ─────────────────────────────────────────────────────────
+model Agent {
+  id              String   @id @default(cuid())
+  userId          String
+  projectId       String?
+  name            String
+  description     String?
+  instructions    String?
+  avatar          String   @default("🤖")
+  color           String   @default("#8B5CF6")
+  status          String   @default("idle") // "idle" | "running" | "paused" | "error"
+  model           String   @default("openai")
+  temperature     Float    @default(0.7)
+  responseStyle   String   @default("balanced")
+  knowledgeSources String[] @default([])
+  channels        String[] @default([]) // ["whatsapp", "telegram", ...]
+  businessHours   Json?
+  escalationRules Json?
+  approvalMode    String   @default("auto")
+  autoReplyMode   String   @default("always")
+  apiKey          String?
+  totalCalls      Int      @default(0)
+  totalTokens     Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project         Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+// ── Knowledge Base ────────────────────────────────────────────────────
+model KnowledgeDoc {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String?
+  title       String
+  type        String   // "pdf" | "docx" | "md" | "csv" | "image" | "audio" | "video" | "url"
+  content     String?
+  url         String?
+  collection  String?
+  tags        String[] @default([])
+  indexed     Boolean  @default(false)
+  citations   Int      @default(0)
+  sizeBytes   Int      @default(0)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+// ── Files ─────────────────────────────────────────────────────────────
+model File {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String?
+  name        String
+  type        String   // "image" | "pdf" | "code" | "audio" | "video" | "document"
+  mimeType    String?
+  url         String?
+  sizeBytes   Int      @default(0)
+  aiSummary   String?
+  favorite    Boolean  @default(false)
+  tags        String[] @default([])
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────
+model Task {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String?
+  title       String
+  description String?
+  type        String   @default("manual") // "manual" | "ai"
+  priority    String   @default("medium") // "low" | "medium" | "high"
+  status      String   @default("pending") // "pending" | "done"
+  dueDate     DateTime?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+// ── Usage Tracking (monthly resets) ───────────────────────────────────
+model UsageRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  monthKey    String   // "2026-07"
+  tokensUsed  Int      @default(0)
+  imagesUsed  Int      @default(0)
+  emailsUsed  Int      @default(0)
+  apiCallsUsed Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, monthKey])
+  @@index([userId])
+}
+
+// ── Subscriptions (Paystack) ──────────────────────────────────────────
+model Subscription {
+  id              String   @id @default(cuid())
+  userId          String
+  planId          String   // "free" | "pro" | "plus" | "ultra" | "business" | "enterprise"
+  status          String   @default("active") // "active" | "cancelled" | "expired" | "past_due"
+  paystackRef     String?  // Paystack transaction reference
+  amountKES       Int      @default(0)
+  startDate       DateTime @default(now())
+  endDate         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ── API Keys ──────────────────────────────────────────────────────────
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String   // label for the key
+  key         String   @unique // the actual API key
+  callsUsed   Int      @default(0)
+  callLimit   Int      @default(1000) // per month, based on plan
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ── Notifications ─────────────────────────────────────────────────────
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "ai" | "project" | "communication" | "workspace" | "security" | "system"
+  title       String
+  message     String
+  read        Boolean  @default(false)
+  archived    Boolean  @default(false)
+  link        String?  // URL to navigate to
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ── Activity Log ──────────────────────────────────────────────────────
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // "agent" | "knowledge" | "comm" | "export" | "automation" | "chat" | "file" | "project"
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

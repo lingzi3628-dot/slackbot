@@ -2,6 +2,47 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { v4 as uuid } from "uuid";
 
+// ── DB Sync Helper ────────────────────────────────────────────────────
+// Debounced sync — saves conversations to the Neon DB via /api/db/conversations
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+function syncToDB(conversations: any[]) {
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    // Only sync if user is authenticated (has a session cookie)
+    try {
+      // Sync each conversation (limit to 20 most recent to avoid overload)
+      const recent = conversations.slice(0, 20);
+      for (const conv of recent) {
+        // Skip conversations with no messages
+        if (!conv.messages || conv.messages.length === 0) continue;
+        // Skip streaming messages
+        const hasStreaming = conv.messages.some((m: any) => m.streaming);
+        if (hasStreaming) continue;
+
+        await fetch("/api/db/conversations", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            conversation: {
+              title: conv.title,
+              pinned: conv.pinned || false,
+              messages: conv.messages.map((m: any) => ({
+                role: m.role,
+                content: m.content || "",
+                type: m.type || (m.imageUrl ? "image" : "text"),
+                imageUrl: m.imageUrl || null,
+              })),
+            },
+          }),
+        }).catch(() => {}); // Silent fail — localStorage is the fallback
+      }
+    } catch {
+      // Silent fail — localStorage persistence still works
+    }
+  }, 3000); // 3 second debounce
+}
+
 export type Role = "user" | "assistant";
 export type MessageType = "text" | "image";
 
@@ -128,7 +169,7 @@ export const useChatStore = create<ChatState>()(
           })),
         })),
 
-      setMessage: (messageId, patch) =>
+      setMessage: (messageId, patch) => {
         set((s) => ({
           conversations: s.conversations.map((c) => ({
             ...c,
@@ -136,7 +177,12 @@ export const useChatStore = create<ChatState>()(
               m.id === messageId ? { ...m, ...patch } : m
             ),
           })),
-        })),
+        }));
+        // Trigger DB sync when streaming finishes
+        if (patch.streaming === false) {
+          syncToDB(get().conversations);
+        }
+      },
 
       clearMessages: (conversationId) =>
         set((s) => ({

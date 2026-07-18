@@ -23,6 +23,28 @@ function currentMonthKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Debounced DB sync for usage
+let usageSyncTimer: ReturnType<typeof setTimeout> | null = null;
+function syncUsageToDB() {
+  if (usageSyncTimer) clearTimeout(usageSyncTimer);
+  usageSyncTimer = setTimeout(async () => {
+    try {
+      const state = useUsageStore.getState();
+      await fetch("/api/db/sync-usage", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tokens: state.tokensUsed,
+          images: state.imagesUsed,
+          emails: state.emailsUsed,
+        }),
+      }).catch(() => {}); // Silent fail
+    } catch {
+      // Silent fail — localStorage is the fallback
+    }
+  }, 5000); // 5 second debounce
+}
+
 export const useUsageStore = create<UsageState>()(
   persist(
     (set, get) => ({
@@ -34,16 +56,20 @@ export const useUsageStore = create<UsageState>()(
       incrementTokens: (n) => {
         get().resetIfNewMonth();
         set((s) => ({ tokensUsed: s.tokensUsed + n }));
+        // Sync to DB (debounced)
+        syncUsageToDB();
       },
 
       incrementImages: () => {
         get().resetIfNewMonth();
         set((s) => ({ imagesUsed: s.imagesUsed + 1 }));
+        syncUsageToDB();
       },
 
       incrementEmails: () => {
         get().resetIfNewMonth();
         set((s) => ({ emailsUsed: s.emailsUsed + 1 }));
+        syncUsageToDB();
       },
 
       resetIfNewMonth: () => {
