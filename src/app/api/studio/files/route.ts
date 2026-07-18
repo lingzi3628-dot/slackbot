@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,12 @@ const EXEC_BACKEND_URL = process.env.EXEC_BACKEND_URL || "http://seth1.sethtech.
  * GET /api/studio/files
  * Proxy: lists files in the VPS workspace.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = getSession(req);
+  if (!session) {
+    return NextResponse.json({ files: [], error: "Authentication required" }, { status: 401 });
+  }
+
   try {
     const res = await fetch(`${EXEC_BACKEND_URL}/files`, { cache: "no-store" });
     const data = await res.json();

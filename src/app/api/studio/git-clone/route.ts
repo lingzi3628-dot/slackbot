@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,11 @@ const EXEC_BACKEND_URL = process.env.EXEC_BACKEND_URL || "http://seth1.sethtech.
  * Body: { url: "https://github.com/user/repo.git" }
  */
 export async function POST(req: NextRequest) {
+  const session = getSession(req);
+  if (!session) {
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const res = await fetch(`${EXEC_BACKEND_URL}/git-clone`, {

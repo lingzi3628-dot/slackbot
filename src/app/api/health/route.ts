@@ -25,7 +25,7 @@ export async function GET() {
 
   if (hasChannelBinding) {
     status.error = "DATABASE_URL contains 'channel_binding=require' which Prisma doesn't support. Remove it from your Vercel env var.";
-    status.fix = "Set DATABASE_URL to: postgresql://neondb_owner:npg_KaJnbm59NRHM@ep-silent-heart-ah1azq2h-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require";
+    status.fix = "Remove 'channel_binding=require' from your DATABASE_URL env var. Prisma doesn't support it.";
     return NextResponse.json(status, { status: 500 });
   }
 
