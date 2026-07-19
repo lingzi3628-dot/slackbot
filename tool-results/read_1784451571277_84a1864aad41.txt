@@ -1,0 +1,717 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import {
+     6→  Image as ImageIcon,
+     7→  Code2,
+     8→  Zap,
+     9→  Globe,
+    10→  Mic,
+    11→  Volume2,
+    12→  Sparkles,
+    13→  Loader2,
+    14→  Download,
+    15→  Flame,
+    16→  ArrowLeft,
+    17→  Wand2,
+    18→  Settings2,
+    19→  Layers,
+    20→  Maximize2,
+    21→  Scissors,
+    22→  FileText,
+    23→  BookMarked,
+    24→  Pin,
+    25→  Share2,
+    26→  Bell,
+    27→  Palette,
+    28→  Keyboard,
+    29→  Eye,
+    30→  VolumeX,
+    31→  ListFilter,
+    32→  Bookmark,
+    33→} from "lucide-react";
+    34→import { useChatStore } from "@/store/chat-store";
+    35→import { cn } from "@/lib/utils";
+    36→import { CodeLab } from "./code-lab-page";
+    37→import { GodModeTool } from "./god-mode-page";
+    38→import { GodModeLive } from "./god-mode-live-page";
+    39→import { VoiceStudio } from "./voice-studio-page";
+    40→import { WebScout } from "./web-scout-page";
+    41→import { PhotoEditor } from "./photo-editor-page";
+    42→import { BackgroundRemover } from "./bg-remover-page";
+    43→import { useLocalAuth, isGuest, canAccessTool } from "@/store/local-auth";
+    44→
+    45→// ── Greeting based on time ────────────────────────────────────────────
+    46→function getGreeting() {
+    47→  const hour = new Date().getHours();
+    48→  if (hour < 12) return { text: "Good morning", icon: "🌅" };
+    49→  if (hour < 17) return { text: "Good afternoon", icon: "☀️" };
+    50→  if (hour < 21) return { text: "Good evening", icon: "🌆" };
+    51→  return { text: "Good night", icon: "🌙" };
+    52→}
+    53→
+    54→// ── Rate limiter (simulates Pollinations behavior) ────────────────────
+    55→function useRateLimiter() {
+    56→  const [useCount, setUseCount] = React.useState(0);
+    57→
+    58→  // Load from localStorage
+    59→  React.useEffect(() => {
+    60→    const stored = localStorage.getItem("spyro-img-count");
+    61→    if (stored) setUseCount(parseInt(stored, 10));
+    62→  }, []);
+    63→
+    64→  const increment = React.useCallback(() => {
+    65→    const next = useCount + 1;
+    66→    setUseCount(next);
+    67→    localStorage.setItem("spyro-img-count", String(next));
+    68→  }, [useCount]);
+    69→
+    70→  // First 3 uses: 10s. Then gradually increases to 30s.
+    71→  const waitTime = React.useMemo(() => {
+    72→    if (useCount < 3) return 10;
+    73→    if (useCount < 6) return 15;
+    74→    if (useCount < 10) return 20;
+    75→    if (useCount < 15) return 25;
+    76→    return 30;
+    77→  }, [useCount]);
+    78→
+    79→  return { useCount, increment, waitTime };
+    80→}
+    81→
+    82→// ── App definitions ───────────────────────────────────────────────────
+    83→interface SpyroApp {
+    84→  id: string;
+    85→  name: string;
+    86→  description: string;
+    87→  icon: typeof ImageIcon;
+    88→  gradient: string;
+    89→  status: "live" | "soon";
+    90→  badge?: string;
+    91→}
+    92→
+    93→const APPS: SpyroApp[] = [
+    94→  {
+    95→    id: "image-gen",
+    96→    name: "Image Studio",
+    97→    description: "Generate stunning images from text",
+    98→    icon: ImageIcon,
+    99→    gradient: "from-orange-500 to-red-600",
+   100→    status: "live",
+   101→    badge: "New",
+   102→  },
+   103→  {
+   104→    id: "code-lab",
+   105→    name: "Code Lab",
+   106→    description: "Write, preview & iterate on code",
+   107→    icon: Code2,
+   108→    gradient: "from-amber-500 to-orange-600",
+   109→    status: "maintenance",
+   110→  },
+   111→  {
+   112→    id: "god-mode",
+   113→    name: "God Mode",
+   114→    description: "Multi-agent collaboration engine",
+   115→    icon: Zap,
+   116→    gradient: "from-red-500 to-rose-700",
+   117→    status: "maintenance",
+   118→    badge: "Pro",
+   119→  },
+   120→  {
+   121→    id: "god-mode-live",
+   122→    name: "God Mode Live",
+   123→    description: "20 agents collaborating in real-time",
+   124→    icon: Zap,
+   125→    gradient: "from-red-600 to-orange-600",
+   126→    status: "maintenance",
+   127→    badge: "New",
+   128→  },
+   129→  {
+   130→    id: "god-mode-plus",
+   131→    name: "God Mode Plus",
+   132→    description: "Unlimited agents · deep research · code execution",
+   133→    icon: Zap,
+   134→    gradient: "from-violet-500 to-fuchsia-600",
+   135→    status: "maintenance",
+   136→    badge: "Soon",
+   137→  },
+   138→  {
+   139→    id: "voice-studio",
+   140→    name: "Voice Studio",
+   141→    description: "Speech to text & text to speech",
+   142→    icon: Mic,
+   143→    gradient: "from-yellow-500 to-amber-600",
+   144→    status: "live",
+   145→  },
+   146→  {
+   147→    id: "web-scout",
+   148→    name: "Web Scout",
+   149→    description: "Search & summarize the live web",
+   150→    icon: Globe,
+   151→    gradient: "from-orange-400 to-red-500",
+   152→    status: "live",
+   153→  },
+   154→  {
+   155→    id: "photo-editor",
+   156→    name: "Photo Editor",
+   157→    description: "Edit photos with AI filters & transforms",
+   158→    icon: Wand2,
+   159→    gradient: "from-orange-500 to-red-600",
+   160→    status: "live",
+   161→    badge: "New",
+   162→  },
+   163→  {
+   164→    id: "bg-remover",
+   165→    name: "BG Remover",
+   166→    description: "Remove image backgrounds instantly",
+   167→    icon: Scissors,
+   168→    gradient: "from-red-500 to-rose-700",
+   169→    status: "maintenance",
+   170→    badge: "New",
+   171→  },
+   172→  {
+   173→    id: "more",
+   174→    name: "More Tools",
+   175→    description: "20+ new features coming",
+   176→    icon: Sparkles,
+   177→    gradient: "from-amber-400 to-yellow-600",
+   178→    status: "soon",
+   179→  },
+   180→];
+   181→
+   182→// ── Image Studio (full app) ───────────────────────────────────────────
+   183→function ImageStudio({ onBack }: { onBack: () => void }) {
+   184→  const [phase, setPhase] = React.useState<"activating" | "ready" | "generating" | "result" | "error">("activating");
+   185→  const [prompt, setPrompt] = React.useState("");
+   186→  const [resultUrl, setResultUrl] = React.useState<string | null>(null);
+   187→  const [error, setError] = React.useState<string | null>(null);
+   188→  const [progress, setProgress] = React.useState(0);
+   189→  const [history, setHistory] = React.useState<Array<{ prompt: string; url: string; time: number }>>([]);
+   190→  const [rateRemaining, setRateRemaining] = React.useState<number | null>(null);
+   191→  const { increment, waitTime, useCount } = useRateLimiter();
+   192→
+   193→  // Activation sequence
+   194→  React.useEffect(() => {
+   195→    const timer = setTimeout(() => setPhase("ready"), 2500);
+   196→    return () => clearTimeout(timer);
+   197→  }, []);
+   198→
+   199→  const generate = async () => {
+   200→    const p = prompt.trim();
+   201→    if (!p || phase === "generating") return;
+   202→
+   203→    setPhase("generating");
+   204→    setError(null);
+   205→    setResultUrl(null);
+   206→    setProgress(0);
+   207→
+   208→    // Simulate progress bar based on wait time
+   209→    const startTime = Date.now();
+   210→    const progressInterval = setInterval(() => {
+   211→      const elapsed = (Date.now() - startTime) / 1000;
+   212→      const pct = Math.min((elapsed / waitTime) * 100, 95);
+   213→      setProgress(pct);
+   214→    }, 200);
+   215→
+   216→    try {
+   217→      const res = await fetch("/api/image-gen", {
+   218→        method: "POST",
+   219→        headers: { "content-type": "application/json" },
+   220→        body: JSON.stringify({ prompt: p }),
+   221→      });
+   222→      const data = await res.json();
+   223→
+   224→      clearInterval(progressInterval);
+   225→      setProgress(100);
+   226→
+   227→      if (data.image) {
+   228→        setResultUrl(data.image);
+   229→        setHistory((h) => [{ prompt: p, url: data.image, time: Date.now() }, ...h].slice(0, 8));
+   230→        increment();
+   231→        if (data.rateLimit) {
+   232→          setRateRemaining(data.rateLimit.remaining);
+   233→        }
+   234→        setTimeout(() => setPhase("result"), 300);
+   235→      } else if (data.rateLimited) {
+   236→        setError(data.error);
+   237→        setPhase("error");
+   238→      } else {
+   239→        setError(data.error || "Generation failed");
+   240→        setPhase("error");
+   241→      }
+   242→    } catch (err) {
+   243→      clearInterval(progressInterval);
+   244→      setError(err instanceof Error ? err.message : "Network error");
+   245→      setPhase("error");
+   246→    }
+   247→  };
+   248→
+   249→  // ── Activation screen ───────────────────────────────────────────────
+   250→  if (phase === "activating") {
+   251→    return (
+   252→      <div className="flex min-h-[60vh] flex-col items-center justify-center">
+   253→        <motion.div
+   254→          initial={{ scale: 0.8, opacity: 0 }}
+   255→          animate={{ scale: 1, opacity: 1 }}
+   256→          className="relative mb-6"
+   257→        >
+   258→          <div className="ember-aura relative grid h-20 w-20 place-items-center rounded-3xl spyro-bg-gradient spyro-glow-strong">
+   259→            <ImageIcon className="h-10 w-10 text-white" />
+   260→          </div>
+   261→        </motion.div>
+   262→        <motion.div
+   263→          initial={{ opacity: 0, y: 10 }}
+   264→          animate={{ opacity: 1, y: 0 }}
+   265→          transition={{ delay: 0.3 }}
+   266→          className="text-center"
+   267→        >
+   268→          <h2 className="text-xl font-bold">Image Studio</h2>
+   269→          <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+   270→            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+   271→            <motion.span
+   272→              animate={{ opacity: [0.5, 1, 0.5] }}
+   273→              transition={{ duration: 1.5, repeat: Infinity }}
+   274→            >
+   275→              Activating session…
+   276→            </motion.span>
+   277→          </div>
+   278→          <motion.p
+   279→            initial={{ opacity: 0 }}
+   280→            animate={{ opacity: 1 }}
+   281→            transition={{ delay: 1 }}
+   282→            className="mt-1 text-xs text-muted-foreground/60"
+   283→          >
+   284→            Preparing the SPYRO dragon engine
+   285→          </motion.p>
+   286→        </motion.div>
+   287→      </div>
+   288→    );
+   289→  }
+   290→
+   291→  // ── Main image gen interface ────────────────────────────────────────
+   292→  return (
+   293→    <div className="mx-auto max-w-4xl">
+   294→      {/* Header */}
+   295→      <div className="mb-6 flex items-center gap-3">
+   296→        <button
+   297→          onClick={onBack}
+   298→          className="grid h-9 w-9 place-items-center rounded-lg border border-border/50 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+   299→          aria-label="Back to hub"
+   300→        >
+   301→          <ArrowLeft className="h-4 w-4" />
+   302→        </button>
+   303→        <div className="flex items-center gap-2">
+   304→          <div className="grid h-9 w-9 place-items-center rounded-xl spyro-bg-gradient">
+   305→            <ImageIcon className="h-5 w-5 text-white" />
+   306→          </div>
+   307→          <div>
+   308→            <h2 className="text-lg font-bold">Image Studio</h2>
+   309→            <p className="text-[11px] text-muted-foreground">SPYRO V1 · Image Generation Engine</p>
+   310→          </div>
+   311→        </div>
+   312→      </div>
+   313→
+   314→      {/* Generation area */}
+   315→      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+   316→        {/* Left: input + controls */}
+   317→        <div className="space-y-4">
+   318→          {/* Prompt input */}
+   319→          <div className="surface-elevated rounded-2xl p-4">
+   320→            <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+   321→              Prompt
+   322→            </label>
+   323→            <textarea
+   324→              value={prompt}
+   325→              onChange={(e) => setPrompt(e.target.value)}
+   326→              placeholder="A majestic dragon breathing fire over a medieval castle, dramatic lighting, highly detailed…"
+   327→              rows={4}
+   328→              disabled={phase === "generating"}
+   329→              className="w-full resize-none rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 text-sm focus:border-primary/40 focus:outline-none disabled:opacity-50"
+   330→            />
+   331→            <div className="mt-3 flex items-center justify-between">
+   332→              <span className="text-[11px] text-muted-foreground">
+   333→                {rateRemaining !== null ? (
+   334→                  <span className={rateRemaining <= 2 ? "text-destructive" : ""}>
+   335→                    {rateRemaining <= 2 ? "⚠️" : "📸"} {rateRemaining} generations left this hour
+   336→                  </span>
+   337→                ) : useCount < 3 ? (
+   338→                  "⚡ Fast mode"
+   339→                ) : (
+   340→                  `⏱ ~${waitTime}s wait`
+   341→                )}
+   342→              </span>
+   343→              <button
+   344→                onClick={generate}
+   345→                disabled={!prompt.trim() || phase === "generating"}
+   346→                className="flex items-center gap-1.5 rounded-xl spyro-bg-gradient px-5 py-2 text-sm font-medium text-white disabled:opacity-40"
+   347→              >
+   348→                {phase === "generating" ? (
+   349→                  <>
+   350→                    <Loader2 className="h-4 w-4 animate-spin" />
+   351→                    Generating…
+   352→                  </>
+   353→                ) : (
+   354→                  <>
+   355→                    <Wand2 className="h-4 w-4" />
+   356→                    Generate
+   357→                  </>
+   358→                )}
+   359→              </button>
+   360→            </div>
+   361→          </div>
+   362→
+   363→          {/* Progress bar (during generation) */}
+   364→          <AnimatePresence>
+   365→            {phase === "generating" && (
+   366→              <motion.div
+   367→                initial={{ opacity: 0, height: 0 }}
+   368→                animate={{ opacity: 1, height: "auto" }}
+   369→                exit={{ opacity: 0, height: 0 }}
+   370→                className="surface-elevated overflow-hidden rounded-2xl p-4"
+   371→              >
+   372→                <div className="mb-2 flex items-center justify-between text-xs">
+   373→                  <span className="font-medium text-muted-foreground">Breathing fire onto canvas…</span>
+   374→                  <span className="font-bold tabular-nums text-primary">{Math.round(progress)}%</span>
+   375→                </div>
+   376→                <div className="h-2 overflow-hidden rounded-full bg-muted/50">
+   377→                  <motion.div
+   378→                    className="h-full rounded-full spyro-bg-gradient"
+   379→                    style={{ width: `${progress}%` }}
+   380→                  />
+   381→                </div>
+   382→                <p className="mt-2 text-[11px] text-muted-foreground/60">
+   383→                  The dragon is painting your image. This takes ~{waitTime}s.
+   384→                </p>
+   385→              </motion.div>
+   386→            )}
+   387→          </AnimatePresence>
+   388→
+   389→          {/* Error */}
+   390→          <AnimatePresence>
+   391→            {phase === "error" && (
+   392→              <motion.div
+   393→                initial={{ opacity: 0 }}
+   394→                animate={{ opacity: 1 }}
+   395→                className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+   396→              >
+   397→                {error}
+   398→              </motion.div>
+   399→            )}
+   400→          </AnimatePresence>
+   401→
+   402→          {/* Tips */}
+   403→          <div className="rounded-xl border border-border/30 bg-card/20 p-4">
+   404→            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+   405→              <Sparkles className="h-3 w-3 text-primary" />
+   406→              Tips for better images
+   407→            </div>
+   408→            <ul className="space-y-1 text-[12px] text-muted-foreground">
+   409→              <li>• Be descriptive: lighting, mood, style, camera angle</li>
+   410→              <li>• Add art style: "oil painting", "photorealistic", "anime"</li>
+   411→              <li>• Specify quality: "highly detailed", "4K", "sharp focus"</li>
+   412→            </ul>
+   413→          </div>
+   414→        </div>
+   415→
+   416→        {/* Right: result */}
+   417→        <div>
+   418→          <div className="surface-elevated flex min-h-[320px] items-center justify-center rounded-2xl p-4">
+   419→            {phase === "result" && resultUrl ? (
+   420→              <motion.div
+   421→                initial={{ opacity: 0, scale: 0.95 }}
+   422→                animate={{ opacity: 1, scale: 1 }}
+   423→                className="w-full"
+   424→              >
+   425→                <img
+   426→                  src={resultUrl}
+   427→                  alt={prompt}
+   428→                  className="w-full rounded-xl"
+   429→                  style={{ maxHeight: 400 }}
+   430→                />
+   431→                <div className="mt-3 flex items-center justify-between">
+   432→                  <span className="truncate text-xs text-muted-foreground">{prompt}</span>
+   433→                  <a
+   434→                    href={resultUrl}
+   435→                    download="spyro-image.jpg"
+   436→                    target="_blank"
+   437→                    rel="noreferrer"
+   438→                    className="flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
+   439→                  >
+   440→                    <Download className="h-3 w-3" /> Save
+   441→                  </a>
+   442→                </div>
+   443→              </motion.div>
+   444→            ) : phase === "generating" ? (
+   445→              <div className="flex flex-col items-center gap-4 text-center">
+   446→                <div className="relative">
+   447→                  <div className="h-20 w-20 animate-pulse rounded-2xl spyro-bg-gradient opacity-50" />
+   448→                  <ImageIcon className="absolute inset-0 m-auto h-8 w-8 text-white" />
+   449→                </div>
+   450→                <span className="text-sm text-muted-foreground">Painting your image…</span>
+   451→              </div>
+   452→            ) : (
+   453→              <div className="flex flex-col items-center gap-3 text-center text-muted-foreground">
+   454→                <div className="grid h-16 w-16 place-items-center rounded-2xl border border-dashed border-border/50">
+   455→                  <ImageIcon className="h-7 w-7 opacity-40" />
+   456→                </div>
+   457→                <span className="text-sm">Your image will appear here</span>
+   458→              </div>
+   459→            )}
+   460→          </div>
+   461→        </div>
+   462→      </div>
+   463→
+   464→      {/* History */}
+   465→      {history.length > 0 && (
+   466→        <div className="mt-6">
+   467→          <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+   468→            Recent Generations
+   469→          </div>
+   470→          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+   471→            {history.map((h, i) => (
+   472→              <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-border/40">
+   473→                <img src={h.url} alt={h.prompt} className="h-full w-full object-cover" />
+   474→                <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+   475→                  <span className="line-clamp-2 text-[10px] text-white">{h.prompt}</span>
+   476→                </div>
+   477→              </div>
+   478→            ))}
+   479→          </div>
+   480→        </div>
+   481→      )}
+   482→    </div>
+   483→  );
+   484→}
+   485→
+   486→// ── Hub (main dashboard) ──────────────────────────────────────────────
+   487→function Hub({ onOpenApp }: { onOpenApp: (id: string) => void }) {
+   488→  const conversations = useChatStore((s) => s.conversations);
+   489→  const isGenerating = useChatStore((s) => s.isGenerating);
+   490→  const greeting = getGreeting();
+   491→  const localUser = useLocalAuth((s) => s.user);
+   492→  const guest = isGuest(localUser);
+   493→  const allMessages = conversations.flatMap((c) => c.messages);
+   494→
+   495→  return (
+   496→    <div className="mx-auto max-w-4xl px-4 py-6 sm:py-10">
+   497→      {/* Welcome hero */}
+   498→      <motion.div
+   499→        initial={{ opacity: 0, y: 10 }}
+   500→        animate={{ opacity: 1, y: 0 }}
+   501→        className="mb-8"
+   502→      >
+   503→        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   504→          <span className="text-lg">{greeting.icon}</span>
+   505→          <span>{greeting.text}</span>
+   506→          <span className="relative flex h-1.5 w-1.5">
+   507→            {isGenerating && (
+   508→              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+   509→            )}
+   510→            <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", isGenerating ? "bg-primary" : "bg-green-500")} />
+   511→          </span>
+   512→        </div>
+   513→        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+   514→          Welcome to <span className="spyro-text-gradient">SPYRO</span>
+   515→        </h1>
+   516→        <p className="mt-1 text-sm text-muted-foreground">
+   517→          {conversations.length > 0
+   518→            ? `You have ${conversations.length} conversation${conversations.length === 1 ? "" : "s"} · ${allMessages.length} messages`
+   519→            : "Choose a tool below to get started"}
+   520→        </p>
+   521→      </motion.div>
+   522→
+   523→      {/* Apps section */}
+   524→      <motion.div
+   525→        initial={{ opacity: 0, y: 10 }}
+   526→        animate={{ opacity: 1, y: 0 }}
+   527→        transition={{ delay: 0.1 }}
+   528→        className="mb-3 flex items-center gap-2"
+   529→      >
+   530→        <Layers className="h-4 w-4 text-primary" />
+   531→        <h2 className="text-sm font-semibold">SPYRO Apps & Tools</h2>
+   532→      </motion.div>
+   533→
+   534→      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   535→        {APPS.map((app, i) => (
+   536→          <motion.button
+   537→            key={app.id}
+   538→            initial={{ opacity: 0, y: 12 }}
+   539→            animate={{ opacity: 1, y: 0 }}
+   540→            transition={{ delay: 0.15 + i * 0.05 }}
+   541→            onClick={() => app.status === "live" && canAccessTool(app.id, localUser) && onOpenApp(app.id)}
+   542→            disabled={app.status !== "live" || (guest && !canAccessTool(app.id, localUser))}
+   543→            className={cn(
+   544→              "group relative overflow-hidden rounded-2xl border p-5 text-left transition-all",
+   545→              app.status === "live" && canAccessTool(app.id, localUser)
+   546→                ? "surface-elevated hover:spyro-glow cursor-pointer"
+   547→                : app.status === "maintenance"
+   548→                  ? "border-border/30 opacity-50 cursor-not-allowed"
+   549→                  : app.status === "live" && guest
+   550→                    ? "border-border/30 opacity-50 cursor-not-allowed"
+   551→                    : "border-border/30 opacity-60 cursor-not-allowed"
+   552→            )}
+   553→          >
+   554→            {/* Gradient glow on hover */}
+   555→            {app.status === "live" && (
+   556→              <div className={cn(
+   557→                "absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br opacity-0 blur-2xl transition-opacity group-hover:opacity-30",
+   558→                app.gradient
+   559→              )} />
+   560→            )}
+   561→
+   562→            <div className="relative flex items-start justify-between">
+   563→              <div className={cn(
+   564→                "grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br text-white shadow-lg",
+   565→                app.gradient
+   566→              )}>
+   567→                <app.icon className="h-5 w-5" />
+   568→              </div>
+   569→              {app.badge && (
+   570→                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+   571→                  {app.badge}
+   572→                </span>
+   573→              )}
+   574→              {app.status === "soon" && (
+   575→                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+   576→                  Soon
+   577→                </span>
+   578→              )}
+   579→              {app.status === "maintenance" && (
+   580→                <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-medium text-yellow-500">
+   581→                  🔧 Maintenance
+   582→                </span>
+   583→              )}
+   584→              {app.status === "live" && guest && !canAccessTool(app.id, localUser) && (
+   585→                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+   586→                  🔒 Sign up
+   587→                </span>
+   588→              )}
+   589→            </div>
+   590→
+   591→            <div className="relative mt-3">
+   592→              <h3 className="text-sm font-bold">{app.name}</h3>
+   593→              <p className="mt-0.5 text-xs text-muted-foreground">{app.description}</p>
+   594→            </div>
+   595→
+   596→            {app.status === "live" && (
+   597→              <div className="relative mt-3 flex items-center gap-1 text-[11px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+   598→                Open
+   599→                <ArrowLeft className="h-3 w-3 rotate-180" />
+   600→              </div>
+   601→            )}
+   602→          </motion.button>
+   603→        ))}
+   604→      </div>
+   605→
+   606→      {/* Quick stats footer */}
+   607→      {conversations.length > 0 && (
+   608→        <motion.div
+   609→          initial={{ opacity: 0 }}
+   610→          animate={{ opacity: 1 }}
+   611→          transition={{ delay: 0.4 }}
+   612→          className="mt-8 flex flex-wrap items-center gap-4 text-xs text-muted-foreground"
+   613→        >
+   614→          <div className="flex items-center gap-1.5">
+   615→            <Flame className="h-3 w-3 text-primary" />
+   616→            {allMessages.length} total interactions
+   617→          </div>
+   618→          <div className="flex items-center gap-1.5">
+   619→            <Sparkles className="h-3 w-3 text-primary" />
+   620→            All tools operational
+   621→          </div>
+   622→        </motion.div>
+   623→      )}
+   624→    </div>
+   625→  );
+   626→}
+   627→
+   628→// ── Main Dashboard export ─────────────────────────────────────────────
+   629→export function DashboardPage() {
+   630→  const [activeApp, setActiveApp] = React.useState<string | null>(null);
+   631→
+   632→  return (
+   633→    <AnimatePresence mode="wait">
+   634→      {activeApp === "image-gen" ? (
+   635→        <motion.div
+   636→          key="image-studio"
+   637→          initial={{ opacity: 0, x: 20 }}
+   638→          animate={{ opacity: 1, x: 0 }}
+   639→          exit={{ opacity: 0, x: -20 }}
+   640→          transition={{ duration: 0.25 }}
+   641→          className="px-4 py-6 sm:py-8"
+   642→        >
+   643→          <ImageStudio onBack={() => setActiveApp(null)} />
+   644→        </motion.div>
+   645→      ) : activeApp === "code-lab" ? (
+   646→        <motion.div
+   647→          key="code-lab"
+   648→          initial={{ opacity: 0, x: 20 }}
+   649→          animate={{ opacity: 1, x: 0 }}
+   650→          exit={{ opacity: 0, x: -20 }}
+   651→          transition={{ duration: 0.25 }}
+   652→        >
+   653→          <CodeLab onBack={() => setActiveApp(null)} />
+   654→        </motion.div>
+   655→      ) : activeApp === "god-mode" ? (
+   656→        <motion.div key="god-mode" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
+   657→          <GodModeTool onBack={() => setActiveApp(null)} />
+   658→        </motion.div>
+   659→      ) : activeApp === "god-mode-live" ? (
+   660→        <motion.div key="god-mode-live" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}>
+   661→          <GodModeLive onBack={() => setActiveApp(null)} />
+   662→        </motion.div>
+   663→      ) : activeApp === "voice-studio" ? (
+   664→        <motion.div
+   665→          key="voice-studio"
+   666→          initial={{ opacity: 0, x: 20 }}
+   667→          animate={{ opacity: 1, x: 0 }}
+   668→          exit={{ opacity: 0, x: -20 }}
+   669→          transition={{ duration: 0.25 }}
+   670→        >
+   671→          <VoiceStudio onBack={() => setActiveApp(null)} />
+   672→        </motion.div>
+   673→      ) : activeApp === "web-scout" ? (
+   674→        <motion.div
+   675→          key="web-scout"
+   676→          initial={{ opacity: 0, x: 20 }}
+   677→          animate={{ opacity: 1, x: 0 }}
+   678→          exit={{ opacity: 0, x: -20 }}
+   679→          transition={{ duration: 0.25 }}
+   680→        >
+   681→          <WebScout onBack={() => setActiveApp(null)} />
+   682→        </motion.div>
+   683→      ) : activeApp === "photo-editor" ? (
+   684→        <motion.div
+   685→          key="photo-editor"
+   686→          initial={{ opacity: 0, x: 20 }}
+   687→          animate={{ opacity: 1, x: 0 }}
+   688→          exit={{ opacity: 0, x: -20 }}
+   689→          transition={{ duration: 0.25 }}
+   690→        >
+   691→          <PhotoEditor onBack={() => setActiveApp(null)} />
+   692→        </motion.div>
+   693→      ) : activeApp === "bg-remover" ? (
+   694→        <motion.div
+   695→          key="bg-remover"
+   696→          initial={{ opacity: 0, x: 20 }}
+   697→          animate={{ opacity: 1, x: 0 }}
+   698→          exit={{ opacity: 0, x: -20 }}
+   699→          transition={{ duration: 0.25 }}
+   700→        >
+   701→          <BackgroundRemover onBack={() => setActiveApp(null)} />
+   702→        </motion.div>
+   703→      ) : (
+   704→        <motion.div
+   705→          key="hub"
+   706→          initial={{ opacity: 0, x: -20 }}
+   707→          animate={{ opacity: 1, x: 0 }}
+   708→          exit={{ opacity: 0, x: 20 }}
+   709→          transition={{ duration: 0.25 }}
+   710→        >
+   711→          <Hub onOpenApp={(id) => setActiveApp(id)} />
+   712→        </motion.div>
+   713→      )}
+   714→    </AnimatePresence>
+   715→  );
+   716→}
+   717→

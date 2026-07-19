@@ -1,0 +1,888 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { motion, AnimatePresence } from "framer-motion";
+     5→import {
+     6→  MessageCircle, Sparkles, Flame, ArrowRight, Zap, Bot,
+     7→  TrendingUp, Clock, Plus, LayoutGrid, Phone, Inbox, FileText,
+     8→  Upload, Globe, Plug, FileCode2, Image as ImageIcon, Calendar,
+     9→  CheckCircle2, Circle, AlertCircle, Bell, Download, Activity,
+    10→  Database, HardDrive, Server, Cpu, Pause, Play, ExternalLink,
+    11→  Pin, Star, Search, ChevronRight, BookOpen, Users, Settings,
+    12→  type LucideIcon,
+    13→} from "lucide-react";
+    14→import { useChatStore } from "@/store/chat-store";
+    15→import { useUIStore } from "@/store/ui-store";
+    16→import { useLocalAuth } from "@/store/local-auth";
+    17→import { useWorkspaceStore } from "@/store/workspace-store";
+    18→import { useCommsStore } from "@/store/comms-store";
+    19→import { cn } from "@/lib/utils";
+    20→
+    21→// ── Helpers ───────────────────────────────────────────────────────────
+    22→function getGreeting() {
+    23→  const hour = new Date().getHours();
+    24→  if (hour < 12) return { text: "Good morning", icon: "🌅" };
+    25→  if (hour < 17) return { text: "Good afternoon", icon: "☀️" };
+    26→  if (hour < 21) return { text: "Good evening", icon: "🌆" };
+    27→  return { text: "Good night", icon: "🌙" };
+    28→}
+    29→
+    30→function timeAgo(ts: number): string {
+    31→  const diff = Date.now() - ts;
+    32→  const m = Math.floor(diff / 60000);
+    33→  if (m < 1) return "just now";
+    34→  if (m < 60) return `${m}m ago`;
+    35→  const h = Math.floor(m / 60);
+    36→  if (h < 24) return `${h}h ago`;
+    37→  const d = Math.floor(h / 24);
+    38→  return `${d}d ago`;
+    39→}
+    40→
+    41→// ── Real data computed from stores ────────────────────────────────────
+    42→// No mock data — everything is derived from the user's actual activity.
+    43→
+    44→const QUICK_ACTIONS = [
+    45→  { label: "New Chat", icon: MessageCircle, color: "from-violet-500 to-fuchsia-500", view: "chat" as const },
+    46→  { label: "New Project", icon: LayoutGrid, color: "from-cyan-500 to-blue-500", view: "projects" as const },
+    47→  { label: "New Agent", icon: Bot, color: "from-emerald-500 to-teal-500", view: "agents" as const },
+    48→  { label: "Upload File", icon: Upload, color: "from-amber-500 to-orange-500", view: "apps" as const },
+    49→  { label: "Deep Research", icon: Globe, color: "from-pink-500 to-rose-500", view: "chat" as const },
+    50→  { label: "Connect WhatsApp", icon: Inbox, color: "from-emerald-500 to-green-500", view: "communication" as const },
+    51→  { label: "Import Knowledge", icon: BookOpen, color: "from-indigo-500 to-violet-500", view: "knowledge" as const },
+    52→  { label: "Create Automation", icon: Zap, color: "from-orange-500 to-red-500", view: "apps" as const },
+    53→  { label: "Generate Image", icon: ImageIcon, color: "from-fuchsia-500 to-pink-500", view: "apps" as const },
+    54→  { label: "Generate Document", icon: FileText, color: "from-blue-500 to-indigo-500", view: "chat" as const },
+    55→];
+    56→
+    57→// Derive "pinned projects" from actual conversations (group by title keyword)
+    58→function deriveProjects(conversations: any[]) {
+    59→  if (conversations.length === 0) return [];
+    60→  // Group conversations into pseudo-projects by taking the top 3 most recent
+    61→  const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+    62→  const colors = ["from-violet-500 to-fuchsia-500", "from-cyan-500 to-blue-500", "from-amber-500 to-orange-500"];
+    63→  return sorted.slice(0, 3).map((c, i) => ({
+    64→    id: c.id,
+    65→    name: c.title.length > 30 ? c.title.slice(0, 30) + "…" : c.title,
+    66→    progress: Math.min(100, Math.round((c.messages.length / 20) * 100)),
+    67→    color: colors[i],
+    68→    agents: 1,
+    69→    files: 0,
+    70→    chats: c.messages.length,
+    71→    knowledge: 0,
+    72→    channels: 0,
+    73→    storage: "—",
+    74→    lastActivity: timeAgo(c.updatedAt),
+    75→  }));
+    76→}
+    77→
+    78→// Derive running agents from the chat store's generating state + workspace agents
+    79→function deriveRunningAgents(isGenerating: boolean, conversations: any[], workspaceAgents: any[]) {
+    80→  const agents: any[] = [];
+    81→  // If the AI is currently generating, show it as a running agent
+    82→  if (isGenerating && conversations.length > 0) {
+    83→    const active = conversations.find((c) => c.id === useChatStore.getState().activeId) || conversations[0];
+    84→    agents.push({
+    85→      id: "active-ai",
+    86→      name: "SPYRO V1",
+    87→      status: "running",
+    88→      task: active ? `Responding: "${active.title.slice(0, 30)}"` : "Processing",
+    89→      project: "Current chat",
+    90→      time: "live",
+    91→      memory: "—",
+    92→      confidence: 95,
+    93→      eta: "now",
+    94→      avatar: "S",
+    95→      color: "#8B5CF6",
+    96→    });
+    97→  }
+    98→  // Add workspace agents (from the selected workspace template)
+    99→  if (workspaceAgents && workspaceAgents.length > 0) {
+   100→    workspaceAgents.slice(0, 2).forEach((a: any, i: number) => {
+   101→      agents.push({
+   102→        id: `ws-agent-${i}`,
+   103→        name: a.name,
+   104→        status: "idle",
+   105→        task: a.role,
+   106→        project: "Workspace",
+   107→        time: "—",
+   108→        memory: "—",
+   109→        confidence: 0,
+   110→        eta: "—",
+   111→        avatar: a.icon || a.name.charAt(0),
+   112→        color: a.color || "#71717A",
+   113→      });
+   114→    });
+   115→  }
+   116→  return agents;
+   117→}
+   118→
+   119→// Derive recent activity from actual conversation messages
+   120→function deriveActivity(conversations: any[]) {
+   121→  const items: any[] = [];
+   122→  for (const c of conversations) {
+   123→    if (c.messages.length === 0) continue;
+   124→    const lastMsg = c.messages[c.messages.length - 1];
+   125→    items.push({
+   126→      id: `act-${c.id}`,
+   127→      type: lastMsg.role === "assistant" ? "agent" : "chat",
+   128→      icon: lastMsg.role === "assistant" ? Bot : MessageCircle,
+   129→      text: `${lastMsg.role === "assistant" ? "AI replied in" : "You sent message in"} "${c.title.slice(0, 30)}"`,
+   130→      time: lastMsg.timestamp || c.updatedAt,
+   131→      color: lastMsg.role === "assistant" ? "text-cyan-400" : "text-violet-400",
+   132→    });
+   133→  }
+   134→  // Sort by time descending, take 6
+   135→  return items.sort((a, b) => b.time - a.time).slice(0, 6);
+   136→}
+   137→
+   138→// Derive AI suggestions from actual workspace state
+   139→function deriveSuggestions(conversations: any[], hasWorkspace: boolean) {
+   140→  const suggestions: any[] = [];
+   141→  if (conversations.length === 0) {
+   142→    suggestions.push({ id: "s1", icon: MessageCircle, title: "Start your first conversation", action: "New chat", color: "text-violet-400" });
+   143→  }
+   144→  if (conversations.length > 0 && conversations.length < 5) {
+   145→    suggestions.push({ id: "s2", icon: Sparkles, title: `You have ${conversations.length} conversation${conversations.length === 1 ? "" : "s"}`, action: "Continue chatting", color: "text-cyan-400" });
+   146→  }
+   147→  if (!hasWorkspace) {
+   148→    suggestions.push({ id: "s3", icon: LayoutGrid, title: "Choose a workspace template", action: "Set up now", color: "text-amber-400" });
+   149→  } else {
+   150→    suggestions.push({ id: "s4", icon: Zap, title: "Launch Studio for deep work", action: "Open Studio", color: "text-emerald-400" });
+   151→  }
+   152→  if (conversations.length > 5) {
+   153→    suggestions.push({ id: "s5", icon: Download, title: `${conversations.length} conversations — consider exporting`, action: "Export all", color: "text-rose-400" });
+   154→  }
+   155→  return suggestions.slice(0, 4);
+   156→}
+   157→
+   158→// ── Main Dashboard ────────────────────────────────────────────────────
+   159→export function HomePage() {
+   160→  const conversations = useChatStore((s) => s.conversations);
+   161→  const isGenerating = useChatStore((s) => s.isGenerating);
+   162→  const setActive = useChatStore((s) => s.setActive);
+   163→  const createConversation = useChatStore((s) => s.createConversation);
+   164→  const setView = useUIStore((s) => s.setView);
+   165→  const user = useLocalAuth((s) => s.user);
+   166→
+   167→  const greeting = getGreeting();
+   168→  const allMessages = conversations.flatMap((c) => c.messages);
+   169→  const recentConvos = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3);
+   170→
+   171→  const stats = {
+   172→    conversations: conversations.length,
+   173→    messages: allMessages.length,
+   174→    daysActive: user?.createdAt ? Math.max(1, Math.ceil((Date.now() - user.createdAt) / 86400000)) : 1,
+   175→    status: isGenerating ? "Thinking" : "Ready",
+   176→  };
+   177→
+   178→  const handleNewChat = () => { createConversation(); setView("chat"); };
+   179→  const handleOpenConvo = (id: string) => { setActive(id); setView("chat"); };
+   180→
+   181→  // Workspace-aware quick actions — use the template's actions if available
+   182→  const workspaceTemplate = useWorkspaceStore((s) => s.template);
+   183→  const workspaceActions = workspaceTemplate?.quickActions
+   184→    ? workspaceTemplate.quickActions.map((qa) => ({
+   185→        label: qa.label,
+   186→        icon: qa.icon,
+   187→        color: "from-violet-500 to-fuchsia-500",
+   188→        view: qa.view as any,
+   189→      }))
+   190→    : QUICK_ACTIONS;
+   191→
+   192→  // ── Derive real data from stores ──────────────────────────────────
+   193→  const pinnedProjects = deriveProjects(conversations);
+   194→  const runningAgents = deriveRunningAgents(isGenerating, conversations, workspaceTemplate?.agents || []);
+   195→  const recentActivity = deriveActivity(conversations);
+   196→  const aiSuggestions = deriveSuggestions(conversations, !!workspaceTemplate);
+   197→
+   198→  // Communication channels — real connection status from comms store
+   199→  const commsConnection = useCommsStore.getState().connection;
+   200→  const communicationChannels = [
+   201→    { id: "wa", name: "WhatsApp", icon: "💬", unread: 0, pendingAI: 0, review: 0, lastSync: commsConnection?.lastSyncAt ? timeAgo(commsConnection.lastSyncAt) : "—", health: commsConnection?.status === "connected" ? "good" : "not-connected", color: commsConnection?.status === "connected" ? "text-emerald-400" : "text-muted-foreground" },
+   202→    { id: "email", name: "Email", icon: "📧", unread: 0, pendingAI: 0, review: 0, lastSync: "—", health: "not-connected", color: "text-muted-foreground" },
+   203→    { id: "tg", name: "Telegram", icon: "✈️", unread: 0, pendingAI: 0, review: 0, lastSync: "—", health: "not-connected", color: "text-muted-foreground" },
+   204→    { id: "slack", name: "Slack", icon: "💼", unread: 0, pendingAI: 0, review: 0, lastSync: "—", health: "not-connected", color: "text-muted-foreground" },
+   205→  ];
+   206→
+   207→  return (
+   208→    <div className="ambient-mesh min-h-full">
+   209→      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:flex lg:gap-6">
+   210→        {/* ── Main column (left + center) ──────────────────────────── */}
+   211→        <div className="min-w-0 flex-1 space-y-6">
+   212→          {/* HERO */}
+   213→          <HeroSection greeting={greeting} user={user} stats={stats} workspace={workspaceTemplate} />
+   214→
+   215→          {/* QUICK ACTIONS — workspace-aware */}
+   216→          <QuickActions actions={workspaceActions} onAction={(v) => {
+   217→            if (v === "chat") handleNewChat();
+   218→            else setView(v);
+   219→          }} />
+   220→
+   221→          {/* CONTINUE WORKING */}
+   222→          {recentConvos.length > 0 && (
+   223→            <Section title="Continue working" icon={Clock} actionLabel="View all" onAction={() => setView("chat")}>
+   224→              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   225→                {recentConvos.map((c, i) => (
+   226→                  <ContinueCard key={c.id} convo={c} index={i} onOpen={() => handleOpenConvo(c.id)} />
+   227→                ))}
+   228→              </div>
+   229→            </Section>
+   230→          )}
+   231→
+   232→          {/* PINNED PROJECTS — derived from real conversations */}
+   233→          {pinnedProjects.length > 0 && (
+   234→            <Section title="Pinned projects" icon={Pin} actionLabel="View all" onAction={() => setView("projects")}>
+   235→              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   236→                {pinnedProjects.map((p, i) => (
+   237→                  <PinnedProjectCard key={p.id} project={p} index={i} onOpen={() => setView("projects")} />
+   238→                ))}
+   239→              </div>
+   240→            </Section>
+   241→          )}
+   242→
+   243→          {/* RUNNING AI AGENTS — real: shows SPYRO V1 when generating + workspace agents */}
+   244→          {runningAgents.length > 0 && (
+   245→            <Section title="Running AI agents" icon={Bot} actionLabel="View all" onAction={() => setView("agents")}>
+   246→              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   247→                {runningAgents.map((a, i) => (
+   248→                  <AgentCard key={a.id} agent={a} index={i} onOpen={() => setView("agents")} />
+   249→                ))}
+   250→              </div>
+   251→            </Section>
+   252→          )}
+   253→
+   254→          {/* COMMUNICATION CENTER — real connection status */}
+   255→          <Section title="Communication center" icon={Inbox} actionLabel="Open inbox" onAction={() => setView("communication")}>
+   256→            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   257→              {communicationChannels.map((ch, i) => (
+   258→                <ChannelCard key={ch.id} channel={ch} index={i} onOpen={() => setView("communication")} />
+   259→              ))}
+   260→            </div>
+   261→          </Section>
+   262→
+   263→          {/* AI SUGGESTIONS — derived from real state */}
+   264→          {aiSuggestions.length > 0 && (
+   265→            <div className="grid gap-6 lg:grid-cols-2">
+   266→              <Section title="AI suggestions" icon={Sparkles}>
+   267→                <div className="space-y-2">
+   268→                  {aiSuggestions.map((s, i) => (
+   269→                    <SuggestionCard key={s.id} suggestion={s} index={i} />
+   270→                  ))}
+   271→                </div>
+   272→              </Section>
+   273→
+   274→              {/* RECENT ACTIVITY — derived from real messages */}
+   275→              <Section title="Recent activity" icon={Activity}>
+   276→                {recentActivity.length > 0 ? (
+   277→                  <ActivityTimeline items={recentActivity} />
+   278→                ) : (
+   279→                  <EmptyState icon={Activity} title="No activity yet" subtitle="Start a conversation to see activity here" actionLabel="New chat" onAction={handleNewChat} />
+   280→                )}
+   281→              </Section>
+   282→            </div>
+   283→          )}
+   284→
+   285→          {/* RECENT ACTIVITY (full width if no suggestions) */}
+   286→          {aiSuggestions.length === 0 && recentActivity.length > 0 && (
+   287→            <Section title="Recent activity" icon={Activity}>
+   288→              <ActivityTimeline items={recentActivity} />
+   289→            </Section>
+   290→          )}
+   291→
+   292→          {/* KNOWLEDGE + RECENT FILES — empty states when no data */}
+   293→          <div className="grid gap-6 lg:grid-cols-2">
+   294→            <Section title="Knowledge updates" icon={BookOpen} actionLabel="Open knowledge" onAction={() => setView("knowledge")}>
+   295→              <EmptyState icon={BookOpen} title="No knowledge yet" subtitle="Upload documents to build your knowledge base" actionLabel="Add knowledge" onAction={() => setView("knowledge")} />
+   296→            </Section>
+   297→
+   298→            <Section title="Recent files" icon={FileText} actionLabel="View all" onAction={() => setView("apps")}>
+   299→              <EmptyState icon={FileText} title="No files yet" subtitle="Upload files to see them here" actionLabel="Browse apps" onAction={() => setView("apps")} />
+   300→            </Section>
+   301→          </div>
+   302→
+   303→          {/* WORKSPACE HEALTH + STORAGE */}
+   304→          <div className="grid gap-6 lg:grid-cols-2">
+   305→            <Section title="Workspace health" icon={Server}>
+   306→              <HealthPanel />
+   307→            </Section>
+   308→            <Section title="Storage" icon={HardDrive}>
+   309→              <StoragePanel />
+   310→            </Section>
+   311→          </div>
+   312→        </div>
+   313→
+   314→        {/* ── Right sidebar ─────────────────────────────────────────── */}
+   315→        <div className="hidden w-72 shrink-0 space-y-4 lg:block">
+   316→          <RightSidebar />
+   317→        </div>
+   318→      </div>
+   319→    </div>
+   320→  );
+   321→}
+   322→
+   323→// ── Hero Section ──────────────────────────────────────────────────────
+   324→function HeroSection({ greeting, user, stats, workspace }: { greeting: { text: string; icon: string }; user: any; stats: any; workspace: any }) {
+   325→  return (
+   326→    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ambient-mesh surface-elevated overflow-hidden">
+   327→      <div className="p-5 sm:p-6">
+   328→        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   329→          <span className="text-lg">{greeting.icon}</span>
+   330→          <span>{greeting.text}</span>
+   331→          <span className="relative flex h-1.5 w-1.5">
+   332→            {stats.status === "Thinking" && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />}
+   333→            <span className={cn("relative inline-flex h-1.5 w-1.5 rounded-full", stats.status === "Thinking" ? "bg-primary" : "bg-emerald-500")} />
+   334→          </span>
+   335→          {/* Workspace badge */}
+   336→          {workspace && (
+   337→            <span className={cn("ml-auto inline-flex items-center gap-1 rounded-full bg-gradient-to-br px-2.5 py-1 text-[10px] font-medium text-white", workspace.color)}>
+   338→              <workspace.icon className="h-3 w-3" />
+   339→              {workspace.name}
+   340→            </span>
+   341→          )}
+   342→        </div>
+   343→        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+   344→          {user?.name ? <>Welcome back, <span className="spyro-text-gradient">{user.name.split(" ")[0]}</span></> : <>Welcome to <span className="spyro-text-gradient">SPYRO</span></>}
+   345→        </h1>
+   346→        <p className="mt-1 text-sm text-muted-foreground">Continue where you left off.</p>
+   347→
+   348→        {/* Status bar */}
+   349→        <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px]">
+   350→          <StatusChip icon={LayoutGrid} label="Workspace" value="Personal" />
+   351→          <StatusChip icon={Zap} label="Model" value="SPYRO V1" />
+   352→          <StatusChip icon={TrendingUp} label="Plan" value="Free" />
+   353→          <StatusChip icon={Activity} label="Status" value={stats.status} color={stats.status === "Thinking" ? "text-amber-400" : "text-emerald-400"} />
+   354→        </div>
+   355→
+   356→        {/* Mini stats */}
+   357→        <div className="mt-4 grid grid-cols-3 gap-3">
+   358→          <MiniStat label="Conversations" value={stats.conversations} icon={MessageCircle} accent="text-violet-400" />
+   359→          <MiniStat label="Messages" value={stats.messages} icon={Sparkles} accent="text-cyan-400" />
+   360→          <MiniStat label="Days active" value={stats.daysActive} icon={TrendingUp} accent="text-emerald-400" />
+   361→        </div>
+   362→      </div>
+   363→    </motion.div>
+   364→  );
+   365→}
+   366→
+   367→// ── Quick Actions ─────────────────────────────────────────────────────
+   368→function QuickActions({ actions, onAction }: { actions: typeof QUICK_ACTIONS; onAction: (v: string) => void }) {
+   369→  return (
+   370→    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+   371→      <div className="mb-3 flex items-center gap-2">
+   372→        <Zap className="h-4 w-4 text-primary" />
+   373→        <h2 className="text-sm font-semibold">Quick actions</h2>
+   374→      </div>
+   375→      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+   376→        {actions.map((a, i) => (
+   377→          <motion.button
+   378→            key={a.label}
+   379→            initial={{ opacity: 0, y: 8 }}
+   380→            animate={{ opacity: 1, y: 0 }}
+   381→            transition={{ delay: 0.1 + i * 0.03 }}
+   382→            onClick={() => onAction(a.view)}
+   383→            className="group surface p-3 text-left transition-all hover:spyro-glow"
+   384→          >
+   385→            <div className={cn("grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br text-white shadow-soft transition-transform group-hover:scale-110", a.color)}>
+   386→              <a.icon className="h-4 w-4" />
+   387→            </div>
+   388→            <p className="mt-2 text-[11px] font-medium leading-tight">{a.label}</p>
+   389→          </motion.button>
+   390→        ))}
+   391→      </div>
+   392→    </motion.div>
+   393→  );
+   394→}
+   395→
+   396→// ── Continue Working card ─────────────────────────────────────────────
+   397→function ContinueCard({ convo, index, onOpen }: { convo: any; index: number; onOpen: () => void }) {
+   398→  const lastMsg = convo.messages[convo.messages.length - 1];
+   399→  return (
+   400→    <motion.button
+   401→      initial={{ opacity: 0, y: 8 }}
+   402→      animate={{ opacity: 1, y: 0 }}
+   403→      transition={{ delay: 0.1 + index * 0.04 }}
+   404→      onClick={onOpen}
+   405→      className="group surface-elevated p-4 text-left transition-all hover:spyro-glow"
+   406→    >
+   407→      <div className="flex items-center justify-between">
+   408→        <span className="truncate text-sm font-medium">{convo.title}</span>
+   409→        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+   410→      </div>
+   411→      <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{lastMsg?.content?.slice(0, 60) || "No messages yet"}</p>
+   412→      <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground/60">
+   413→        <MessageCircle className="h-3 w-3" />
+   414→        {convo.messages.length} messages
+   415→        <span>·</span>
+   416→        {timeAgo(convo.updatedAt)}
+   417→      </div>
+   418→    </motion.button>
+   419→  );
+   420→}
+   421→
+   422→// ── Pinned Project card ───────────────────────────────────────────────
+   423→function PinnedProjectCard({ project, index, onOpen }: { project: typeof PINNED_PROJECTS[0]; index: number; onOpen: () => void }) {
+   424→  return (
+   425→    <motion.button
+   426→      initial={{ opacity: 0, y: 8 }}
+   427→      animate={{ opacity: 1, y: 0 }}
+   428→      transition={{ delay: 0.1 + index * 0.04 }}
+   429→      onClick={onOpen}
+   430→      className="group surface overflow-hidden text-left transition-all hover:spyro-glow"
+   431→    >
+   432→      {/* Cover */}
+   433→      <div className={cn("h-20 bg-gradient-to-br", project.color)} />
+   434→      <div className="p-4">
+   435→        <div className="flex items-center justify-between">
+   436→          <h3 className="truncate text-sm font-semibold">{project.name}</h3>
+   437→          <Pin className="h-3 w-3 fill-primary text-primary" />
+   438→        </div>
+   439→        {/* Progress */}
+   440→        <div className="mt-2">
+   441→          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+   442→            <span>Progress</span>
+   443→            <span className="font-medium text-foreground">{project.progress}%</span>
+   444→          </div>
+   445→          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary">
+   446→            <motion.div
+   447→              initial={{ width: 0 }}
+   448→              animate={{ width: `${project.progress}%` }}
+   449→              transition={{ delay: 0.3 + index * 0.1, duration: 0.8, ease: "easeOut" }}
+   450→              className="h-full rounded-full spyro-bg-gradient"
+   451→            />
+   452→          </div>
+   453→        </div>
+   454→        {/* Stats grid */}
+   455→        <div className="mt-3 grid grid-cols-3 gap-2 text-[10px]">
+   456→          <ProjectStat icon={Bot} value={project.agents} label="agents" />
+   457→          <ProjectStat icon={FileText} value={project.files} label="files" />
+   458→          <ProjectStat icon={MessageCircle} value={project.chats} label="chats" />
+   459→          <ProjectStat icon={BookOpen} value={project.knowledge} label="docs" />
+   460→          <ProjectStat icon={Inbox} value={project.channels} label="channels" />
+   461→          <ProjectStat icon={HardDrive} value={project.storage} label="" />
+   462→        </div>
+   463→        <div className="mt-2 text-[10px] text-muted-foreground/60">Last activity: {project.lastActivity}</div>
+   464→      </div>
+   465→    </motion.button>
+   466→  );
+   467→}
+   468→
+   469→// ── Running Agent card ────────────────────────────────────────────────
+   470→function AgentCard({ agent, index, onOpen }: { agent: typeof RUNNING_AGENTS[0]; index: number; onOpen: () => void }) {
+   471→  const isRunning = agent.status === "running";
+   472→  return (
+   473→    <motion.div
+   474→      initial={{ opacity: 0, y: 8 }}
+   475→      animate={{ opacity: 1, y: 0 }}
+   476→      transition={{ delay: 0.1 + index * 0.04 }}
+   477→      className="surface p-4"
+   478→    >
+   479→      <div className="flex items-start gap-3">
+   480→        <div className="relative">
+   481→          <div className="grid h-10 w-10 place-items-center rounded-xl text-sm font-bold text-white" style={{ background: agent.color }}>
+   482→            {agent.avatar}
+   483→          </div>
+   484→          {isRunning && (
+   485→            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-emerald-400" />
+   486→          )}
+   487→        </div>
+   488→        <div className="min-w-0 flex-1">
+   489→          <div className="truncate text-sm font-medium">{agent.name}</div>
+   490→          <div className="truncate text-[10px] text-muted-foreground">{agent.task}</div>
+   491→        </div>
+   492→      </div>
+   493→
+   494→      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
+   495→        <div className="rounded-lg bg-secondary/40 p-2">
+   496→          <div className="text-muted-foreground">Project</div>
+   497→          <div className="truncate font-medium">{agent.project}</div>
+   498→        </div>
+   499→        <div className="rounded-lg bg-secondary/40 p-2">
+   500→          <div className="text-muted-foreground">Runtime</div>
+   501→          <div className="font-mono font-medium">{agent.time}</div>
+   502→        </div>
+   503→        <div className="rounded-lg bg-secondary/40 p-2">
+   504→          <div className="text-muted-foreground">Memory</div>
+   505→          <div className="font-medium">{agent.memory}</div>
+   506→        </div>
+   507→        <div className="rounded-lg bg-secondary/40 p-2">
+   508→          <div className="text-muted-foreground">ETA</div>
+   509→          <div className="font-medium">{agent.eta}</div>
+   510→        </div>
+   511→      </div>
+   512→
+   513→      {/* Confidence bar */}
+   514→      <div className="mt-2">
+   515→        <div className="flex items-center justify-between text-[10px]">
+   516→          <span className="text-muted-foreground">Confidence</span>
+   517→          <span className="font-medium">{agent.confidence}%</span>
+   518→        </div>
+   519→        <div className="mt-1 h-1 overflow-hidden rounded-full bg-secondary">
+   520→          <div className={cn("h-full rounded-full", agent.confidence >= 85 ? "bg-emerald-400" : "bg-amber-400")} style={{ width: `${agent.confidence}%` }} />
+   521→        </div>
+   522→      </div>
+   523→
+   524→      {/* Controls */}
+   525→      <div className="mt-3 flex items-center gap-1">
+   526→        <button className="grid h-7 w-7 place-items-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground" aria-label={isRunning ? "Pause" : "Resume"}>
+   527→          {isRunning ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+   528→        </button>
+   529→        <button onClick={onOpen} className="grid h-7 w-7 place-items-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground" aria-label="Open">
+   530→          <ExternalLink className="h-3.5 w-3.5" />
+   531→        </button>
+   532→        <button className="grid h-7 w-7 place-items-center rounded-lg bg-secondary text-muted-foreground hover:text-foreground" aria-label="Logs">
+   533→          <FileText className="h-3.5 w-3.5" />
+   534→        </button>
+   535→      </div>
+   536→    </motion.div>
+   537→  );
+   538→}
+   539→
+   540→// ── Communication Channel card ────────────────────────────────────────
+   541→function ChannelCard({ channel, index, onOpen }: { channel: typeof COMMUNICATION_CHANNELS[0]; index: number; onOpen: () => void }) {
+   542→  const healthColor = channel.health === "good" ? "text-emerald-400" : channel.health === "disconnected" ? "text-amber-400" : "text-muted-foreground";
+   543→  return (
+   544→    <motion.button
+   545→      initial={{ opacity: 0, y: 8 }}
+   546→      animate={{ opacity: 1, y: 0 }}
+   547→      transition={{ delay: 0.1 + index * 0.04 }}
+   548→      onClick={onOpen}
+   549→      className="surface p-4 text-left transition-all hover:spyro-glow"
+   550→    >
+   551→      <div className="flex items-center justify-between">
+   552→        <span className="text-xl">{channel.icon}</span>
+   553→        <span className={cn("h-2 w-2 rounded-full", healthColor === "text-emerald-400" ? "bg-emerald-400" : healthColor === "text-amber-400" ? "bg-amber-400" : "bg-muted-foreground/30")} />
+   554→      </div>
+   555→      <div className="mt-2 text-sm font-medium">{channel.name}</div>
+   556→      <div className={cn("text-[10px]", healthColor)}>{channel.health === "good" ? "Connected" : channel.health === "disconnected" ? "Disconnected" : "Not connected"}</div>
+   557→      {channel.health === "good" && (
+   558→        <div className="mt-2 space-y-0.5 text-[10px] text-muted-foreground">
+   559→          <div className="flex items-center justify-between"><span>Unread</span><span className="font-medium text-foreground">{channel.unread}</span></div>
+   560→          <div className="flex items-center justify-between"><span>AI pending</span><span className="font-medium text-violet-400">{channel.pendingAI}</span></div>
+   561→          <div className="flex items-center justify-between"><span>Review</span><span className="font-medium text-amber-400">{channel.review}</span></div>
+   562→        </div>
+   563→      )}
+   564→      <div className="mt-2 text-[10px] text-muted-foreground/60">Sync: {channel.lastSync}</div>
+   565→    </motion.button>
+   566→  );
+   567→}
+   568→
+   569→// ── Task List ─────────────────────────────────────────────────────────
+   570→function TaskList({ tasks }: { tasks: typeof TASKS }) {
+   571→  return (
+   572→    <div className="space-y-1.5">
+   573→      {tasks.map((t) => (
+   574→        <div key={t.id} className={cn("flex items-center gap-3 rounded-xl border border-border p-3", t.done && "opacity-50")}>
+   575→          {t.done ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
+   576→          <div className="min-w-0 flex-1">
+   577→            <div className={cn("truncate text-xs", t.done && "line-through")}>{t.title}</div>
+   578→            <div className="text-[10px] text-muted-foreground">{t.due}</div>
+   579→          </div>
+   580→          {t.type === "ai" && <span className="rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[9px] text-violet-400">AI</span>}
+   581→          <PriorityBadge priority={t.priority} />
+   582→        </div>
+   583→      ))}
+   584→    </div>
+   585→  );
+   586→}
+   587→
+   588→// ── Suggestion Card ───────────────────────────────────────────────────
+   589→function SuggestionCard({ suggestion, index }: { suggestion: typeof AI_SUGGESTIONS[0]; index: number }) {
+   590→  return (
+   591→    <motion.button
+   592→      initial={{ opacity: 0, x: -8 }}
+   593→      animate={{ opacity: 1, x: 0 }}
+   594→      transition={{ delay: 0.1 + index * 0.04 }}
+   595→      className="group flex w-full items-center gap-3 rounded-xl border border-border bg-card/40 p-3 text-left transition-colors hover:bg-secondary/40"
+   596→    >
+   597→      <div className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-secondary", suggestion.color)}>
+   598→        <suggestion.icon className="h-4 w-4" />
+   599→      </div>
+   600→      <div className="min-w-0 flex-1">
+   601→        <p className="truncate text-xs text-foreground/90">{suggestion.title}</p>
+   602→        <p className={cn("text-[10px] font-medium", suggestion.color)}>{suggestion.action}</p>
+   603→      </div>
+   604→      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+   605→    </motion.button>
+   606→  );
+   607→}
+   608→
+   609→// ── Activity Timeline ─────────────────────────────────────────────────
+   610→function ActivityTimeline({ items }: { items: typeof RECENT_ACTIVITY }) {
+   611→  return (
+   612→    <div className="space-y-1">
+   613→      {items.map((a, i) => (
+   614→        <motion.div
+   615→          key={a.id}
+   616→          initial={{ opacity: 0, x: -8 }}
+   617→          animate={{ opacity: 1, x: 0 }}
+   618→          transition={{ delay: 0.1 + i * 0.03 }}
+   619→          className="flex items-start gap-3 rounded-xl p-2 transition-colors hover:bg-secondary/30"
+   620→        >
+   621→          <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-secondary", a.color)}>
+   622→            <a.icon className="h-3.5 w-3.5" />
+   623→          </span>
+   624→          <div className="min-w-0 flex-1">
+   625→            <p className="text-xs leading-tight">{a.text}</p>
+   626→            <div className="mt-0.5 text-[10px] text-muted-foreground">{timeAgo(a.time)}</div>
+   627→          </div>
+   628→        </motion.div>
+   629→      ))}
+   630→    </div>
+   631→  );
+   632→}
+   633→
+   634→// ── Health Panel ──────────────────────────────────────────────────────
+   635→function HealthPanel() {
+   636→  // Real data from stores
+   637→  const conversations = useChatStore((s) => s.conversations);
+   638→  const isGenerating = useChatStore((s) => s.isGenerating);
+   639→  const commsConnected = useCommsStore.getState().connection?.status === "connected";
+   640→  const msgCount = conversations.flatMap((c) => c.messages).length;
+   641→  const storageUsed = Math.min(100, Math.round((msgCount / 1000) * 100));
+   642→
+   643→  const items = [
+   644→    { label: "Storage", value: `${storageUsed}% used`, pct: storageUsed || 5, icon: HardDrive, color: storageUsed > 80 ? "bg-amber-400" : "bg-emerald-400" },
+   645→    { label: "Conversations", value: `${conversations.length} active`, pct: Math.min(100, conversations.length * 10) || 5, icon: MessageCircle, color: "bg-cyan-400" },
+   646→    { label: "AI status", value: isGenerating ? "Processing" : "Ready", pct: isGenerating ? 100 : 0, icon: Bot, color: isGenerating ? "bg-amber-400" : "bg-emerald-400" },
+   647→    { label: "Comm health", value: commsConnected ? "Connected" : "Offline", pct: commsConnected ? 90 : 0, icon: Inbox, color: commsConnected ? "bg-emerald-400" : "bg-muted-foreground" },
+   648→    { label: "Messages", value: `${msgCount} total`, pct: Math.min(100, msgCount) || 5, icon: Activity, color: "bg-violet-400" },
+   649→    { label: "Database", value: "Healthy", pct: 100, icon: Database, color: "bg-emerald-400" },
+   650→  ];
+   651→  return (
+   652→    <div className="grid grid-cols-2 gap-2">
+   653→      {items.map((h) => (
+   654→        <div key={h.label} className="rounded-xl border border-border bg-card/40 p-3">
+   655→          <div className="flex items-center gap-2">
+   656→            <h.icon className="h-3.5 w-3.5 text-muted-foreground" />
+   657→            <span className="text-[10px] text-muted-foreground">{h.label}</span>
+   658→          </div>
+   659→          <div className="mt-1 text-xs font-medium">{h.value}</div>
+   660→          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-secondary">
+   661→            <div className={cn("h-full rounded-full", h.color)} style={{ width: `${h.pct}%` }} />
+   662→          </div>
+   663→        </div>
+   664→      ))}
+   665→    </div>
+   666→  );
+   667→}
+   668→
+   669→// ── Storage Panel ─────────────────────────────────────────────────────
+   670→function StoragePanel() {
+   671→  return (
+   672→    <div className="space-y-3">
+   673→      {/* Big circular gauge */}
+   674→      <div className="flex items-center gap-4">
+   675→        <div className="relative grid h-20 w-20 place-items-center">
+   676→          <svg className="h-20 w-20 -rotate-90" viewBox="0 0 80 80">
+   677→            <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="6" className="text-secondary" />
+   678→            <circle cx="40" cy="40" r="34" fill="none" stroke="currentColor" strokeWidth="6" className="text-primary" strokeDasharray="227 227" strokeDashoffset="75" strokeLinecap="round" />
+   679→          </svg>
+   680→          <div className="absolute text-center">
+   681→            <div className="text-lg font-bold">67%</div>
+   682→            <div className="text-[9px] text-muted-foreground">used</div>
+   683→          </div>
+   684→        </div>
+   685→        <div className="flex-1">
+   686→          <div className="text-sm font-medium">6.7 GB used</div>
+   687→          <div className="text-[11px] text-muted-foreground">3.3 GB remaining of 10 GB</div>
+   688→          <div className="mt-2 text-[10px] text-muted-foreground">No upcoming deletions</div>
+   689→        </div>
+   690→      </div>
+   691→      {/* Actions */}
+   692→      <div className="flex flex-wrap gap-2">
+   693→        <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium hover:bg-secondary">
+   694→          <Download className="h-3 w-3" /> Export
+   695→        </button>
+   696→        <button className="inline-flex items-center gap-1.5 rounded-lg spyro-bg-gradient px-3 py-1.5 text-[11px] font-medium text-white">
+   697→          <TrendingUp className="h-3 w-3" /> Upgrade
+   698→        </button>
+   699→        <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium hover:bg-secondary">
+   700→          <Activity className="h-3 w-3" /> Analytics
+   701→        </button>
+   702→      </div>
+   703→    </div>
+   704→  );
+   705→}
+   706→
+   707→// ── Right Sidebar ─────────────────────────────────────────────────────
+   708→function RightSidebar() {
+   709→  return (
+   710→    <>
+   711→      {/* Workspace status */}
+   712→      <div className="surface p-4">
+   713→        <div className="mb-2 flex items-center gap-2">
+   714→          <Server className="h-3.5 w-3.5 text-emerald-400" />
+   715→          <span className="text-xs font-semibold">Workspace status</span>
+   716→        </div>
+   717→        <div className="flex items-center gap-2">
+   718→          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+   719→          <span className="text-[11px] text-muted-foreground">All systems operational</span>
+   720→        </div>
+   721→      </div>
+   722→
+   723→      {/* Notifications */}
+   724→      <div className="surface p-4">
+   725→        <div className="mb-2 flex items-center justify-between">
+   726→          <div className="flex items-center gap-2">
+   727→            <Bell className="h-3.5 w-3.5 text-primary" />
+   728→            <span className="text-xs font-semibold">Notifications</span>
+   729→          </div>
+   730→          <span className="grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">3</span>
+   731→        </div>
+   732→        <div className="space-y-2">
+   733→          {[
+   734→            { icon: Bot, text: "Research Agent finished", time: "5m ago", color: "text-cyan-400" },
+   735→            { icon: Inbox, text: "3 new WhatsApp messages", time: "12m ago", color: "text-emerald-400" },
+   736→            { icon: AlertCircle, text: "Storage 67% full", time: "1h ago", color: "text-amber-400" },
+   737→          ].map((n, i) => (
+   738→            <div key={i} className="flex items-start gap-2">
+   739→              <n.icon className={cn("mt-0.5 h-3 w-3 shrink-0", n.color)} />
+   740→              <div className="min-w-0 flex-1">
+   741→                <p className="text-[11px] leading-tight">{n.text}</p>
+   742→                <p className="text-[9px] text-muted-foreground">{n.time}</p>
+   743→              </div>
+   744→            </div>
+   745→          ))}
+   746→        </div>
+   747→      </div>
+   748→
+   749→      {/* Calendar / Upcoming */}
+   750→      <div className="surface p-4">
+   751→        <div className="mb-2 flex items-center gap-2">
+   752→          <Calendar className="h-3.5 w-3.5 text-primary" />
+   753→          <span className="text-xs font-semibold">Upcoming</span>
+   754→        </div>
+   755→        <div className="space-y-2">
+   756→          <div className="rounded-lg bg-secondary/40 p-2">
+   757→            <div className="text-[11px] font-medium">Review Research report</div>
+   758→            <div className="text-[9px] text-muted-foreground">Today · 5:00 PM</div>
+   759→          </div>
+   760→          <div className="rounded-lg bg-secondary/40 p-2">
+   761→            <div className="text-[11px] font-medium">Export conversations</div>
+   762→            <div className="text-[9px] text-muted-foreground">Tomorrow</div>
+   763→          </div>
+   764→        </div>
+   765→      </div>
+   766→
+   767→      {/* Pinned notes */}
+   768→      <div className="surface p-4">
+   769→        <div className="mb-2 flex items-center gap-2">
+   770→          <Pin className="h-3.5 w-3.5 text-amber-400" />
+   771→          <span className="text-xs font-semibold">Pinned notes</span>
+   772→        </div>
+   773→        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[11px] text-amber-200/90">
+   774→          Remember to index the PDFs before the team meeting.
+   775→        </div>
+   776→      </div>
+   777→
+   778→      {/* Background jobs */}
+   779→      <div className="surface p-4">
+   780→        <div className="mb-2 flex items-center gap-2">
+   781→          <Cpu className="h-3.5 w-3.5 text-cyan-400" />
+   782→          <span className="text-xs font-semibold">Background jobs</span>
+   783→        </div>
+   784→        <div className="space-y-1.5">
+   785→          <div className="flex items-center justify-between text-[11px]">
+   786→            <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin text-cyan-400" /> PDF indexing</span>
+   787→            <span className="text-muted-foreground">3/5</span>
+   788→          </div>
+   789→          <div className="flex items-center justify-between text-[11px]">
+   790→            <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin text-violet-400" /> Agent training</span>
+   791→            <span className="text-muted-foreground">68%</span>
+   792→          </div>
+   793→        </div>
+   794→      </div>
+   795→    </>
+   796→  );
+   797→}
+   798→
+   799→// ── Small reusable components ─────────────────────────────────────────
+   800→function Section({ title, icon: Icon, actionLabel, onAction, children }: { title: string; icon: LucideIcon; actionLabel?: string; onAction?: () => void; children: React.ReactNode }) {
+   801→  return (
+   802→    <div>
+   803→      <div className="mb-3 flex items-center justify-between">
+   804→        <h2 className="flex items-center gap-2 text-sm font-semibold">
+   805→          <Icon className="h-4 w-4 text-primary" />
+   806→          {title}
+   807→        </h2>
+   808→        {actionLabel && (
+   809→          <button onClick={onAction} className="text-xs text-muted-foreground hover:text-foreground">
+   810→            {actionLabel} →
+   811→          </button>
+   812→        )}
+   813→      </div>
+   814→      {children}
+   815→    </div>
+   816→  );
+   817→}
+   818→
+   819→function StatusChip({ icon: Icon, label, value, color }: { icon: LucideIcon; label: string; value: string; color?: string }) {
+   820→  return (
+   821→    <div className="flex items-center gap-1.5 rounded-full border border-border bg-card/40 px-2.5 py-1">
+   822→      <Icon className="h-3 w-3 text-muted-foreground" />
+   823→      <span className="text-muted-foreground">{label}:</span>
+   824→      <span className={cn("font-medium", color)}>{value}</span>
+   825→    </div>
+   826→  );
+   827→}
+   828→
+   829→function MiniStat({ label, value, icon: Icon, accent }: { label: string; value: number | string; icon: LucideIcon; accent: string }) {
+   830→  return (
+   831→    <div className="rounded-xl border border-border bg-card/40 p-3">
+   832→      <Icon className={cn("h-3.5 w-3.5", accent)} />
+   833→      <div className="mt-1.5 text-xl font-bold tracking-tight">{value}</div>
+   834→      <div className="text-[10px] text-muted-foreground">{label}</div>
+   835→    </div>
+   836→  );
+   837→}
+   838→
+   839→function ProjectStat({ icon: Icon, value, label }: { icon: LucideIcon; value: string | number; label: string }) {
+   840→  return (
+   841→    <div className="flex items-center gap-1">
+   842→      <Icon className="h-2.5 w-2.5 text-muted-foreground" />
+   843→      <span className="font-medium">{value}</span>
+   844→      {label && <span className="text-muted-foreground">{label}</span>}
+   845→    </div>
+   846→  );
+   847→}
+   848→
+   849→function PriorityBadge({ priority }: { priority: string }) {
+   850→  const colors: Record<string, string> = {
+   851→    high: "bg-rose-500/10 text-rose-400",
+   852→    medium: "bg-amber-500/10 text-amber-400",
+   853→    low: "bg-secondary text-muted-foreground",
+   854→  };
+   855→  return <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-medium capitalize", colors[priority])}>{priority}</span>;
+   856→}
+   857→
+   858→function FileIcon({ type }: { type: string }) {
+   859→  switch (type) {
+   860→    case "image": return <ImageIcon className="h-5 w-5" />;
+   861→    case "pdf": return <FileText className="h-5 w-5" />;
+   862→    case "code": return <FileCode2 className="h-5 w-5" />;
+   863→    case "audio": return <MessageCircle className="h-5 w-5" />;
+   864→    default: return <FileText className="h-5 w-5" />;
+   865→  }
+   866→}
+   867→
+   868→// Loader2 import (used in some cards)
+   869→import { Loader2 } from "lucide-react";
+   870→
+   871→// ── Empty State ───────────────────────────────────────────────────────
+   872→function EmptyState({ icon: Icon, title, subtitle, actionLabel, onAction }: { icon: LucideIcon; title: string; subtitle: string; actionLabel?: string; onAction?: () => void }) {
+   873→  return (
+   874→    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-8 text-center">
+   875→      <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary/60">
+   876→        <Icon className="h-5 w-5 text-muted-foreground" />
+   877→      </div>
+   878→      <p className="mt-2 text-xs font-medium">{title}</p>
+   879→      <p className="mt-0.5 text-[10px] text-muted-foreground">{subtitle}</p>
+   880→      {actionLabel && onAction && (
+   881→        <button onClick={onAction} className="mt-3 rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-medium hover:bg-secondary">
+   882→          {actionLabel}
+   883→        </button>
+   884→      )}
+   885→    </div>
+   886→  );
+   887→}
+   888→
