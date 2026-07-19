@@ -26,6 +26,31 @@ const IMAGE_OF_PATTERN =
 const DIRECT_VERB_PATTERN =
   /^(?:draw|paint|render|sketch)\s+(?:a|an|the)?\s*(.+)/i;
 
+// ── Autonomous image marker detection ────────────────────────────────
+// The LLM can emit [SPYRO_IMAGE: <prompt>] in its response to autonomously
+// trigger image generation. We extract these markers, strip them from the
+// displayed text, and render the images as follow-up messages.
+const SPYRO_IMAGE_MARKER = /\[SPYRO_IMAGE:\s*([^\]]+)\]/gi;
+
+export function extractImageMarkers(text: string): { cleanedText: string; prompts: string[] } {
+  const prompts: string[] = [];
+  let match: RegExpExecArray | null;
+  // Reset lastIndex (regex is reused)
+  SPYRO_IMAGE_MARKER.lastIndex = 0;
+  while ((match = SPYRO_IMAGE_MARKER.exec(text)) !== null) {
+    const p = match[1].trim();
+    if (p.length > 2) prompts.push(p);
+  }
+  // Remove the markers from the displayed text. Also clean up any leftover
+  // double spaces or empty lines left behind.
+  const cleanedText = text
+    .replace(SPYRO_IMAGE_MARKER, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { cleanedText, prompts };
+}
+
 export function detectImageIntent(text: string): string | null {
   const t = text.trim();
   if (!t) return null;
@@ -196,17 +221,31 @@ export function useSpyroChat() {
             streaming: true,
           });
         }
+
+        // ── Check for autonomous image-generation markers ────────────
+        // The LLM may emit [SPYRO_IMAGE: prompt] to trigger image gen.
+        // Strip the marker from the displayed text, then generate the
+        // image(s) as follow-up messages.
+        const { cleanedText, prompts } = extractImageMarkers(acc);
+        const finalText =
+          acc.trim().length === 0
+            ? "**SPYRO V1 returned an empty response.** Try rephrasing your prompt."
+            : cleanedText || acc;
+
         store.getState().setMessage(assistantId, {
           streaming: false,
           error: acc.trim().length === 0 ? true : undefined,
-          content:
-            acc.trim().length === 0
-              ? "**SPYRO V1 returned an empty response.** Try rephrasing your prompt."
-              : acc,
+          content: finalText,
         });
         // Track token usage (approximate: 1 token ≈ 4 chars)
         const tokensUsed = Math.ceil(acc.length / 4);
         useUsageStore.getState().incrementTokens(tokensUsed);
+
+        // Auto-generate any images the LLM requested via markers.
+        // Each prompt becomes a separate image message below the text.
+        for (const p of prompts) {
+          await generateImage(p, conversationId);
+        }
       } catch (err) {
         if ((err as Error)?.name === "AbortError") {
           store.getState().setMessage(assistantId, {
