@@ -353,7 +353,7 @@ export function IntegrationsPage() {
       )}
 
       {/* API usage example (if API integration exists) */}
-      {integrations.some((i) => i.platform === "api" && i.connected) && (
+      {integrations.some((i) => (i.platform as string) === "api" && i.connected) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

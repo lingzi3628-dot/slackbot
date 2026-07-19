@@ -132,8 +132,8 @@ export class EvolutionApiProvider implements ChannelProvider {
   type: ChannelType = "whatsapp";
   displayName = "WhatsApp";
 
-  async initiateConnection(channelId: string): Promise<{ qrCode: string; expiresAt: number }> {
-    const id = channelId || newChannelId();
+  async initiateConnection(channelId: string): Promise<{ qrCode: string; expiresAt: number; resolvedChannelId: string }> {
+    const id = channelId || newDemoChannelId();
 
     // ── LIVE MODE ────────────────────────────────────────────────────
     if (IS_LIVE) {

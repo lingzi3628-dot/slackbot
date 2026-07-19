@@ -117,20 +117,23 @@ export function CommsInbox({ channelId }: { channelId: string }) {
         body: JSON.stringify({ channelId, conversationId: selectedId, text, channelType: "whatsapp" }),
       });
       // Optimistically append to the active conversation.
-      setActiveConversation((prev) => prev ? {
-        ...prev,
-        messages: [...prev.messages, {
-          id: `m_${Date.now()}`,
-          conversationId: selectedId,
-          direction: "out" as const,
-          status: "sent" as const,
-          text,
-          attachments: [],
-          createdAt: Date.now(),
-          authorIsAgent: true,
-          authorIsAI: false,
-        }],
-      } : prev);
+      const prev = useCommsStore.getState().activeConversation;
+      if (prev) {
+        setActiveConversation({
+          ...prev,
+          messages: [...prev.messages, {
+            id: `m_${Date.now()}`,
+            conversationId: selectedId,
+            direction: "out" as const,
+            status: "sent" as const,
+            text,
+            attachments: [],
+            createdAt: Date.now(),
+            authorIsAgent: true,
+            authorIsAI: false,
+          }],
+        });
+      }
     } catch { /* ignore */ }
   }, [draft, selectedId, channelId, setActiveConversation]);
 
@@ -374,7 +377,7 @@ function ConversationDetail({
         {/* Messages */}
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} contactName={contact.name} />
+            <MessageBubble key={m.id} message={m} contact={contact.id} contactName={contact.name} />
           ))}
         </div>
 

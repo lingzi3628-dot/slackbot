@@ -513,7 +513,7 @@ export function AgentBuilder() {
                 <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-card/20 px-3 py-2">
                   <Terminal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <code className="flex-1 truncate text-[11px] text-muted-foreground">
-                    {showKey ? selected.apiKey : "••••••••••••••••••••••••"}
+                    {showKey ? selected?.apiKey : "••••••••••••••••••••••••"}
                   </code>
                   <button onClick={() => setShowKey(!showKey)} className="text-muted-foreground hover:text-foreground">
                     {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -534,7 +534,7 @@ export function AgentBuilder() {
   method: "POST",
   headers: {
     "content-type": "application/json",
-    "x-api-key": "${selected.apiKey}"
+    "x-api-key": "${selected?.apiKey ?? ""}"
   },
   body: JSON.stringify({
     messages: [{ role: "user", content: "Hello!" }]

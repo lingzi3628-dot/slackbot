@@ -173,6 +173,8 @@ export class PairingServerProvider implements ChannelProvider {
         lastMessagePreview: "",
         lastMessageAt: Date.now(),
         lastMessageDirection: "in",
+        aiHandled: false,
+        humanTakenOver: false,
         sentiment: "unknown",
         suggestedReplies: [],
       },

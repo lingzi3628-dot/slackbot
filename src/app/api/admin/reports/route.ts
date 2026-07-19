@@ -68,8 +68,12 @@ export async function GET(req: NextRequest) {
       : Promise.resolve([]),
   ]);
 
-  const reportedMap = new Map(reportedUsers.map((u) => [u.id, u]));
-  const reporterMap = new Map(reporterUsers.map((u) => [u.id, u]));
+  const reportedMap = new Map<string, typeof reportedUsers[number]>(
+    reportedUsers.map((u) => [u.id, u] as const)
+  );
+  const reporterMap = new Map<string, typeof reporterUsers[number]>(
+    reporterUsers.map((u) => [u.id, u] as const)
+  );
 
   const enriched = reports.map((r) => ({
     ...r,

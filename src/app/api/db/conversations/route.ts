@@ -60,7 +60,13 @@ export async function POST(req: NextRequest) {
           title: conversation.title || "New chat",
           pinned: conversation.pinned || false,
         },
+        include: { messages: true },
       });
+    }
+
+    // Defensive null check — findFirst can return null and create() should not, but TS can't narrow across assignments to `let`.
+    if (!dbConv) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     // Sync messages — only add new ones (compare by content + createdAt proximity)

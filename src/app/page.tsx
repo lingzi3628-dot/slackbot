@@ -67,7 +67,7 @@ const VIEW_TITLES: Record<string, string> = {
 };
 
 export default function Home() {
-  const { send, stop, regenerate, generateImage, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
+  const { send, stop, regenerate, editMessage, webSearch, setWebSearch, model, setModel, godMode, setGodMode } = useSpyroChat();
   const createConversation = useChatStore((s) => s.createConversation);
   const activeView = useUIStore((s) => s.activeView);
   const setView = useUIStore((s) => s.setView);
@@ -108,10 +108,6 @@ export default function Home() {
     if (active && active.messages.length > 0) {
       exportConversationAsMarkdown(active);
     }
-  };
-
-  const handleImagine = (prompt: string) => {
-    void generateImage(prompt);
   };
 
   useKeyboardShortcuts({
@@ -198,7 +194,6 @@ export default function Home() {
             <ChatInput
               onSend={handleSend}
               onStop={stop}
-              onImagine={handleImagine}
               onSlashCommand={(cmd) => {
                 if (cmd === "/clear") {
                   const id = useChatStore.getState().activeId;

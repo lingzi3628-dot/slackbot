@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, ArrowLeft, X, Sparkles, Spotlight } from "lucide-react";
+import { ArrowRight, ArrowLeft, X, Sparkles, ScanSearch } from "lucide-react";
 import { useProfileStore, TUTORIAL_STEPS } from "@/store/profile-store";
 import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";

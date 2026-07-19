@@ -47,7 +47,14 @@ function getDbUrl(): string | undefined {
 const dbUrl = getDbUrl();
 
 if (!dbUrl) {
-  console.warn('[db] DATABASE_URL not found. Auth will use local fallback.');
+  // Check if process.env has a non-postgresql URL (e.g. SQLite from a stray
+  // `prisma db push`) — warn loudly so it's not silently ignored.
+  const envUrl = process.env.DATABASE_URL;
+  if (envUrl && !envUrl.startsWith('postgresql://') && !envUrl.startsWith('postgres://')) {
+    console.error(`[db] WARNING: process.env.DATABASE_URL is set to "${envUrl}" (non-PostgreSQL). Falling back to .env file. Prisma schema requires PostgreSQL (Neon).`);
+  } else {
+    console.warn('[db] DATABASE_URL not found. Auth will use local fallback.');
+  }
 } else if (dbUrl.includes('channel_binding')) {
   console.error('[db] DATABASE_URL contains channel_binding=require — Prisma will fail. Remove it from Vercel env vars.');
 }

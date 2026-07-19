@@ -31,7 +31,7 @@ export function AISpreadsheetApp() {
       const val = allCells[ref];
       if (!val) return "0";
       if (val.startsWith("=")) return evalFormula(val, allCells);
-      return parseFloat(val) || `"${val}"`;
+      return String(parseFloat(val) || `"${val}"`);
     });
 
     // Handle SUM(range)

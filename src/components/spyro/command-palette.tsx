@@ -44,7 +44,7 @@ export function CommandPalette() {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onkeydown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   // Focus input when opened

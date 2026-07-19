@@ -126,6 +126,8 @@ export class BaileysProvider implements ChannelProvider {
         lastMessagePreview: "",
         lastMessageAt: Date.now(),
         lastMessageDirection: "in",
+        aiHandled: false,
+        humanTakenOver: false,
         sentiment: "unknown",
         suggestedReplies: [],
       },
@@ -231,6 +233,8 @@ export class BaileysProvider implements ChannelProvider {
       lastMessagePreview: chat.lastMessage?.message?.conversation || "",
       lastMessageAt: chat.t ? Number(chat.t) * 1000 : Date.now(),
       lastMessageDirection: chat.lastMessage?.key?.fromMe ? "out" : "in",
+      aiHandled: false,
+      humanTakenOver: false,
       sentiment: "unknown",
       suggestedReplies: [],
     };

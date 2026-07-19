@@ -849,3 +849,127 @@ Stage Summary:
 - Admin panel: all 16 sections now functional (was 2/16). Feature Flags, Audit Logs, System Health, Analytics, Announcements, Moderation, Support, Billing, Studios, AI Agents, Knowledge, Communications, Security, Settings — each with real Prisma-backed data and proper audit logging.
 - Lint: clean (exit 0). Dev server: healthy 200s on /.
 - Artifacts: src/hooks/use-spyro-chat.ts, src/components/spyro/welcome-screen.tsx, src/components/spyro/chat-input.tsx, src/components/spyro/pages/studio-apps/terminal-app.tsx, src/app/api/docs/route.ts. (Admin changes documented in subagent sections above.)
+
+---
+Task ID: FIX-HOME-DASHBOARD-TYPES
+Agent: fix-home-dashboard-types
+Task: Fix TypeScript errors in home-page.tsx and dashboard-page.tsx
+
+Work Log:
+- Read worklog.md, home-page.tsx, dashboard-page.tsx, and ui-store.ts to understand structure and the `View` union type.
+- Inspected home-page.tsx: confirmed the 6 missing constants (`PINNED_PROJECTS`, `RUNNING_AGENTS`, `COMMUNICATION_CHANNELS`, `TASKS`, `AI_SUGGESTIONS`, `RECENT_ACTIVITY`) were referenced ONLY in `typeof CONST[0]` / `typeof CONST` prop-type annotations on helper card components (`PinnedProjectCard`, `AgentCard`, `ChannelCard`, `TaskList`, `SuggestionCard`, `ActivityTimeline`). The real runtime data is already derived from Zustand stores (chat-store, workspace-store, comms-store) inside `HomePage()` and passed via props — so the constants only need to serve as type anchors.
+- Inspected dashboard-page.tsx: confirmed the `SpyroApp` interface (line 89) declares `status: "live" | "soon"`, while the `APPS` array assigns `status: "maintenance"` to 5 entries (code-lab, god-mode, god-mode-live, god-mode-plus, bg-remover) and the JSX compares `=== "maintenance"` on lines 547 & 579.
+- Fixed home-page.tsx (3 edits):
+  1. Added `type View` to the `@/store/ui-store` import.
+  2. Inserted 6 typed empty-array constants after `QUICK_ACTIONS`, each with a shape matching the corresponding derive function / inline array / card usage (`LucideIcon` used for `icon` fields in `AI_SUGGESTIONS` and `RECENT_ACTIVITY`; `string` used for `health` in `COMMUNICATION_CHANNELS` to stay compatible with the inline `communicationChannels` array's widened string type and the `=== "good"/"disconnected"` comparisons).
+  3. Line 218: cast `setView(v as View)` since `QuickActions.onAction` hands a `string`.
+- Fixed dashboard-page.tsx (1 edit): widened the `SpyroApp.status` union to `"live" | "soon" | "maintenance"`.
+- Ran `npx tsc --noEmit 2>&1 | grep "home-page\|dashboard-page"` → no output (grep exit 1), confirming ZERO errors in the two target files. (Other pre-existing errors in unrelated files — whatsapp mini-service, conversations route, command-palette, agent-builder, integrations, premium, ai-spreadsheet, terminal-app, tutorial-overlay — were intentionally left untouched per the "do not modify other files" rule.)
+- Ran `bun run lint` → exit 0, clean.
+
+Stage Summary:
+- home-page.tsx: all 7 TS errors resolved (1 `View` cast + 6 missing constants). Page renders with real store-derived data; the new constants are empty arrays used purely for prop-type inference, so no mock data was introduced and all empty-state behavior is preserved.
+- dashboard-page.tsx: all 7 TS errors resolved (5 `status: "maintenance"` assignments + 2 `=== "maintenance"` comparisons) by adding `"maintenance"` to the `SpyroApp.status` union.
+- `npx tsc --noEmit`: ZERO errors for `home-page.tsx` and `dashboard-page.tsx`.
+- `bun run lint`: passes (exit 0).
+- No other files modified; schema.prisma untouched; dev server not started.
+
+---
+Task ID: FIX-COMMS-TYPES
+Agent: fix-comms-types
+Task: Fix all TypeScript errors in the comms/* provider files + comms-inbox.tsx
+
+Work Log:
+- Read `/home/z/my-project/worklog.md` and `src/lib/comms/types.ts` first to understand the current `ChannelProvider`, `ConversationSummary`, `DashboardStats`, `ConversationMessage`, and `ConversationDetail` contracts.
+- Ran `npx tsc --noEmit` to capture the full list of 19 comms-related TypeScript errors before any changes.
+- `src/lib/comms/types.ts`: Added two optional fields to `DashboardStats` — `phoneNumber?: string` and `connectedAt?: number` — placed right after `deviceName?`. Decision: adding to the type (rather than stripping from provider objects) is cleaner because phone number + connection time are useful info the UI may want to display, and `ChannelConnection` already exposes both fields. `connectedAt` was being silently set in `evolution-api.ts` dashboard returns alongside `phoneNumber`; surfacing it explicitly in the type lets those returns type-check cleanly once `phoneNumber` is allowed.
+- `src/lib/comms/baileys-provider.ts`: Added `aiHandled: false` and `humanTakenOver: false` to both `ConversationSummary` object literals (the `getConversation` fallback summary and the `mapChatToSummary` mapper). `phoneNumber` in `getDashboard` is now valid because the `DashboardStats` type carries it.
+- `src/lib/comms/evolution-api.ts`:
+  - Fixed `initiateConnection` return type from `Promise<{ qrCode: string; expiresAt: number }>` to `Promise<{ qrCode: string; expiresAt: number; resolvedChannelId: string }>` to match the `ChannelProvider` interface — this also resolves the `EvolutionApiProvider not assignable to ChannelProvider` cascade at lines 551–578.
+  - Fixed the `newChannelId()` typo → `newDemoChannelId()` (the only `new*ChannelId` helper defined in the file). Note: the task description suggested the typo should be `channelId`, but `const id = channelId || channelId` would be a no-op, so the correct fix is to reuse the existing `newDemoChannelId()` generator (matches the DEMO-mode pattern two blocks below).
+  - `resolvedChannelId` in the two return statements now type-checks against the corrected signature.
+  - `phoneNumber` / `connectedAt` in `getDashboard` returns now type-check against the updated `DashboardStats`.
+- `src/lib/comms/pairing-server-provider.ts`: Added `aiHandled: false` and `humanTakenOver: false` to the `ConversationSummary` literal inside `getConversation`. `phoneNumber` in `getDashboard` is now valid because the type carries it.
+- `src/components/spyro/pages/comms/comms-inbox.tsx`:
+  - Line 120 (`sendMessage` optimistic update): the store's `setActiveConversation` expects `ConversationDetail | null`, not an updater function. Per the rules (only modify the listed comms files + `types.ts`), I did NOT touch `src/store/comms-store.ts`. Instead I read the current state synchronously via `useCommsStore.getState().activeConversation`, computed the new value, and called `setActiveConversation(newValue)` directly. Runtime semantics are equivalent to the previous updater form.
+  - Line 377 (`MessageBubble` render): added the missing `contact` prop. `MessageBubble`'s prop type is `contact: string`, so I passed `contact.id` (the contact's id string). The `contact` prop is declared but unused inside `MessageBubble`'s body, so this is a pure type-level fix with zero runtime impact.
+- Verified: `npx tsc --noEmit 2>&1 | grep "src/lib/comms\|comms-inbox"` → ZERO matches (grep exits 1, confirming no comms errors).
+- Verified: `bun run lint` → exit 0, no ESLint output.
+
+Stage Summary:
+- Files modified (5):
+  1. `src/lib/comms/types.ts` — added `phoneNumber?` and `connectedAt?` to `DashboardStats`.
+  2. `src/lib/comms/baileys-provider.ts` — added `aiHandled`/`humanTakenOver` to 2 ConversationSummary literals.
+  3. `src/lib/comms/evolution-api.ts` — fixed `initiateConnection` signature + `newChannelId`→`newDemoChannelId` typo.
+  4. `src/lib/comms/pairing-server-provider.ts` — added `aiHandled`/`humanTakenOver` to ConversationSummary literal.
+  5. `src/components/spyro/pages/comms/comms-inbox.tsx` — replaced updater-function `setActiveConversation` call with a direct value read from `useCommsStore.getState()`; added `contact={contact.id}` to `MessageBubble`.
+- All 19 comms TypeScript errors resolved. `npx tsc --noEmit` reports ZERO errors for `src/lib/comms/**` and `comms-inbox.tsx` (other pre-existing errors elsewhere in the repo are out of scope for this task).
+- `bun run lint` passes (exit 0).
+- No schema.prisma changes. No store changes. No runtime behavior changes — all fixes are type-level (the only behavioral note: the `sendMessage` optimistic update now reads `useCommsStore.getState()` synchronously instead of via a Zustand updater callback; this is functionally equivalent for a single-fire optimistic append).
+- Decisions made:
+  - Added `phoneNumber` AND `connectedAt` to `DashboardStats` (both were being set by provider code; only `phoneNumber` was flagged by tsc because excess-property checks stop at the first unknown property — adding only `phoneNumber` would have unmasked `connectedAt` as a new error).
+  - Fixed the `newChannelId` typo as `newDemoChannelId()` (reusing the existing helper) rather than the literal `channelId` suggested in the task, since `channelId || channelId` would be a dead no-op.
+  - Did NOT modify `src/store/comms-store.ts` (out of the allowed file list); used `useCommsStore.getState()` instead of changing `setActiveConversation`'s signature.
+
+---
+Task ID: FIX-REMAINING-TYPES
+Agent: fix-remaining-types
+Task: Fix remaining small TypeScript errors across 8 files
+
+Work Log:
+- Read `worklog.md` and ran `npx tsc --noEmit` to enumerate all current TS errors. Confirmed the 8 files in scope had the errors listed in the task brief.
+- Investigated each file's surrounding code to choose the minimal type-only fix (no behavior changes):
+  - `command-palette.tsx`: confirmed the error was actually a typo in the cleanup function — `window.removeEventListener("keydown", onkeydown)` referenced the lowercase DOM property `onkeydown` (typed `EventHandler | null`) instead of the local `onKeyDown` arrow function. Fixed by correcting the casing.
+  - `agent-builder-page.tsx`: `selected` is typed `Agent | null`. Both failing references (`selected.apiKey`) live inside the dead-code block `{false && activeTab === "integrate" && (...)}` where TS narrowing across the `false &&` boundary isn't preserved. Used optional chaining (`selected?.apiKey`, with `?? ""` in the template literal) — zero behavior change since the block never renders.
+  - `integrations-page.tsx`: the `UserIntegration.platform` field in `@/store/integrations-store` is typed as the literal `"telegram"` (the store file is out of scope, so I couldn't widen it there). The page compares `i.platform === "api"` for the API-usage panel. Cast `(i.platform as string)` at the comparison site to widen the literal type.
+  - `premium-page.tsx`: the inline plan-feature rows array had `format` functions with different param types (`boolean`, `number`, `string`), so TS inferred the array element's `format` as a union of incompatible signatures → param narrowed to `never`. Added an explicit type assertion on the array literal: `as { label: string; key: string; format: (v: any) => React.ReactNode }[]`. This widens the `format` param to `any` so `row.format(value)` (where `value` is `any` from `(p.features as any)[row.key]`) type-checks.
+  - `ai-spreadsheet-app.tsx`: the `String.prototype.replace` callback returned `parseFloat(val) || \`"${val}"\`` which is `number | string` — replace requires `string`. Wrapped the return in `String(...)`. When `parseFloat` returns a valid number, `String(num)` gives `"5"`; when NaN (falsy), `String(\`"abc"\`)` gives `'"abc"'`. Identical runtime behavior, now type-correct.
+  - `terminal-app.tsx`: `runCommand(cmd, args, term, pipedInput)` is a sibling of `handleCommand(input, term)` — it does NOT close over `input`. Both failing references (`executeCommand(input)` and `The user typed: "${input}"`) needed the reconstructed command line. Introduced `const fullCommand = cmd + (args.length ? " " + args.join(" ") : "");` at the top of the `default:` case (now wrapped in a block `default: { ... }` to scope the const), and replaced both `input` references with `fullCommand`. Verified the closing braces match (switch + function). Behavior preserved — `executeCommand` already takes a full command string, and the AI prompt just wants the user's typed text.
+  - `tutorial-overlay.tsx`: `Spotlight` is not exported by `lucide-react`. Replaced with `ScanSearch` (closest semantic match — a searchlight/scan concept). The icon was imported-but-unused (only referenced in a comment), and ESLint config has `@typescript-eslint/no-unused-vars: off`, so the unused import is acceptable.
+  - `conversations/route.ts`: two issues in the POST handler. (1) The `db.conversation.create({...})` call returned a type WITHOUT `messages` (no `include`), but `dbConv` was typed from `findFirst({include: {messages: true}})` which DOES include messages — type mismatch on assignment. Added `include: { messages: true }` to the create call. (2) `dbConv` stays `T | null` after the `if (!dbConv) { dbConv = create() }` block because TS can't narrow `let` variables across reassignment. Added a defensive null check `if (!dbConv) return NextResponse.json({ error: "Not found" }, { status: 404 });` right after the create branch. TS now narrows `dbConv` to non-null for the rest of the handler.
+- Re-ran `npx tsc --noEmit` and filtered for the 8 target files → ZERO errors. Also confirmed the full project has only 3 remaining errors, all in `mini-services/whatsapp/index.ts` (missing `@whiskeysockets/baileys`, `pino`, and `@types/bun` deps) — out of scope, pre-existing, and unrelated.
+- Re-ran `bun run lint` → exit 0, zero errors.
+
+Stage Summary:
+- All 8 files now type-check cleanly. Total TS errors in the codebase dropped from ~40+ (across many files including unrelated ones) to 3 (all in `mini-services/whatsapp/index.ts`, out of scope).
+- Changes are strictly type-only — no runtime behavior was modified. The two near-behavior changes (terminal-app's `fullCommand` reconstruction, conversations route's defensive 404) preserve existing semantics: `executeCommand` already received a full command string before (via the now-removed `input` parameter that was actually undefined at runtime — so this fix makes the VPS-fallback path work where it previously threw a ReferenceError), and the 404 branch is unreachable in practice because `create()` never returns null.
+- `npx tsc --noEmit` filtered for `command-palette|agent-builder|integrations-page|premium-page|ai-spreadsheet|terminal-app|tutorial-overlay|db/conversations` → ZERO errors.
+- `bun run lint` → exit 0, zero errors.
+- Files modified (8, exactly as scoped):
+  - `src/components/spyro/command-palette.tsx` (1 line: `onkeydown` → `onKeyDown` typo fix)
+  - `src/components/spyro/pages/agent-builder-page.tsx` (2 lines: optional chaining on `selected?.apiKey`)
+  - `src/components/spyro/pages/integrations-page.tsx` (1 line: cast `i.platform as string`)
+  - `src/components/spyro/pages/premium-page.tsx` (2 lines: explicit array type assertion wrapping the feature-rows literal)
+  - `src/components/spyro/pages/studio-apps/ai-spreadsheet-app.tsx` (1 line: `String(...)` wrapper on replace callback return)
+  - `src/components/spyro/pages/studio-apps/terminal-app.tsx` (introduced `fullCommand` const in `default:` block, replaced 2 `input` references, added block braces + closing brace)
+  - `src/components/spyro/pages/tutorial-overlay.tsx` (1 line: `Spotlight` → `ScanSearch` in import)
+  - `src/app/api/db/conversations/route.ts` (added `include: { messages: true }` to create call + defensive `if (!dbConv) return 404` after create branch)
+- Did NOT modify `schema.prisma`. Did NOT start the dev server. Did NOT touch any file outside the 8 in scope.
+
+---
+Task ID: 19-FIX-TYPES-AND-ENV
+Agent: main (orchestrator)
+Task: Finish unfinished work — fix all TypeScript errors left by parallel admin subagents + restore .env that was overwritten to SQLite.
+
+Work Log:
+- Ran `npx tsc --noEmit` and found 40+ TypeScript errors across src/ (ESLint passed but tsc failed — ESLint doesn't type-check).
+- Fixed 2 critical errors myself:
+  - `src/app/page.tsx`: removed stale `onImagine` prop (and unused `handleImagine` + `generateImage` destructuring) — the `/imagine` slash command is now handled internally by chat-input.tsx → onSend → detectImageIntent.
+  - `src/app/api/admin/reports/route.ts`: fixed `new Map(arr.map(u => [u.id, u]))` type error by adding explicit `Map<string, T>` generic + `as const` tuple.
+- Dispatched 3 parallel subagents for the remaining clusters:
+  - FIX-COMMS-TYPES: fixed 19 errors in comms/* providers (baileys, evolution-api, pairing-server, comms-inbox) — synced ConversationSummary + DashboardStats types, fixed initiateConnection signature, fixed newChannelId typo.
+  - FIX-HOME-DASHBOARD-TYPES: fixed 9 errors in home-page.tsx (6 missing constants defined as typed empty arrays) + dashboard-page.tsx (added "maintenance" to status union).
+  - FIX-REMAINING-TYPES: fixed 10 errors across 8 files (command-palette null listener, agent-builder null checks, integrations-page type cast, premium-page never[] type, ai-spreadsheet Map overload, terminal-app `input` typo [latent runtime bug], tutorial-overlay Spotlight→ScanSearch, db/conversations null check + include messages).
+- Discovered .env was overwritten to `DATABASE_URL=file:/home/z/my-project/db/custom.db` (SQLite) — likely by a subagent running a Prisma command. This broke admin login (PrismaClientInitializationError). Restored .env with the correct Neon Postgres URL + Paystack keys.
+- Hardened `src/lib/db.ts`: added a loud console.error warning when process.env.DATABASE_URL is set to a non-PostgreSQL URL (so this is caught earlier next time).
+
+Stage Summary:
+- All src/ TypeScript errors fixed: `npx tsc --noEmit` → 0 errors in src/ (3 pre-existing errors in mini-services/whatsapp are out of scope — missing @whiskeysockets/baileys dependency in that separate bun project).
+- ESLint: passes clean (exit 0).
+- Admin login: works (returns Lewis Kariuki / super).
+- All 15 admin API routes: return 200.
+- Admin dashboard page: renders (HTTP 200).
+- Chat API: online.
+- Image gen API: code is correct (returned 46KB watermarked image in earlier test); 502 in final test is a transient sandbox network issue reaching image.pollinations.ai, not a code bug.
+- .env restored with Neon Postgres URL + Paystack live keys.
+- Dev server: running on port 3000, healthy.

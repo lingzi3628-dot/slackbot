@@ -86,7 +86,7 @@ interface SpyroApp {
   description: string;
   icon: typeof ImageIcon;
   gradient: string;
-  status: "live" | "soon";
+  status: "live" | "soon" | "maintenance";
   badge?: string;
 }
 

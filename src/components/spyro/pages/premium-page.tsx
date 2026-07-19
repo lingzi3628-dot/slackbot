@@ -200,7 +200,7 @@ export function PremiumPage() {
                 </tr>
               </thead>
               <tbody>
-                {[
+                {([
                   { label: "AI Tokens / month", key: "tokens", format: (v: number) => v === -1 ? "Unlimited" : v.toLocaleString() },
                   { label: "Real Terminal", key: "terminal", format: (v: boolean) => v ? "✓" : "—" },
                   { label: "AI Agents", key: "agents", format: (v: boolean) => v ? "✓" : "—" },
@@ -216,7 +216,7 @@ export function PremiumPage() {
                   { label: "Team Members", key: "teamMembers", format: (v: number) => v === -1 ? "Unlimited" : v === 0 ? "Solo" : v },
                   { label: "Public URLs", key: "publicUrls", format: (v: number) => v === -1 ? "Unlimited" : v },
                   { label: "Priority Support", key: "prioritySupport", format: (v: boolean) => v ? "✓" : "—" },
-                ].map((row) => (
+                ] as { label: string; key: string; format: (v: any) => React.ReactNode }[]).map((row) => (
                   <tr key={row.key} className="border-b border-border/50">
                     <td className="p-2 text-left text-muted-foreground">{row.label}</td>
                     {PLANS.map((p) => {

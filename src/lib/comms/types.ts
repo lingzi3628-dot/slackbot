@@ -150,6 +150,8 @@ export interface AgentAssignment {
 export interface DashboardStats {
   status: ConnectionStatus;
   deviceName?: string;
+  phoneNumber?: string;         // connected WhatsApp number (when available)
+  connectedAt?: number;         // when the channel connected (epoch ms)
   lastSyncAt?: number;
   messagesToday: number;
   activeConversations: number;

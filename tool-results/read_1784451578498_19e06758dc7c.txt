@@ -1,0 +1,600 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import * as React from "react";
+     4→     4→import { motion, AnimatePresence } from "framer-motion";
+     5→     5→import {
+     6→     6→  Search, Pin, Inbox as InboxIcon, Bot, Heart, Paperclip,
+     7→     7→  Send, Sparkles, UserCog, ArrowLeft, Phone, Tag, Clock,
+     8→     8→  Smile, Meh, Frown, Image as ImageIcon, FileText, MapPin,
+     9→     9→  Mic, Play, File,
+    10→    10→} from "lucide-react";
+    11→    11→import { useCommsStore } from "@/store/comms-store";
+    12→    12→import { cn } from "@/lib/utils";
+    13→    13→import type {
+    14→    14→  ConversationSummary, ConversationMessage, Attachment, Contact,
+    15→    15→} from "@/lib/comms/types";
+    16→    16→
+    17→    17→function timeAgo(ts: number): string {
+    18→    18→  const diff = Date.now() - ts;
+    19→    19→  const m = Math.floor(diff / 60000);
+    20→    20→  if (m < 1) return "now";
+    21→    21→  if (m < 60) return `${m}m`;
+    22→    22→  const h = Math.floor(m / 60);
+    23→    23→  if (h < 24) return `${h}h`;
+    24→    24→  const d = Math.floor(h / 24);
+    25→    25→  if (d < 7) return `${d}d`;
+    26→    26→  return new Date(ts).toLocaleDateString();
+    27→    27→}
+    28→    28→
+    29→    29→function sentimentMeta(s: ConversationSummary["sentiment"]) {
+    30→    30→  switch (s) {
+    31→    31→    case "positive": return { icon: Smile, color: "text-emerald-400", bg: "bg-emerald-500/10" };
+    32→    32→    case "neutral": return { icon: Meh, color: "text-cyan-400", bg: "bg-cyan-500/10" };
+    33→    33→    case "negative": return { icon: Frown, color: "text-rose-400", bg: "bg-rose-500/10" };
+    34→    34→    default: return { icon: Meh, color: "text-muted-foreground", bg: "bg-secondary" };
+    35→    35→  }
+    36→    36→}
+    37→    37→
+    38→    38→function AttachmentChip({ a }: { a: Attachment }) {
+    39→    39→  const icon = React.useMemo(() => {
+    40→    40→    switch (a.type) {
+    41→    41→      case "image": return ImageIcon;
+    42→    42→      case "pdf": case "document": return FileText;
+    43→    43→      case "voice": return Mic;
+    44→    44→      case "audio": return Play;
+    45→    45→      case "video": return Play;
+    46→    46→      case "location": return MapPin;
+    47→    47→      case "contact": return UserCog;
+    48→    48→      case "sticker": return Tag;
+    49→    49→      default: return File;
+    50→    50→    }
+    51→    51→  }, [a.type]);
+    52→    52→  const Icon = icon;
+    53→    53→  return (
+    54→    54→    <div className="mt-1 flex max-w-[240px] items-center gap-2 rounded-lg border border-border bg-secondary/40 p-2">
+    55→    55→      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+    56→    56→      <span className="truncate text-[11px] text-muted-foreground">{a.filename || a.type}</span>
+    57→    57→    </div>
+    58→    58→  );
+    59→    59→}
+    60→    60→
+    61→    61→export function CommsInbox({ channelId }: { channelId: string }) {
+    62→    62→  const conversations = useCommsStore((s) => s.conversations);
+    63→    63→  const activeConversation = useCommsStore((s) => s.activeConversation);
+    64→    64→  const loadingConvo = useCommsStore((s) => s.loadingConvo);
+    65→    65→  const setActiveConversation = useCommsStore((s) => s.setActiveConversation);
+    66→    66→  const setLoadingConvo = useCommsStore((s) => s.setLoadingConvo);
+    67→    67→
+    68→    68→  const [search, setSearch] = React.useState("");
+    69→    69→  const [filter, setFilter] = React.useState<"all" | "unread" | "ai" | "human" | "negative">("all");
+    70→    70→  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+    71→    71→  const [draft, setDraft] = React.useState("");
+    72→    72→  const [mobileOpenConvo, setMobileOpenConvo] = React.useState(false);
+    73→    73→
+    74→    74→  const filtered = React.useMemo(() => {
+    75→    75→    let list = conversations;
+    76→    76→    if (search.trim()) {
+    77→    77→      const q = search.toLowerCase();
+    78→    78→      list = list.filter((c) =>
+    79→    79→        c.contactName.toLowerCase().includes(q) ||
+    80→    80→        c.lastMessagePreview.toLowerCase().includes(q) ||
+    81→    81→        c.tags.some((t) => t.toLowerCase().includes(q))
+    82→    82→      );
+    83→    83→    }
+    84→    84→    switch (filter) {
+    85→    85→      case "unread": list = list.filter((c) => c.unreadCount > 0); break;
+    86→    86→      case "ai": list = list.filter((c) => c.aiHandled); break;
+    87→    87→      case "human": list = list.filter((c) => c.humanTakenOver); break;
+    88→    88→      case "negative": list = list.filter((c) => c.sentiment === "negative"); break;
+    89→    89→    }
+    90→    90→    return list;
+    91→    91→  }, [conversations, search, filter]);
+    92→    92→
+    93→    93→  const openConversation = React.useCallback(async (id: string) => {
+    94→    94→    setSelectedId(id);
+    95→    95→    setMobileOpenConvo(true);
+    96→    96→    setLoadingConvo(true);
+    97→    97→    setActiveConversation(null);
+    98→    98→    try {
+    99→    99→      const res = await fetch(`/api/comms/conversation?channelId=${channelId}&conversationId=${id}&channelType=whatsapp`, { cache: "no-store" });
+   100→   100→      const data = await res.json();
+   101→   101→      setActiveConversation(data);
+   102→   102→    } catch {
+   103→   103→      /* ignore */
+   104→   104→    } finally {
+   105→   105→      setLoadingConvo(false);
+   106→   106→    }
+   107→   107→  }, [channelId, setActiveConversation, setLoadingConvo]);
+   108→   108→
+   109→   109→  const sendMessage = React.useCallback(async () => {
+   110→   110→    const text = draft.trim();
+   111→   111→    if (!text || !selectedId) return;
+   112→   112→    setDraft("");
+   113→   113→    try {
+   114→   114→      await fetch("/api/comms/send", {
+   115→   115→        method: "POST",
+   116→   116→        headers: { "content-type": "application/json" },
+   117→   117→        body: JSON.stringify({ channelId, conversationId: selectedId, text, channelType: "whatsapp" }),
+   118→   118→      });
+   119→   119→      // Optimistically append to the active conversation.
+   120→   120→      setActiveConversation((prev) => prev ? {
+   121→   121→        ...prev,
+   122→   122→        messages: [...prev.messages, {
+   123→   123→          id: `m_${Date.now()}`,
+   124→   124→          conversationId: selectedId,
+   125→   125→          direction: "out" as const,
+   126→   126→          status: "sent" as const,
+   127→   127→          text,
+   128→   128→          attachments: [],
+   129→   129→          createdAt: Date.now(),
+   130→   130→          authorIsAgent: true,
+   131→   131→          authorIsAI: false,
+   132→   132→        }],
+   133→   133→      } : prev);
+   134→   134→    } catch { /* ignore */ }
+   135→   135→  }, [draft, selectedId, channelId, setActiveConversation]);
+   136→   136→
+   137→   137→  return (
+   138→   138→    <div className="flex h-full overflow-hidden">
+   139→   139→      {/* Conversation list */}
+   140→   140→      <div className={cn(
+   141→   141→        "flex w-full flex-col border-r border-border lg:w-80 lg:flex",
+   142→   142→        mobileOpenConvo && "hidden lg:flex"
+   143→   143→      )}>
+   144→   144→        {/* Search + filters */}
+   145→   145→        <div className="border-b border-border p-3">
+   146→   146→          <div className="relative">
+   147→   147→            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   148→   148→            <input
+   149→   149→              value={search}
+   150→   150→              onChange={(e) => setSearch(e.target.value)}
+   151→   151→              placeholder="Search conversations…"
+   152→   152→              className="w-full rounded-xl border border-border bg-secondary/30 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-primary/30 focus:outline-none"
+   153→   153→            />
+   154→   154→          </div>
+   155→   155→          <div className="mt-2 flex gap-1 overflow-x-auto">
+   156→   156→            {([
+   157→   157→              ["all", "All"],
+   158→   158→              ["unread", "Unread"],
+   159→   159→              ["ai", "AI"],
+   160→   160→              ["human", "Human"],
+   161→   161→              ["negative", "Needs attention"],
+   162→   162→            ] as const).map(([key, label]) => (
+   163→   163→              <button
+   164→   164→                key={key}
+   165→   165→                onClick={() => setFilter(key)}
+   166→   166→                className={cn(
+   167→   167→                  "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
+   168→   168→                  filter === key ? "bg-primary/15 text-primary" : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+   169→   169→                )}
+   170→   170→              >
+   171→   171→                {label}
+   172→   172→              </button>
+   173→   173→            ))}
+   174→   174→          </div>
+   175→   175→        </div>
+   176→   176→
+   177→   177→        {/* List */}
+   178→   178→        <div className="flex-1 overflow-y-auto">
+   179→   179→          {filtered.length === 0 ? (
+   180→   180→            <div className="flex h-48 flex-col items-center justify-center text-xs text-muted-foreground">
+   181→   181→              <InboxIcon className="mb-2 h-6 w-6 opacity-40" />
+   182→   182→              No conversations
+   183→   183→            </div>
+   184→   184→          ) : (
+   185→   185→            filtered.map((c, i) => {
+   186→   186→              const isActive = c.id === selectedId;
+   187→   187→              const s = sentimentMeta(c.sentiment);
+   188→   188→              return (
+   189→   189→                <motion.button
+   190→   190→                  key={c.id}
+   191→   191→                  initial={{ opacity: 0, y: 4 }}
+   192→   192→                  animate={{ opacity: 1, y: 0 }}
+   193→   193→                  transition={{ delay: i * 0.02 }}
+   194→   194→                  onClick={() => openConversation(c.id)}
+   195→   195→                  className={cn(
+   196→   196→                    "flex w-full items-start gap-3 border-b border-border/50 p-3 text-left transition-colors",
+   197→   197→                    isActive ? "bg-secondary/60" : "hover:bg-secondary/30"
+   198→   198→                  )}
+   199→   199→                >
+   200→   200→                  <div className="relative shrink-0">
+   201→   201→                    <div className="grid h-10 w-10 place-items-center rounded-full text-sm font-bold text-white" style={{ background: c.contactAvatarColor }}>
+   202→   202→                      {c.contactName.charAt(0)}
+   203→   203→                    </div>
+   204→   204→                    {c.pinned && <Pin className="absolute -right-1 -top-1 h-3 w-3 fill-primary text-primary" />}
+   205→   205→                  </div>
+   206→   206→                  <div className="min-w-0 flex-1">
+   207→   207→                    <div className="flex items-center justify-between gap-2">
+   208→   208→                      <span className="truncate text-sm font-medium">{c.contactName}</span>
+   209→   209→                      <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo(c.lastMessageAt)}</span>
+   210→   210→                    </div>
+   211→   211→                    <p className="truncate text-xs text-muted-foreground">{c.lastMessagePreview}</p>
+   212→   212→                    <div className="mt-1 flex items-center gap-1.5">
+   213→   213→                      {c.aiHandled && (
+   214→   214→                        <span className="inline-flex items-center gap-0.5 rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-medium text-violet-400">
+   215→   215→                          <Bot className="h-2.5 w-2.5" /> AI
+   216→   216→                        </span>
+   217→   217→                      )}
+   218→   218→                      {c.humanTakenOver && (
+   219→   219→                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+   220→   220→                          <Heart className="h-2.5 w-2.5" /> Human
+   221→   221→                        </span>
+   222→   222→                      )}
+   223→   223→                      <s.icon className={cn("h-3 w-3", s.color)} />
+   224→   224→                      {c.unreadCount > 0 && (
+   225→   225→                        <span className="ml-auto grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+   226→   226→                          {c.unreadCount}
+   227→   227→                        </span>
+   228→   228→                      )}
+   229→   229→                    </div>
+   230→   230→                  </div>
+   231→   231→                </motion.button>
+   232→   232→              );
+   233→   233→            })
+   234→   234→          )}
+   235→   235→        </div>
+   236→   236→      </div>
+   237→   237→
+   238→   238→      {/* Detail pane */}
+   239→   239→      <div className={cn(
+   240→   240→        "flex min-w-0 flex-1 flex-col",
+   241→   241→        !mobileOpenConvo && "hidden lg:flex"
+   242→   242→      )}>
+   243→   243→        <AnimatePresence mode="wait">
+   244→   244→          {!selectedId ? (
+   245→   245→            <motion.div
+   246→   246→              key="empty"
+   247→   247→              initial={{ opacity: 0 }}
+   248→   248→              animate={{ opacity: 1 }}
+   249→   249→              exit={{ opacity: 0 }}
+   250→   250→              className="flex flex-1 flex-col items-center justify-center p-8 text-center"
+   251→   251→            >
+   252→   252→              <div className="grid h-16 w-16 place-items-center rounded-3xl bg-secondary/60">
+   253→   253→                <InboxIcon className="h-7 w-7 text-muted-foreground" />
+   254→   254→              </div>
+   255→   255→              <h3 className="mt-4 text-sm font-semibold">Select a conversation</h3>
+   256→   256→              <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+   257→   257→                Pick a chat from the left to see the full thread, AI summary and suggested replies.
+   258→   258→              </p>
+   259→   259→            </motion.div>
+   260→   260→          ) : loadingConvo || !activeConversation ? (
+   261→   261→            <motion.div
+   262→   262→              key="loading"
+   263→   263→              initial={{ opacity: 0 }}
+   264→   264→              animate={{ opacity: 1 }}
+   265→   265→              exit={{ opacity: 0 }}
+   266→   266→              className="flex flex-1 items-center justify-center"
+   267→   267→            >
+   268→   268→              <div className="flex flex-col items-center gap-3 text-muted-foreground">
+   269→   269→                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+   270→   270→                <span className="text-xs">Loading conversation…</span>
+   271→   271→              </div>
+   272→   272→            </motion.div>
+   273→   273→          ) : (
+   274→   274→            <ConversationDetail
+   275→   275→              key="detail"
+   276→   276→              summary={activeConversation.summary}
+   277→   277→              messages={activeConversation.messages}
+   278→   278→              contact={activeConversation.contact}
+   279→   279→              notes={activeConversation.internalNotes}
+   280→   280→              activity={activeConversation.activity}
+   281→   281→              draft={draft}
+   282→   282→              setDraft={setDraft}
+   283→   283→              onSend={sendMessage}
+   284→   284→              onBack={() => setMobileOpenConvo(false)}
+   285→   285→            />
+   286→   286→          )}
+   287→   287→        </AnimatePresence>
+   288→   288→      </div>
+   289→   289→    </div>
+   290→   290→  );
+   291→   291→}
+   292→   292→
+   293→   293→function ConversationDetail({
+   294→   294→  summary, messages, contact, notes, activity, draft, setDraft, onSend, onBack,
+   295→   295→}: {
+   296→   296→  summary: ConversationSummary;
+   297→   297→  messages: ConversationMessage[];
+   298→   298→  contact: Contact;
+   299→   299→  notes: Array<{ id: string; text: string; author: string; createdAt: number }>;
+   300→   300→  activity: Array<{ id: string; type: string; description: string; timestamp: number }>;
+   301→   301→  draft: string;
+   302→   302→  setDraft: (s: string) => void;
+   303→   303→  onSend: () => void;
+   304→   304→  onBack: () => void;
+   305→   305→}) {
+   306→   306→  const [showProfile, setShowProfile] = React.useState(false);
+   307→   307→  const s = sentimentMeta(summary.sentiment);
+   308→   308→  const SIcon = s.icon;
+   309→   309→
+   310→   310→  return (
+   311→   311→    <motion.div
+   312→   312→      initial={{ opacity: 0, x: 8 }}
+   313→   313→      animate={{ opacity: 1, x: 0 }}
+   314→   314→      exit={{ opacity: 0, x: -8 }}
+   315→   315→      className="flex h-full"
+   316→   316→    >
+   317→   317→      {/* Main thread */}
+   318→   318→      <div className="flex min-w-0 flex-1 flex-col">
+   319→   319→        {/* Header */}
+   320→   320→        <div className="flex h-14 items-center gap-3 border-b border-border px-3 sm:px-4">
+   321→   321→          <button onClick={onBack} className="grid h-8 w-8 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden" aria-label="Back">
+   322→   322→            <ArrowLeft className="h-4 w-4" />
+   323→   323→          </button>
+   324→   324→          <button onClick={() => setShowProfile(false)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+   325→   325→            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ background: contact.avatarColor }}>
+   326→   326→              {contact.name.charAt(0)}
+   327→   327→            </div>
+   328→   328→            <div className="min-w-0 flex-1">
+   329→   329→              <div className="truncate text-sm font-semibold">{contact.name}</div>
+   330→   330→              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+   331→   331→                {contact.phone && <><Phone className="h-2.5 w-2.5" />{contact.phone}</>}
+   332→   332→                <SIcon className={cn("h-2.5 w-2.5", s.color)} />
+   333→   333→              </div>
+   334→   334→            </div>
+   335→   335→          </button>
+   336→   336→          <div className="flex items-center gap-1">
+   337→   337→            {summary.humanTakenOver ? (
+   338→   338→              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-400">
+   339→   339→                <Heart className="h-3 w-3" /> Human
+   340→   340→              </span>
+   341→   341→            ) : (
+   342→   342→              <button className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-medium text-amber-400 hover:bg-amber-500/20">
+   343→   343→                <UserCog className="h-3 w-3" /> Take over
+   344→   344→              </button>
+   345→   345→            )}
+   346→   346→            <button
+   347→   347→              onClick={() => setShowProfile((v) => !v)}
+   348→   348→              className={cn(
+   349→   349→                "grid h-8 w-8 place-items-center rounded-lg hover:bg-secondary",
+   350→   350→                showProfile ? "bg-secondary text-foreground" : "text-muted-foreground"
+   351→   351→              )}
+   352→   352→              aria-label="Customer profile"
+   353→   353→            >
+   354→   354→              <UserCog className="h-4 w-4" />
+   355→   355→            </button>
+   356→   356→          </div>
+   357→   357→        </div>
+   358→   358→
+   359→   359→        {/* AI summary banner */}
+   360→   360→        {summary.aiSummary && (
+   361→   361→          <div className="border-b border-border bg-violet-500/[0.04] p-3">
+   362→   362→            <div className="flex items-start gap-2">
+   363→   363→              <div className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-violet-500/15">
+   364→   364→                <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+   365→   365→              </div>
+   366→   366→              <div className="min-w-0 flex-1">
+   367→   367→                <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-400">AI Summary</div>
+   368→   368→                <p className="mt-0.5 text-xs text-foreground/90">{summary.aiSummary}</p>
+   369→   369→              </div>
+   370→   370→            </div>
+   371→   371→          </div>
+   372→   372→        )}
+   373→   373→
+   374→   374→        {/* Messages */}
+   375→   375→        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+   376→   376→          {messages.map((m) => (
+   377→   377→            <MessageBubble key={m.id} message={m} contactName={contact.name} />
+   378→   378→          ))}
+   379→   379→        </div>
+   380→   380→
+   381→   381→        {/* Suggested replies */}
+   382→   382→        {summary.suggestedReplies.length > 0 && (
+   383→   383→          <div className="border-t border-border bg-card/40 p-2">
+   384→   384→            <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+   385→   385→              <Sparkles className="h-3 w-3 text-violet-400" />
+   386→   386→              Suggested replies
+   387→   387→            </div>
+   388→   388→            <div className="flex gap-1.5 overflow-x-auto pb-1">
+   389→   389→              {summary.suggestedReplies.map((r, i) => (
+   390→   390→                <button
+   391→   391→                  key={i}
+   392→   392→                  onClick={() => setDraft(r)}
+   393→   393→                  className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-xs transition-colors hover:border-primary/30 hover:bg-primary/5"
+   394→   394→                >
+   395→   395→                  {r}
+   396→   396→                </button>
+   397→   397→              ))}
+   398→   398→            </div>
+   399→   399→          </div>
+   400→   400→        )}
+   401→   401→
+   402→   402→        {/* Composer — replies are sent from the connected WhatsApp number */}
+   403→   403→        <div className="border-t border-border p-3">
+   404→   404→          <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
+   405→   405→            <Send className="h-2.5 w-2.5 text-emerald-400" />
+   406→   406→            <span>Sent from your connected WhatsApp number</span>
+   407→   407→          </div>
+   408→   408→          <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2">
+   409→   409→            <button className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Attach">
+   410→   410→              <Paperclip className="h-4 w-4" />
+   411→   411→            </button>
+   412→   412→            <textarea
+   413→   413→              value={draft}
+   414→   414→              onChange={(e) => setDraft(e.target.value)}
+   415→   415→              onKeyDown={(e) => {
+   416→   416→                if (e.key === "Enter" && !e.shiftKey) {
+   417→   417→                  e.preventDefault();
+   418→   418→                  onSend();
+   419→   419→                }
+   420→   420→              }}
+   421→   421→              placeholder="Type a message…"
+   422→   422→              rows={1}
+   423→   423→              className="max-h-32 min-h-[32px] flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
+   424→   424→            />
+   425→   425→            <button
+   426→   426→              onClick={onSend}
+   427→   427→              disabled={!draft.trim()}
+   428→   428→              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg spyro-bg-gradient text-white transition-opacity disabled:opacity-40"
+   429→   429→              aria-label="Send"
+   430→   430→            >
+   431→   431→              <Send className="h-4 w-4" />
+   432→   432→            </button>
+   433→   433→          </div>
+   434→   434→        </div>
+   435→   435→      </div>
+   436→   436→
+   437→   437→      {/* Profile / activity drawer */}
+   438→   438→      <AnimatePresence>
+   439→   439→        {showProfile && (
+   440→   440→          <motion.div
+   441→   441→            initial={{ width: 0, opacity: 0 }}
+   442→   442→            animate={{ width: 320, opacity: 1 }}
+   443→   443→            exit={{ width: 0, opacity: 0 }}
+   444→   444→            className="hidden shrink-0 border-l border-border bg-card/40 lg:block"
+   445→   445→          >
+   446→   446→            <div className="h-full overflow-y-auto p-4">
+   447→   447→              <div className="flex flex-col items-center text-center">
+   448→   448→                <div className="grid h-16 w-16 place-items-center rounded-full text-xl font-bold text-white" style={{ background: contact.avatarColor }}>
+   449→   449→                  {contact.name.charAt(0)}
+   450→   450→                </div>
+   451→   451→                <h3 className="mt-3 text-sm font-semibold">{contact.name}</h3>
+   452→   452→                {contact.phone && <p className="text-xs text-muted-foreground">{contact.phone}</p>}
+   453→   453→                <div className="mt-2 flex items-center gap-1.5">
+   454→   454→                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium", s.bg, s.color)}>
+   455→   455→                    <SIcon className="h-2.5 w-2.5" />
+   456→   456→                    {summary.sentiment}
+   457→   457→                  </span>
+   458→   458→                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
+   459→   459→                    {contact.conversationCount} chats
+   460→   460→                  </span>
+   461→   461→                </div>
+   462→   462→              </div>
+   463→   463→
+   464→   464→              {/* Tags */}
+   465→   465→              {contact.tags.length > 0 && (
+   466→   466→                <div className="mt-4">
+   467→   467→                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Tags</div>
+   468→   468→                  <div className="flex flex-wrap gap-1">
+   469→   469→                    {contact.tags.map((t) => (
+   470→   470→                      <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-2 py-0.5 text-[10px]">
+   471→   471→                        <Tag className="h-2.5 w-2.5" />
+   472→   472→                        {t}
+   473→   473→                      </span>
+   474→   474→                    ))}
+   475→   475→                  </div>
+   476→   476→                </div>
+   477→   477→              )}
+   478→   478→
+   479→   479→              {/* Assigned agent */}
+   480→   480→              <div className="mt-4">
+   481→   481→                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Assigned agent</div>
+   482→   482→                <div className="rounded-xl border border-border p-2 text-xs">
+   483→   483→                  {summary.assignedAgentId ? (
+   484→   484→                    <div className="flex items-center gap-2">
+   485→   485→                      <div className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 text-[10px] font-bold text-white">A</div>
+   486→   486→                      <span>{summary.assignedAgentId === "a1" ? "Sales Assistant" : "Support Specialist"}</span>
+   487→   487→                    </div>
+   488→   488→                  ) : (
+   489→   489→                    <button className="text-primary hover:underline">+ Assign agent</button>
+   490→   490→                  )}
+   491→   491→                </div>
+   492→   492→              </div>
+   493→   493→
+   494→   494→              {/* Custom fields */}
+   495→   495→              {Object.keys(contact.customFields).length > 0 && (
+   496→   496→                <div className="mt-4">
+   497→   497→                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Profile</div>
+   498→   498→                  <dl className="space-y-1">
+   499→   499→                    {Object.entries(contact.customFields).map(([k, v]) => (
+   500→   500→                      <div key={k} className="flex justify-between text-xs">
+   501→   501→                        <dt className="text-muted-foreground">{k}</dt>
+   502→   502→                        <dd className="font-medium">{v}</dd>
+   503→   503→                      </div>
+   504→   504→                    ))}
+   505→   505→                  </dl>
+   506→   506→                </div>
+   507→   507→              )}
+   508→   508→
+   509→   509→              {/* Purchase history */}
+   510→   510→              {contact.purchaseHistory && contact.purchaseHistory.length > 0 && (
+   511→   511→                <div className="mt-4">
+   512→   512→                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Purchase history</div>
+   513→   513→                  <div className="space-y-1">
+   514→   514→                    {contact.purchaseHistory.map((p, i) => (
+   515→   515→                      <div key={i} className="flex justify-between rounded-lg border border-border p-2 text-xs">
+   516→   516→                        <span className="truncate">{p.item}</span>
+   517→   517→                        <span className="font-medium">${p.amount}</span>
+   518→   518→                      </div>
+   519→   519→                    ))}
+   520→   520→                  </div>
+   521→   521→                </div>
+   522→   522→              )}
+   523→   523→
+   524→   524→              {/* Internal notes */}
+   525→   525→              {notes.length > 0 && (
+   526→   526→                <div className="mt-4">
+   527→   527→                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Internal notes</div>
+   528→   528→                  <div className="space-y-1.5">
+   529→   529→                    {notes.map((n) => (
+   530→   530→                      <div key={n.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-2 text-xs">
+   531→   531→                        <p className="text-amber-100/90">{n.text}</p>
+   532→   532→                        <div className="mt-1 text-[10px] text-muted-foreground">— {n.author}</div>
+   533→   533→                      </div>
+   534→   534→                    ))}
+   535→   535→                  </div>
+   536→   536→                </div>
+   537→   537→              )}
+   538→   538→
+   539→   539→              {/* Activity timeline */}
+   540→   540→              {activity.length > 0 && (
+   541→   541→                <div className="mt-4">
+   542→   542→                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Activity</div>
+   543→   543→                  <div className="space-y-2">
+   544→   544→                    {activity.map((a) => (
+   545→   545→                      <div key={a.id} className="flex items-start gap-2 text-xs">
+   546→   546→                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+   547→   547→                        <div>
+   548→   548→                          <p>{a.description}</p>
+   549→   549→                          <div className="text-[10px] text-muted-foreground">{timeAgo(a.timestamp)}</div>
+   550→   550→                        </div>
+   551→   551→                      </div>
+   552→   552→                    ))}
+   553→   553→                  </div>
+   554→   554→                </div>
+   555→   555→              )}
+   556→   556→            </div>
+   557→   557→          </motion.div>
+   558→   558→        )}
+   559→   559→      </AnimatePresence>
+   560→   560→    </motion.div>
+   561→   561→  );
+   562→   562→}
+   563→   563→
+   564→   564→function MessageBubble({ message: m, contactName }: { message: ConversationMessage; contact: string; contactName: string }) {
+   565→   565→  const isOut = m.direction === "out";
+   566→   566→  return (
+   567→   567→    <div className={cn("flex", isOut ? "justify-end" : "justify-start")}>
+   568→   568→      <div className={cn(
+   569→   569→        "max-w-[78%] rounded-2xl px-3 py-2",
+   570→   570→        isOut
+   571→   571→          ? "bg-primary text-primary-foreground"
+   572→   572→          : m.internalNote
+   573→   573→            ? "bg-amber-500/10 text-amber-200 border border-amber-500/20"
+   574→   574→            : "bg-secondary text-foreground"
+   575→   575→      )}>
+   576→   576→        {m.internalNote && (
+   577→   577→          <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+   578→   578→            <UserCog className="h-3 w-3" /> Internal note
+   579→   579→          </div>
+   580→   580→        )}
+   581→   581→        {m.text && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.text}</p>}
+   582→   582→        {m.attachments.map((a) => <AttachmentChip key={a.id} a={a} />)}
+   583→   583→        <div className={cn(
+   584→   584→          "mt-1 flex items-center gap-1 text-[9px]",
+   585→   585→          isOut ? "justify-end text-primary-foreground/70" : "text-muted-foreground"
+   586→   586→        )}>
+   587→   587→          {m.authorIsAI && <Bot className="h-2.5 w-2.5" />}
+   588→   588→          {!isOut && <span>{m.authorName ?? contactName}</span>}
+   589→   589→          <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+   590→   590→          {isOut && (
+   591→   591→            <span className={cn(m.status === "read" && "text-cyan-300")}>
+   592→   592→              {m.status === "read" ? "✓✓" : m.status === "delivered" ? "✓✓" : "✓"}
+   593→   593→            </span>
+   594→   594→          )}
+   595→   595→        </div>
+   596→   596→      </div>
+   597→   597→    </div>
+   598→   598→  );
+   599→   599→}
+   600→   600→

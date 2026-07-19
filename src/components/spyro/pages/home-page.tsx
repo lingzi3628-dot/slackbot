@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useChatStore } from "@/store/chat-store";
-import { useUIStore } from "@/store/ui-store";
+import { useUIStore, type View } from "@/store/ui-store";
 import { useLocalAuth } from "@/store/local-auth";
 import { useWorkspaceStore } from "@/store/workspace-store";
 import { useCommsStore } from "@/store/comms-store";
@@ -53,6 +53,77 @@ const QUICK_ACTIONS = [
   { label: "Generate Image", icon: ImageIcon, color: "from-fuchsia-500 to-pink-500", view: "apps" as const },
   { label: "Generate Document", icon: FileText, color: "from-blue-500 to-indigo-500", view: "chat" as const },
 ];
+
+// ── Type anchors for section cards ────────────────────────────────────
+// These constants hold empty arrays (no mock data) — they exist purely so
+// the helper card components below can derive their prop types via
+// `typeof CONST[0]`. The real runtime data is computed inside `HomePage`
+// from Zustand stores (chat, workspace, comms) and passed via props.
+const PINNED_PROJECTS: Array<{
+  id: string;
+  name: string;
+  progress: number;
+  color: string;
+  agents: number;
+  files: number;
+  chats: number;
+  knowledge: number;
+  channels: number;
+  storage: string;
+  lastActivity: string;
+}> = [];
+
+const RUNNING_AGENTS: Array<{
+  id: string;
+  name: string;
+  status: string;
+  task: string;
+  project: string;
+  time: string;
+  memory: string;
+  confidence: number;
+  eta: string;
+  avatar: string;
+  color: string;
+}> = [];
+
+const COMMUNICATION_CHANNELS: Array<{
+  id: string;
+  name: string;
+  icon: string;
+  unread: number;
+  pendingAI: number;
+  review: number;
+  lastSync: string;
+  health: string;
+  color: string;
+}> = [];
+
+const TASKS: Array<{
+  id: string;
+  done: boolean;
+  title: string;
+  due: string;
+  type: string;
+  priority: string;
+}> = [];
+
+const AI_SUGGESTIONS: Array<{
+  id: string;
+  icon: LucideIcon;
+  title: string;
+  action: string;
+  color: string;
+}> = [];
+
+const RECENT_ACTIVITY: Array<{
+  id: string;
+  type: string;
+  icon: LucideIcon;
+  text: string;
+  time: number;
+  color: string;
+}> = [];
 
 // Derive "pinned projects" from actual conversations (group by title keyword)
 function deriveProjects(conversations: any[]) {
@@ -215,7 +286,7 @@ export function HomePage() {
           {/* QUICK ACTIONS — workspace-aware */}
           <QuickActions actions={workspaceActions} onAction={(v) => {
             if (v === "chat") handleNewChat();
-            else setView(v);
+            else setView(v as View);
           }} />
 
           {/* CONTINUE WORKING */}

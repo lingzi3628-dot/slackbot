@@ -575,14 +575,15 @@ export function TerminalApp() {
         case "jobs": { term.writeln("\x1b[90m(no jobs)\x1b[0m"); return ""; }
         case "bg": case "fg": return "";
 
-        default:
+        default: {
+          const fullCommand = cmd + (args.length ? " " + args.join(" ") : "");
           if (cmd.includes("=")) { const [k, v] = cmd.split("="); varsRef.current[k] = v; return ""; }
 
           // ── REAL EXECUTION: send to the VPS backend ──────────────
           // Try the real exec backend first for ANY command not handled above
           term.writeln(`\x1b[90mExecuting on VPS...\x1b[0m`);
           try {
-            const result = await executeCommand(input);
+            const result = await executeCommand(fullCommand);
             if (result.output) {
               result.output.split("\n").forEach((l: string) => term.writeln(l));
             }
@@ -600,7 +601,7 @@ export function TerminalApp() {
                 body: JSON.stringify({
                   messages: [{
                     role: "user",
-                    content: `You are a terminal assistant inside SPYRO Studio. The user typed: "${input}"\n\nIf this is a real shell command, simulate its output (be realistic — show what the output would look like). If it's a question or request, answer it concisely. Keep responses short — this is a terminal, not a chat window. Use plain text only (no markdown).`,
+                    content: `You are a terminal assistant inside SPYRO Studio. The user typed: "${fullCommand}"\n\nIf this is a real shell command, simulate its output (be realistic — show what the output would look like). If it's a question or request, answer it concisely. Keep responses short — this is a terminal, not a chat window. Use plain text only (no markdown).`,
                   }],
                 }),
               });
@@ -617,6 +618,7 @@ export function TerminalApp() {
               return "";
             }
           }
+        }
       }
     };
 
