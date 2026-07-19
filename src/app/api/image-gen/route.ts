@@ -123,32 +123,86 @@ export async function POST(req: NextRequest) {
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 500));
     const imageUrl = `${POLLINATIONS_IMAGE_BASE}/${encodedPrompt}?width=${dims.width}&height=${dims.height}&nologo=true&referrer=spyro-v1-app`;
 
-    // Fetch the raw image from Pollinations.
-    const imgRes = await fetch(imageUrl);
-    if (!imgRes.ok) {
+    // Fetch the raw image from Pollinations — with retry + timeout.
+    // The upstream can be slow or flaky, so we try up to 3 times with
+    // a 30s timeout per attempt.
+    let imgBuffer: Buffer | null = null;
+    let lastError: string = "";
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const imgRes = await fetch(imageUrl, {
+          signal: controller.signal,
+          headers: { "user-agent": "SPYRO-V1/2.0" },
+        });
+        clearTimeout(timeout);
+
+        if (!imgRes.ok) {
+          lastError = `upstream returned ${imgRes.status}`;
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 1500 * attempt));
+            continue;
+          }
+          return NextResponse.json(
+            { error: `The SPYRO image engine is busy (upstream ${imgRes.status}). Please try again in a moment.` },
+            { status: 502 }
+          );
+        }
+
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        if (buf.length < 1000) {
+          // Pollinations sometimes returns a tiny placeholder on error.
+          lastError = "upstream returned an empty image";
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 1500 * attempt));
+            continue;
+          }
+        } else {
+          imgBuffer = buf;
+          break;
+        }
+      } catch (fetchErr) {
+        lastError = (fetchErr as Error)?.name === "AbortError"
+          ? "upstream timed out after 30s"
+          : (fetchErr as Error)?.message || "fetch failed";
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1500 * attempt));
+          continue;
+        }
+      }
+    }
+
+    if (!imgBuffer) {
       return NextResponse.json(
-        { error: `Image generation failed: ${imgRes.status}` },
+        { error: `The SPYRO image engine couldn't generate that image (${lastError}). Try a simpler prompt or try again shortly.` },
         { status: 502 }
       );
     }
-    const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
 
-    // Get ACTUAL image dimensions.
-    const metadata = await sharp(imgBuffer).metadata();
-    const actualWidth = metadata.width || dims.width;
-    const actualHeight = metadata.height || dims.height;
-
-    // Add SPYRO AI watermark.
+    // Get ACTUAL image dimensions (with fallback if sharp can't parse).
+    let actualWidth = dims.width;
+    let actualHeight = dims.height;
     let resultBuffer: Buffer;
     try {
+      const metadata = await sharp(imgBuffer).metadata();
+      actualWidth = metadata.width || dims.width;
+      actualHeight = metadata.height || dims.height;
+
+      // Add SPYRO AI watermark.
       const watermarkSvg = buildWatermarkSvg(actualWidth, actualHeight);
       resultBuffer = await sharp(imgBuffer)
         .composite([{ input: watermarkSvg, top: 0, left: 0 }])
         .jpeg({ quality: 90 })
         .toBuffer();
     } catch {
-      // Fallback: return without watermark.
-      resultBuffer = await sharp(imgBuffer).jpeg({ quality: 90 }).toBuffer();
+      // Fallback: return without watermark (sharp failed).
+      try {
+        resultBuffer = await sharp(imgBuffer).jpeg({ quality: 90 }).toBuffer();
+      } catch {
+        // Last resort: return the raw buffer as-is.
+        resultBuffer = imgBuffer;
+      }
     }
 
     const base64 = resultBuffer.toString("base64");

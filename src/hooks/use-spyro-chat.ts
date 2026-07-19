@@ -55,9 +55,16 @@ export function detectImageIntent(text: string): string | null {
   const t = text.trim();
   if (!t) return null;
 
-  // 1. Explicit /imagine slash command.
+  // 1. Explicit /imagine slash command. Also strips a leading /imagine
+  //    from the captured prompt (fixes "/imagine /imagine prompt" → "prompt").
   const cmdMatch = t.match(/^\/imagine\s+(.+)/i);
-  if (cmdMatch) return cmdMatch[1].trim();
+  if (cmdMatch) {
+    let p = cmdMatch[1].trim();
+    // Strip any additional leading /imagine (user might type it twice).
+    p = p.replace(/^\/imagine\s+/i, "").trim();
+    if (p.length > 2) return p;
+    return null;
+  }
 
   // 2. Only attempt on reasonably short, non-code messages.
   if (t.length > 320 || CODE_KEYWORDS.test(t)) return null;
