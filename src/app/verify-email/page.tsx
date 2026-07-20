@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { SpyroLogo } from "@/components/spyro/spyro-logo";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
@@ -8,8 +9,11 @@ import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 /**
  * Email verification page — accessed via the link in the verification email.
  * The URL contains ?token=<signed-token> which is sent to /api/auth/verify-email.
+ *
+ * Must be wrapped in <Suspense> because useSearchParams() requires it
+ * for static prerendering (Next.js build requirement).
  */
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [status, setStatus] = React.useState<"loading" | "success" | "error">("loading");
@@ -22,7 +26,6 @@ export default function VerifyEmailPage() {
       return;
     }
 
-    // Send the token to the verify-email endpoint
     fetch("/api/auth/verify-email", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -47,7 +50,6 @@ export default function VerifyEmailPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#08080A] px-4 text-white">
       <div className="w-full max-w-md text-center">
-        {/* Logo */}
         <div className="ember-aura relative mx-auto mb-6 grid h-16 w-16 place-items-center rounded-2xl spyro-bg-gradient spyro-glow-strong">
           <SpyroLogo className="h-10 w-10 [&_svg]:h-full [&_svg]:w-full" />
         </div>
@@ -88,5 +90,19 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#08080A]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
