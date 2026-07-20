@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const usage = await db.usageRecord.upsert({
       where: {
         userId_monthKey: {
-          userId: session.id,
+          userId: session.userId,
           monthKey,
         },
       },
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         emailsUsed: emails ?? undefined,
       },
       create: {
-        userId: session.id,
+        userId: session.userId,
         monthKey,
         tokensUsed: tokens || 0,
         imagesUsed: images || 0,
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     const usage = await db.usageRecord.findUnique({
       where: {
         userId_monthKey: {
-          userId: session.id,
+          userId: session.userId,
           monthKey,
         },
       },

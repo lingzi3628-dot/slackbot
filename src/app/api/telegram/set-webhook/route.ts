@@ -29,7 +29,7 @@ interface SetWebhookBody {
  */
 export async function POST(req: NextRequest) {
   // ── 1. Auth check: must be signed in ──────────────────────────────
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json(
       { error: "Authentication required. Please sign in." },
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. Rate limit: 1 per 5 min per user ───────────────────────────
-  const rl = await checkWebhookSetLimit(session.id);
+  const rl = await checkWebhookSetLimit(session.userId);
   if (!rl.allowed) {
     const mins = Math.ceil((rl.resetAt - Date.now()) / 60000);
     return NextResponse.json(
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
 
 // GET: admin-only convenience route (uses env var token).
 export async function GET(req: NextRequest) {
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session || (session.role !== "admin" && session.role !== "super")) {
     return NextResponse.json(
       { error: "Admin authentication required." },

@@ -47,7 +47,7 @@ interface RemoveBgBody {
  */
 export async function POST(req: NextRequest) {
   // ── 1. Auth check ──────────────────────────────────────────────────
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json(
       { error: "Authentication required. Please sign in." },
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. Rate limit: 10/hr per user ──────────────────────────────────
-  const rl = await checkRateLimit(`removebg:${session.id}`, 10, 60 * 60 * 1000);
+  const rl = await checkRateLimit(`removebg:${session.userId}`, 10, 60 * 60 * 1000);
   if (!rl.allowed) {
     const mins = Math.ceil((rl.resetAt - Date.now()) / 60000);
     return NextResponse.json(
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.activityLog.create({
         data: {
-          userId: session.id,
+          userId: session.userId,
           type: "remove_bg",
           description: `Removed bg (${detectedType}, ${imgBuffer.length} bytes)`,
         },

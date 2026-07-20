@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { createSessionToken, buildSessionCookie } from "@/lib/session";
+import { createHash } from "crypto";
+import { createSession, buildSessionCookie, revokeSession } from "@/lib/session";
 import {
   validateEmail,
-  sanitizeString,
-  safeEqual,
 } from "@/lib/input-validation";
 import {
   checkRateLimit,
@@ -14,6 +13,7 @@ import {
   buildRateLimitHeaders,
   getClientIp,
 } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,153 +23,163 @@ interface LoginBody {
   password?: unknown;
 }
 
+/** Hash an email for privacy in audit logs (SHA-256, one-way). */
+function hashEmailForAudit(email: string): string {
+  return createHash("sha256").update(email.toLowerCase(), "utf8").digest("hex").slice(0, 16);
+}
+
 /**
  * POST /api/auth/login — sign in with email + password.
  *
- * V11 FIX:
- *  - Email format validated with regex before any DB query.
- *  - Input sanitized (strip null bytes, control chars, HTML tags).
+ * Hardening:
+ *  - Email format validated before any DB query.
  *  - Account lockout: 5 failed attempts per email / 15 min.
- *  - IP ban: 10 failed attempts per IP / 15 min.
- *  - bcrypt cost factor 12 (upgraded from 10).
- *  - Constant-time comparison for session token verification (in session.ts).
- *  - Generic error messages (no email enumeration: "Invalid email or password").
- *  - All failed attempts logged to audit (write-only).
- *  - Successful login resets the failure counters.
+ *  - IP ban: 10 failed attempts per IP / 1 HOUR (was 15 min — hardened per spec).
+ *  - bcrypt cost factor 12.
+ *  - Generic error messages (no email enumeration).
+ *  - All failed attempts logged with HASHED email (privacy).
+ *  - DB-stored session with SameSite=Strict cookie.
+ *  - Session ID regenerated on login (prevents session fixation).
+ *  - Error handler: never leaks internals.
  */
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
   const userAgent = req.headers.get("user-agent") || "unknown";
 
-  // ── Global rate limit: 20 login attempts / min / IP ───────────────
-  const globalRl = await checkRateLimit(`login:${ip}`, 20, 60 * 1000);
-  if (!globalRl.allowed) {
-    return NextResponse.json(
-      { error: "Too many login attempts. Please slow down." },
-      { status: 429, headers: buildRateLimitHeaders(globalRl) }
-    );
-  }
-
-  // ── Parse + validate input ────────────────────────────────────────
-  let body: LoginBody;
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
+    // ── Global rate limit: 20 login attempts / min / IP ───────────────
+    const globalRl = await checkRateLimit(`login:${ip}`, 20, 60 * 1000);
+    if (!globalRl.allowed) {
+      return NextResponse.json(
+        { error: "Too many login attempts. Please slow down." },
+        { status: 429, headers: buildRateLimitHeaders(globalRl) }
+      );
+    }
 
-  const email = validateEmail(body.email);
-  // Password: sanitize (strip nulls/control chars) but don't enforce length
-  // here — we want to compare against the hash regardless, to avoid timing leaks.
-  const password = typeof body.password === "string"
-    ? body.password.slice(0, 128) // hard cap to prevent DoS
-    : "";
+    // ── Parse + validate input ────────────────────────────────────────
+    let body: LoginBody;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
 
-  if (!email) {
-    // Still consume rate limit budget so attackers can't distinguish
-    // "invalid email" from "invalid password".
-    return NextResponse.json(
-      { error: "Invalid email or password" },
-      { status: 401 }
-    );
-  }
+    const email = validateEmail(body.email);
+    const password = typeof body.password === "string"
+      ? body.password.slice(0, 128) // hard cap to prevent DoS
+      : "";
 
-  // ── Account lockout check (per email) ─────────────────────────────
-  const emailLockout = await checkLoginFailEmail(email);
-  if (!emailLockout.allowed) {
-    const mins = Math.ceil((emailLockout.resetAt - Date.now()) / 60000);
-    return NextResponse.json(
-      { error: `Account temporarily locked. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` },
-      { status: 429, headers: buildRateLimitHeaders(emailLockout) }
-    );
-  }
+    if (!email) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
 
-  // ── IP ban check (per IP) ─────────────────────────────────────────
-  const ipLockout = await checkLoginFailIp(ip);
-  if (!ipLockout.allowed) {
-    const mins = Math.ceil((ipLockout.resetAt - Date.now()) / 60000);
-    return NextResponse.json(
-      { error: `Too many failed attempts from this network. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` },
-      { status: 429, headers: buildRateLimitHeaders(ipLockout) }
-    );
-  }
+    // ── Account lockout check (per email, 15 min) ─────────────────────
+    const emailLockout = await checkLoginFailEmail(email);
+    if (!emailLockout.allowed) {
+      const mins = Math.ceil((emailLockout.resetAt - Date.now()) / 60000);
+      return NextResponse.json(
+        { error: `Account temporarily locked. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` },
+        { status: 429, headers: buildRateLimitHeaders(emailLockout) }
+      );
+    }
 
-  // ── Look up user ──────────────────────────────────────────────────
-  const user = await db.user.findUnique({ where: { email } });
+    // ── IP ban check (per IP, 1 HOUR — hardened) ──────────────────────
+    const ipLockout = await checkLoginFailIp(ip);
+    if (!ipLockout.allowed) {
+      const mins = Math.ceil((ipLockout.resetAt - Date.now()) / 60000);
+      return NextResponse.json(
+        { error: `Too many failed attempts from this network. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` },
+        { status: 429, headers: buildRateLimitHeaders(ipLockout) }
+      );
+    }
 
-  // Use a dummy hash to compare against when the user doesn't exist —
-  // this keeps the response time roughly constant (prevents user enumeration
-  // via timing analysis).
-  const dummyHash = "$2a$12$000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-  const hashToCompare = user?.password || dummyHash;
+    // ── Look up user ──────────────────────────────────────────────────
+    const user = await db.user.findUnique({ where: { email } });
 
-  const valid = await bcrypt.compare(password, hashToCompare);
+    // Dummy hash for constant-time comparison (prevents user enumeration via timing)
+    const dummyHash = "$2a$12$000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    const hashToCompare = user?.password || dummyHash;
+    const valid = await bcrypt.compare(password, hashToCompare);
 
-  if (!user || !valid) {
-    // ── Record failure (both email + IP counters) ──────────────────
-    await checkLoginFailEmail(email); // consume budget
-    await checkLoginFailIp(ip);       // consume budget
+    if (!user || !valid) {
+      // ── Record failure (both email + IP counters) ──────────────────
+      await checkLoginFailEmail(email);
+      await checkLoginFailIp(ip);
 
-    // ── Audit log (write-only — never readable via chat) ───────────
+      // ── Audit log with HASHED email (privacy) ──────────────────────
+      const hashedEmail = hashEmailForAudit(email);
+      try {
+        await db.activityLog.create({
+          data: {
+            userId: user?.id || "unknown",
+            type: "auth",
+            description: `Failed login (email hash: ${hashedEmail}) from ${ip}`,
+            metadata: {
+              ip,
+              userAgent: userAgent.slice(0, 200),
+              emailHash: hashedEmail,
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+      } catch { /* ignore audit errors */ }
+
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    // ── Require verified email ───────────────────────────────────────
+    if (!user.verified) {
+      return NextResponse.json(
+        {
+          error: "Please verify your email before signing in. Check your inbox for the verification link.",
+          needsVerification: true,
+          email: user.email,
+        },
+        { status: 403 }
+      );
+    }
+
+    // ── Success: create DB-stored session (regenerated ID) ────────────
+    const cookieValue = await createSession({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatarColor: user.avatarColor,
+    }, req);
+
+    // ── Audit successful login ────────────────────────────────────────
     try {
       await db.activityLog.create({
         data: {
-          userId: user?.id || "unknown",
+          userId: user.id,
           type: "auth",
-          description: `Failed login attempt for ${email} from ${ip}`,
+          description: `Successful login from ${ip}`,
+          metadata: {
+            ip,
+            userAgent: userAgent.slice(0, 200),
+            timestamp: new Date().toISOString(),
+          },
         },
       });
-    } catch {
-      // Don't fail the login response if audit logging fails.
-    }
+    } catch { /* ignore */ }
 
-    return NextResponse.json(
-      { error: "Invalid email or password" },
-      { status: 401 }
-    );
-  }
-
-  // ── V8 (round 2): Require verified email ──────────────────────────
-  if (!user.verified) {
-    return NextResponse.json(
-      {
-        error: "Please verify your email before signing in. Check your inbox for the verification link.",
-        needsVerification: true,
-        email: user.email,
-      },
-      { status: 403 }
-    );
-  }
-
-  // ── Success: create session ───────────────────────────────────────
-  const token = createSessionToken({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    avatarColor: user.avatarColor,
-  });
-
-  // ── Audit successful login ────────────────────────────────────────
-  try {
-    await db.activityLog.create({
-      data: {
-        userId: user.id,
-        type: "auth",
-        description: `Successful login from ${ip}`,
-      },
+    const res = NextResponse.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarColor: user.avatarColor,
+      role: user.role,
     });
-  } catch {
-    /* ignore audit errors */
+    res.headers.set("Set-Cookie", buildSessionCookie(cookieValue));
+    return res;
+  } catch (err) {
+    return handleApiError(err, "POST /api/auth/login");
   }
-
-  const res = NextResponse.json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatarColor: user.avatarColor,
-    role: user.role,
-  });
-  res.headers.set("Set-Cookie", buildSessionCookie(token));
-  return res;
 }

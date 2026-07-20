@@ -30,7 +30,7 @@ const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
  */
 export async function POST(req: NextRequest) {
   // ── 1. Auth check ──────────────────────────────────────────────────
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json(
       { error: "Authentication required. Please sign in." },
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. Rate limit: 60 calls/day per user (≈60 min of audio) ────────
-  const rl = await checkRateLimit(`transcribe:${session.id}`, 60, 24 * 60 * 60 * 1000);
+  const rl = await checkRateLimit(`transcribe:${session.userId}`, 60, 24 * 60 * 60 * 1000);
   if (!rl.allowed) {
     const hoursLeft = Math.ceil((rl.resetAt - Date.now()) / (60 * 60 * 1000));
     return NextResponse.json(
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.activityLog.create({
         data: {
-          userId: session.id,
+          userId: session.userId,
           type: "transcribe",
           description: `Transcribed ${detectedType} (${(audioBuffer.length / 1024).toFixed(0)} KB)`,
         },

@@ -118,9 +118,9 @@ export async function POST(req: NextRequest) {
   const sanitized = sanitizeChatMessage(lastUserMsg.content);
   if (sanitized.rejected) {
     // Audit the rejection
-    const session = getSession(req);
+    const session = await getSession(req);
     await auditPrompt({
-      userId: session?.id || null,
+      userId: session?.userId || null,
       ip,
       userAgent: req.headers.get("user-agent") || "unknown",
       prompt: lastUserMsg.content.slice(0, MAX_PROMPT_LENGTH),
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 4. Auth check (optional — enables tools) ─────────────────────
-  const session = getSession(req);
+  const session = await getSession(req);
   const isAuthenticated = !!session;
 
   // V8: model is pinned server-side — ignore client's model field.
@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
   // ── 5. Audit log the prompt (write-only) ─────────────────────────
   await auditPrompt({
-    userId: session?.id || null,
+    userId: session?.userId || null,
     ip,
     userAgent: req.headers.get("user-agent") || "unknown",
     prompt: sanitized.cleaned,
@@ -243,7 +243,7 @@ export async function POST(req: NextRequest) {
  * Authenticated users get the full model list + tools.
  */
 export async function GET(req: NextRequest) {
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     // Unauthenticated: minimal response, no model/tool enumeration
     return Response.json({ status: "online" });

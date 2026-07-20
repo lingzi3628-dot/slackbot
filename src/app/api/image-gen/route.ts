@@ -90,12 +90,12 @@ export async function POST(req: NextRequest) {
 
     // ── V4 (round 2): Authentication required ─────────────────────────
     // Accept either a session cookie OR an x-api-key header.
-    const session = getSession(req);
+    const session = await getSession(req);
     const apiKey = req.headers.get("x-api-key");
     let userId: string | null = null;
 
     if (session) {
-      userId = session.id;
+      userId = session.userId;
     } else if (apiKey) {
       const apiUser = await getUserByApiKey(apiKey);
       if (apiUser) {

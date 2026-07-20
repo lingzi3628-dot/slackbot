@@ -24,13 +24,14 @@ import { Redis } from "@upstash/redis";
 const ANON_LIMIT = 20; // per minute
 const AUTH_LIMIT = 100; // per minute
 const IMAGE_LIMIT = 10; // per hour
-const LOGIN_FAIL_PER_EMAIL = 5; // per 15 min
-const LOGIN_FAIL_PER_IP = 10; // per 15 min
+const LOGIN_FAIL_PER_EMAIL = 5; // per 15 min (account lockout)
+const LOGIN_FAIL_PER_IP = 10; // per 1 HOUR (IP ban — hardened per spec)
 const WEBHOOK_SET_LIMIT = 1; // per 5 min
 
 const WINDOW_MS = 60 * 1000; // 1 minute
 const HOUR_MS = 60 * 60 * 1000; // 1 hour
-const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+const EMAIL_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes (account lockout)
+const IP_BAN_MS = 60 * 60 * 1000; // 1 HOUR (IP ban — was 15 min, hardened)
 
 // ── Upstash Redis client (optional) ───────────────────────────────────
 let redis: Redis | null = null;
@@ -177,14 +178,14 @@ export async function checkImageRateLimit(ip: string): Promise<RateLimitResult> 
   return checkRateLimit(`img:${ip}`, IMAGE_LIMIT, HOUR_MS);
 }
 
-/** Login failure tracking — per email (account lockout). */
+/** Login failure tracking — per email (account lockout, 15 min). */
 export async function checkLoginFailEmail(email: string): Promise<RateLimitResult> {
-  return checkRateLimit(`login-email:${email.toLowerCase()}`, LOGIN_FAIL_PER_EMAIL, LOCKOUT_MS);
+  return checkRateLimit(`login-email:${email.toLowerCase()}`, LOGIN_FAIL_PER_EMAIL, EMAIL_LOCKOUT_MS);
 }
 
-/** Login failure tracking — per IP (IP ban). */
+/** Login failure tracking — per IP (IP ban, 1 HOUR — hardened). */
 export async function checkLoginFailIp(ip: string): Promise<RateLimitResult> {
-  return checkRateLimit(`login-ip:${ip}`, LOGIN_FAIL_PER_IP, LOCKOUT_MS);
+  return checkRateLimit(`login-ip:${ip}`, LOGIN_FAIL_PER_IP, IP_BAN_MS);
 }
 
 /** Telegram webhook setup rate limit (1 per 5 min per user). */

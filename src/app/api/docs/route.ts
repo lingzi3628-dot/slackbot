@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 3. Auth check: must be authenticated ───────────────────────────
-  const session = getSession(req);
+  const session = await getSession(req);
   const adminSession = await getAdminSession();
 
   if (!session && !adminSession) {

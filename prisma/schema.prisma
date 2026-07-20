@@ -40,6 +40,23 @@ model User {
   apiKeys         ApiKey[]
   subscriptions   Subscription[]
   activityLog     ActivityLog[]
+  sessions        Session[]
+}
+
+// ── Sessions (DB-stored, revocable) ───────────────────────────────────
+model Session {
+  id          String   @id @default(cuid())
+  userId      String
+  token       String   @unique // the session token (random 32 bytes hex)
+  ipAddress   String?
+  userAgent   String?
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime? // null = active, set when user logs out
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ── Conversations & Messages ──────────────────────────────────────────

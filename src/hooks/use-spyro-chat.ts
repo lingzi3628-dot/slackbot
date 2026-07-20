@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useChatStore, type Message } from "@/store/chat-store";
 import type { SpyroModelId } from "@/lib/spyro-engine";
 import { useUsageStore } from "@/store/usage-store";
+import { getCsrfToken } from "@/lib/csrf-client";
 
 interface SendOptions {
   conversationId?: string;
@@ -193,9 +194,13 @@ export function useSpyroChat() {
       abortRef.current = controller;
 
       try {
+        const csrfToken = await getCsrfToken();
         const res = await fetch("/api/chat", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
           body: JSON.stringify({ messages: history, webSearch: useWebSearch, model }),
           signal: controller.signal,
         });
@@ -312,9 +317,13 @@ export function useSpyroChat() {
       store.getState().setGenerating(true);
 
       try {
+        const csrfToken = await getCsrfToken();
         const res = await fetch("/api/image-gen", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
           body: JSON.stringify({ prompt: trimmed }),
         });
         const data = await res.json();
@@ -418,9 +427,13 @@ export function useSpyroChat() {
       abortRef.current = controller;
 
       try {
+        const csrfToken = await getCsrfToken();
         const res = await fetch("/api/chat", {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
           body: JSON.stringify({ messages: history, webSearch, model }),
           signal: controller.signal,
         });

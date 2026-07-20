@@ -21,7 +21,7 @@ const BLOCKED_COMMANDS = [
  */
 export async function POST(req: NextRequest) {
   // Auth check — must be logged in
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }

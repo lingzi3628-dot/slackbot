@@ -11,13 +11,13 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const conversations = await db.conversation.findMany({
-      where: { userId: session.id },
+      where: { userId: session.userId },
       include: { messages: { orderBy: { createdAt: "asc" } } },
       orderBy: { updatedAt: "desc" },
     });
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     // Try to find existing conversation by title (since client IDs differ from DB IDs)
     let dbConv = await db.conversation.findFirst({
-      where: { userId: session.id, title: conversation.title },
+      where: { userId: session.userId, title: conversation.title },
       include: { messages: true },
     });
 
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       // Create new conversation
       dbConv = await db.conversation.create({
         data: {
-          userId: session.id,
+          userId: session.userId,
           title: conversation.title || "New chat",
           pinned: conversation.pinned || false,
         },
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -121,7 +121,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await db.conversation.deleteMany({
-      where: { id, userId: session.id },
+      where: { id, userId: session.userId },
     });
 
     return NextResponse.json({ ok: true });

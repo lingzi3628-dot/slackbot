@@ -13,7 +13,7 @@ const EXEC_BACKEND_URL = process.env.EXEC_BACKEND_URL || "http://seth1.sethtech.
  * Body: { url: "https://github.com/user/repo.git" }
  */
 export async function POST(req: NextRequest) {
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }

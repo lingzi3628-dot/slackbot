@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   const userAgent = req.headers.get("user-agent") || "unknown";
 
   // ── 1. Auth check ──────────────────────────────────────────────────
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json(
       { error: "Authentication required. Please sign in to use God Mode." },
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     let userPlan = "free";
     try {
       const user = await db.user.findUnique({
-        where: { id: session.id },
+        where: { id: session.userId },
         select: { plan: true },
       });
       userPlan = user?.plan || "free";
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       try {
         await db.activityLog.create({
           data: {
-            userId: session.id,
+            userId: session.userId,
             type: "god_mode",
             description: `Denied (plan: ${userPlan}) from ${ip}`,
           },
@@ -95,9 +95,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. Daily quota check ───────────────────────────────────────────
-  const planForQuota = session.role === "admin" ? "enterprise" : (await db.user.findUnique({ where: { id: session.id }, select: { plan: true } }))?.plan || "pro";
+  const planForQuota = session.role === "admin" ? "enterprise" : (await db.user.findUnique({ where: { id: session.userId }, select: { plan: true } }))?.plan || "pro";
   const dailyLimit = DAILY_LIMITS[planForQuota] || 10;
-  const quotaKey = `godmode-daily:${session.id}`;
+  const quotaKey = `godmode-daily:${session.userId}`;
   const quota = await checkRateLimit(quotaKey, dailyLimit, 24 * 60 * 60 * 1000); // 24h window
   if (!quota.allowed) {
     const hoursLeft = Math.ceil((quota.resetAt - Date.now()) / (60 * 60 * 1000));
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.activityLog.create({
         data: {
-          userId: session.id,
+          userId: session.userId,
           type: "god_mode",
           description: `Blocked SQL injection attempt (prompt: "${prompt.slice(0, 100)}") from ${ip}`,
         },
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
   try {
     await db.activityLog.create({
       data: {
-        userId: session.id,
+        userId: session.userId,
         type: "god_mode",
         description: `God Mode invoked (prompt length: ${prompt.length}, plan: ${planForQuota}) from ${ip}`,
       },
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
  * V5 (round 2): returns only {"status":"online"} — no agent names, no description.
  */
 export async function GET(req: NextRequest) {
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     // Unauthenticated: minimal response, no architecture leak
     return Response.json({ status: "online" });

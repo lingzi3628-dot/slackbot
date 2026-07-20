@@ -12,7 +12,7 @@ const EXEC_BACKEND_URL = process.env.EXEC_BACKEND_URL || "http://seth1.sethtech.
  * Body: { path: "file.js", content: "...", action: "read" | "write" }
  */
 export async function POST(req: NextRequest) {
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }

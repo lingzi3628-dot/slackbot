@@ -47,15 +47,32 @@ function generateCsrfToken(): string {
   return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Paths that require CSRF protection (state-changing auth operations). */
+/**
+ * Paths that require CSRF protection (state-changing operations).
+ * #2 (hardening): Extended to include /api/chat POST (was only /api/auth/*).
+ */
 function isCsrfProtectedPath(pathname: string): boolean {
-  return (
+  // /api/auth/* (excluding GET-only endpoints + the CSRF issuer itself)
+  if (
     pathname.startsWith("/api/auth/") &&
-    // Exclude the CSRF issuer itself + GET-only endpoints
     !pathname.endsWith("/csrf") &&
     !pathname.endsWith("/me") &&
-    !pathname.endsWith("/google") // OAuth flow has its own protection
-  );
+    !pathname.endsWith("/google") && // OAuth flow has its own protection
+    !pathname.endsWith("/verify-email") // GET link clicks from email
+  ) {
+    return true;
+  }
+  // /api/chat POST (state-changing — drains AI credits)
+  if (pathname === "/api/chat") return true;
+  // /api/image-gen POST (state-changing — uses compute)
+  if (pathname === "/api/image-gen") return true;
+  // /api/god-mode POST (state-changing — premium compute)
+  if (pathname === "/api/god-mode") return true;
+  // /api/remove-bg POST (state-changing — image processing)
+  if (pathname === "/api/remove-bg") return true;
+  // /api/transcribe POST (state-changing — audio processing)
+  if (pathname === "/api/transcribe") return true;
+  return false;
 }
 
 // ── Security headers ──────────────────────────────────────────────────

@@ -973,3 +973,49 @@ Stage Summary:
 - Image gen API: code is correct (returned 46KB watermarked image in earlier test); 502 in final test is a transient sandbox network issue reaching image.pollinations.ai, not a code bug.
 - .env restored with Neon Postgres URL + Paystack live keys.
 - Dev server: running on port 3000, healthy.
+
+---
+Task ID: HARDEN-GETSESSION
+Agent: harden-getsession
+Task: Update all getSession() callers to use async + session.userId (not session.id for user ID)
+
+Work Log:
+- Read worklog.md and src/lib/session.ts to confirm the new SessionData shape: `id` is now the session row ID, `userId` is the user's ID, and `getSession(req)` is async (returns `Promise<SessionData | null>`).
+- Verified scope: ran grep for `= getSession(req)` across src/ and found 24 call sites in 15 files (matching the task brief, except `db/sync-usage/route.ts` which has 2 calls — POST + GET — both updated).
+- For each file:
+  1. Added `await` before `getSession(req)`.
+  2. Replaced every `session.id` used as a USER ID with `session.userId` (DB lookups via `db.user.findUnique({ where: { id: session.id } })`, `userId: session.id` on ActivityLog / Conversation / Notification / UsageRecord creates, rate-limit keys like `transcribe:${session.id}`, `removebg:${session.id}`, `godmode-daily:${session.id}`, `checkWebhookSetLimit(session.id)`, and `session?.id || null` passed to `auditPrompt({ userId })`).
+  3. Left `session.email`, `session.name`, `session.role`, `session.avatarColor` unchanged.
+  4. Confirmed all enclosing route handlers were already `async` (Next.js App Router), so no signature changes were needed.
+- Files updated (15):
+  - src/app/api/god-mode/route.ts (2 calls: POST line 49, GET line 213; 6 session.id→userId rewrites in POST for user lookup, audit logs, quota key).
+  - src/app/api/studio/git-clone/route.ts (1 call; no session.id use).
+  - src/app/api/studio/file/route.ts (1 call; no session.id use).
+  - src/app/api/studio/run-code/route.ts (1 call; no session.id use).
+  - src/app/api/studio/files/route.ts (1 call; no session.id use).
+  - src/app/api/studio/exec/route.ts (1 call; no session.id use).
+  - src/app/api/docs/route.ts (1 call; no session.id use — auth-only check).
+  - src/app/api/image-gen/route.ts (1 call; 1 session.id→userId for `userId = session.id`).
+  - src/app/api/transcribe/route.ts (1 call; 2 rewrites — rate-limit key + audit log userId).
+  - src/app/api/chat/route.ts (3 calls: rejection-path POST line 121, main POST line 138, GET line 246; 2 rewrites for `auditPrompt({ userId: session?.id })`).
+  - src/app/api/db/conversations/route.ts (3 calls: GET/POST/DELETE; 4 rewrites — findMany where, findFirst where, create data, deleteMany where).
+  - src/app/api/db/notifications/route.ts (3 calls: GET/POST/PATCH; 3 rewrites — findMany where, create data, updateMany where).
+  - src/app/api/db/sync-usage/route.ts (2 calls: POST + GET — task brief said 1 but there are 2; 3 rewrites — upsert where/create, findUnique where).
+  - src/app/api/remove-bg/route.ts (1 call; 2 rewrites — rate-limit key + audit log userId).
+  - src/app/api/telegram/set-webhook/route.ts (2 calls: POST + GET; 1 rewrite — `checkWebhookSetLimit(session.id)`; `session.role` checks left unchanged).
+- Verified no remaining `= getSession(req)` (without await) anywhere in src/.
+- Verified no remaining `session.id` usage as a USER ID in any of the 15 modified files (only legitimate `session.id` references left in src/ are in src/lib/session.ts itself, src/app/api/auth/logout/route.ts [explicitly out of scope, calls revokeSession(session.id) — that IS the session row ID, correct usage], src/app/api/security/route.ts and src/app/api/admin/** — those use `getAdminSession()` from @/lib/admin-session, a different session type where `.id` is the admin's ID).
+- Ran `bun run lint`: 1 pre-existing error in `src/lib/sanitize.ts` (untracked file, not in scope — confirmed pre-existing via git stash test). All 15 modified files lint clean.
+- Ran `npx tsc --noEmit`: 0 errors in src/ (only 5 pre-existing errors in mini-services/whatsapp/index.ts, a separate bun sub-project — out of scope).
+
+Stage Summary:
+- All 24 getSession() call sites across 15 route files now use `await getSession(req)`.
+- All 23 `session.id` references that were being used as the USER ID have been rewritten to `session.userId`.
+- No function signature changes needed — every enclosing route handler was already `async` (Next.js App Router convention).
+- Lint: passes clean for all modified files (1 pre-existing error in an out-of-scope untracked file `src/lib/sanitize.ts`).
+- tsc: 0 errors in src/ (5 pre-existing errors in mini-services/whatsapp, out of scope).
+- Tricky cases:
+  - `db/sync-usage/route.ts` had 2 calls (POST + GET), not 1 as the brief stated — both updated.
+  - `chat/route.ts` calls `getSession(req)` twice in the POST handler: once inside the rejection branch (line 121) and once in the main path (line 138). Both now awaited; both `session?.id` → `session?.userId` for the `auditPrompt({ userId })` arg.
+  - `god-mode/route.ts` POST uses `session.id` in 6 places (user lookup, 3 audit logs, quota key, plan lookup) — all rewritten to `session.userId`. `session.role` checks left unchanged.
+  - The `session.id` references in `src/app/api/admin/**` and `src/app/api/security/route.ts` are from `getAdminSession()` (different session type where `.id` IS the admin ID) — correctly left unchanged.

@@ -11,7 +11,7 @@ const EXEC_BACKEND_URL = process.env.EXEC_BACKEND_URL || "http://seth1.sethtech.
  * Proxy: lists files in the VPS workspace.
  */
 export async function GET(req: NextRequest) {
-  const session = getSession(req);
+  const session = await getSession(req);
   if (!session) {
     return NextResponse.json({ files: [], error: "Authentication required" }, { status: 401 });
   }

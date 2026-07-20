@@ -11,13 +11,13 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const notifications = await db.notification.findMany({
-      where: { userId: session.id, archived: false },
+      where: { userId: session.userId, archived: false },
       orderBy: { createdAt: "desc" },
       take: 20,
     });
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const { type, title, message, link } = await req.json();
     const notification = await db.notification.create({
       data: {
-        userId: session.id,
+        userId: session.userId,
         type: type || "system",
         title: title || "Notification",
         message: message || "",
@@ -66,14 +66,14 @@ export async function POST(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const session = getSession(req);
+    const session = await getSession(req);
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
     const { id, read, archived } = await req.json();
     await db.notification.updateMany({
-      where: { id, userId: session.id },
+      where: { id, userId: session.userId },
       data: {
         ...(read !== undefined && { read }),
         ...(archived !== undefined && { archived }),
