@@ -59,6 +59,18 @@ model Session {
   @@index([expiresAt])
 }
 
+// ── Rate Limits (Postgres fallback — used when Upstash KV is unavailable) ──
+model RateLimit {
+  id          Int      @id @default(autoincrement())
+  key         String   // e.g. "ip:1.2.3.4:chat" or "user:123:login"
+  windowStart DateTime @default(now())
+  count       Int      @default(1)
+
+  @@unique([key, windowStart])
+  @@index([key])
+  @@map("rate_limits")
+}
+
 // ── Conversations & Messages ──────────────────────────────────────────
 model Conversation {
   id          String   @id @default(cuid())

@@ -1,76 +1,86 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import nodemailer from "nodemailer";
+import { validateEmail } from "@/lib/input-validation";
+import { checkRateLimit, buildRateLimitHeaders, getClientIp } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/error-handler";
+import { sendPasswordResetEmail } from "@/lib/email-service";
+import { randomBytes } from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-interface ForgotPasswordBody {
-  email: string;
-}
-
+/**
+ * Forgot password — generate a reset token and email it.
+ *
+ * Hardening (round 3):
+ *  - Rate limited: 3 requests per email per hour.
+ *  - Rate limited: 5 requests per IP per hour.
+ *  - NO enumeration: always returns the same success message whether
+ *    the email exists or not.
+ *  - Reset token: crypto.randomBytes(32) (not Math.random).
+ *  - Uses shared email-service module.
+ *  - Input validated (RFC 5322 email regex).
+ */
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
   try {
-    const { email } = (await req.json()) as ForgotPasswordBody;
-    if (!email?.trim()) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    const { email: rawEmail } = await req.json();
+    const email = validateEmail(rawEmail);
+    if (!email) {
+      return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
     }
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
-    if (!user) {
-      // Don't reveal whether the email exists — return success.
-      return NextResponse.json({ ok: true, message: "If an account exists, a reset link has been sent." });
+    // ── Rate limit: 3 per email per hour ──────────────────────────────
+    const emailRl = await checkRateLimit(`forgot-email:${email}`, 3, 60 * 60 * 1000);
+    if (!emailRl.allowed) {
+      // Return the SAME success message (no enumeration)
+      return NextResponse.json({
+        ok: true,
+        message: "If an account exists, a reset link has been sent to your email.",
+      });
     }
 
-    // Generate a reset token (random string).
-    const resetToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    // ── Rate limit: 5 per IP per hour ──────────────────────────────────
+    const ipRl = await checkRateLimit(`forgot-ip:${ip}`, 5, 60 * 60 * 1000);
+    if (!ipRl.allowed) {
+      return NextResponse.json({
+        ok: true,
+        message: "If an account exists, a reset link has been sent to your email.",
+      });
+    }
 
-    await db.user.update({
-      where: { id: user.id },
-      data: { resetToken, resetTokenExpiry: expiry },
-    });
+    // ── Look up user (NO enumeration leak) ─────────────────────────────
+    const user = await db.user.findUnique({ where: { email } });
 
-    // Send email via Gmail SMTP.
-    const gmailUser = process.env.GMAIL_USER;
-    const gmailPass = process.env.GMAIL_APP_PASSWORD;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || req.headers.get("origin") || "https://slackbot-seven.vercel.app";
+    if (user) {
+      // Generate a cryptographically secure reset token
+      const resetToken = randomBytes(32).toString("hex");
+      const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    if (gmailUser && gmailPass) {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: { user: gmailUser, pass: gmailPass },
+      await db.user.update({
+        where: { id: user.id },
+        data: { resetToken, resetTokenExpiry: expiry },
       });
 
+      // Send the reset email
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${req.headers.get("host") || "slackbot-seven.vercel.app"}`;
       const resetUrl = `${appUrl}/?reset=${resetToken}`;
 
-      await transporter.sendMail({
-        from: `"SPYRO V1" <${gmailUser}>`,
-        to: email,
-        subject: "SPYRO V1 — Password Reset",
-        html: `
-          <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; background: #16110d; color: #f5ecd9; padding: 32px; border-radius: 16px;">
-            <h1 style="color: #ff7a1a; margin: 0 0 16px;">🐉 SPYRO V1</h1>
-            <p style="font-size: 15px; line-height: 1.6;">Hi ${user.name},</p>
-            <p style="font-size: 15px; line-height: 1.6;">You requested a password reset for your SPYRO V1 account. Click the button below to set a new password:</p>
-            <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #ff7a1a, #e8421b); color: white; padding: 12px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; margin: 16px 0;">Reset Password</a>
-            <p style="font-size: 12px; color: #a99c87; margin-top: 24px;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
-            <p style="font-size: 12px; color: #a99c87;">— SPYRO Labs, Kenya 🇰🇪</p>
-          </div>
-        `,
-      });
+      try {
+        await sendPasswordResetEmail(email, user.name, resetUrl);
+      } catch (err) {
+        console.error("[forgot-password] Email error:", err);
+        // Don't reveal the error — return the same success message
+      }
     }
 
+    // ── Always return the SAME response (no enumeration) ───────────────
     return NextResponse.json({
       ok: true,
       message: "If an account exists, a reset link has been sent to your email.",
     });
   } catch (err) {
-    console.error("[forgot-password] error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to send reset email." },
-      { status: 500 }
-    );
+    return handleApiError(err, "POST /api/auth/forgot-password");
   }
 }

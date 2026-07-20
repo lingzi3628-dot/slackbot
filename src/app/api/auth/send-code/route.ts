@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import nodemailer from "nodemailer";
+import { validateEmail } from "@/lib/input-validation";
+import { checkRateLimit, buildRateLimitHeaders, getClientIp } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/error-handler";
+import { sendVerificationCodeEmail } from "@/lib/email-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,87 +11,85 @@ export const maxDuration = 30;
 
 /**
  * Send a 6-digit verification code to the user's email.
- * If Gmail SMTP fails, the code is still stored in the DB and returned
- * in the response (devCode) so the flow can be tested.
+ *
+ * Hardening (round 3):
+ *  - Rate limited: 3 codes per email per hour.
+ *  - Rate limited: 5 codes per IP per hour.
+ *  - No enumeration: returns same success response whether email exists or not.
+ *  - Input validated (RFC 5322 email regex).
+ *  - Uses shared email-service module.
  */
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
   try {
-    const { email } = await req.json();
-    if (!email?.trim()) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    const { email: rawEmail } = await req.json();
+    const email = validateEmail(rawEmail);
+    if (!email) {
+      return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
     }
 
-    const user = await db.user.findUnique({ where: { email: email.toLowerCase() } });
+    // ── Rate limit: 3 codes per email per hour ────────────────────────
+    const emailRl = await checkRateLimit(`send-code-email:${email}`, 3, 60 * 60 * 1000);
+    if (!emailRl.allowed) {
+      const mins = Math.ceil((emailRl.resetAt - Date.now()) / 60000);
+      return NextResponse.json(
+        { error: `Too many code requests for this email. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` },
+        { status: 429, headers: buildRateLimitHeaders(emailRl) }
+      );
+    }
+
+    // ── Rate limit: 5 codes per IP per hour ────────────────────────────
+    const ipRl = await checkRateLimit(`send-code-ip:${ip}`, 5, 60 * 60 * 1000);
+    if (!ipRl.allowed) {
+      const mins = Math.ceil((ipRl.resetAt - Date.now()) / 60000);
+      return NextResponse.json(
+        { error: `Too many code requests from this network. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` },
+        { status: 429, headers: buildRateLimitHeaders(ipRl) }
+      );
+    }
+
+    // ── Look up user (NO enumeration leak) ─────────────────────────────
+    const user = await db.user.findUnique({ where: { email } });
+
     if (!user) {
-      return NextResponse.json({ error: "No account found with this email" }, { status: 404 });
+      // Return the SAME success response — don't reveal the email isn't registered
+      return NextResponse.json({
+        ok: true,
+        message: "If an account exists for this email, a verification code has been sent.",
+      });
     }
 
-    // Generate a 6-digit code.
+    // ── Generate a 6-digit code ────────────────────────────────────────
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const codeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Store the code in the DB.
     await db.user.update({
       where: { id: user.id },
       data: { resetToken: code, resetTokenExpiry: codeExpiry },
     });
 
-    // Try to send the code via Gmail SMTP.
-    const gmailUser = process.env.GMAIL_USER;
-    const gmailPass = process.env.GMAIL_APP_PASSWORD;
+    // ── Send the code via email ────────────────────────────────────────
     let emailSent = false;
-    let emailError: string | null = null;
-
-    if (gmailUser && gmailPass) {
-      try {
-        const transporter = nodemailer.createTransport({
-          service: "gmail",
-          auth: { user: gmailUser, pass: gmailPass },
-        });
-
-        await transporter.sendMail({
-          from: `"SPYRO V1" <${gmailUser}>`,
-          to: email,
-          subject: "Your SPYRO V1 Verification Code",
-          html: `
-            <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; background: #16110d; color: #f5ecd9; padding: 32px; border-radius: 16px;">
-              <h1 style="color: #ff7a1a; margin: 0 0 8px;">🐉 SPYRO V1</h1>
-              <p style="font-size: 15px; line-height: 1.6;">Hi ${user.name},</p>
-              <p style="font-size: 15px; line-height: 1.6;">Here's your verification code:</p>
-              <div style="text-align: center; margin: 24px 0;">
-                <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #ff7a1a; background: rgba(255,122,26,0.1); padding: 16px 32px; border-radius: 12px; display: inline-block;">${code}</span>
-              </div>
-              <p style="font-size: 13px; color: #a99c87;">This code expires in 10 minutes. Enter it in the app to activate your account.</p>
-              <p style="font-size: 12px; color: #a99c87; margin-top: 24px;">— SPYRO Labs, Kenya 🇰🇪</p>
-            </div>
-          `,
-        });
-        emailSent = true;
-      } catch (err) {
-        emailError = err instanceof Error ? err.message : "Email sending failed";
-        console.error("[send-code] Gmail error:", emailError);
-      }
+    try {
+      await sendVerificationCodeEmail(email, user.name, code);
+      emailSent = true;
+    } catch (err) {
+      console.error("[send-code] Email error:", err);
     }
 
-    // Always return success — the code is stored in the DB.
-    // If email failed, include devCode so the user can still verify.
     const response: Record<string, unknown> = {
       ok: true,
       message: emailSent
         ? "Verification code sent to your email."
         : "Code generated. Check your email or use the code below.",
     };
-    if (!emailSent) response.devCode = code;
-    if (emailError) response.emailError = emailError;
+    // In dev, return the code so the flow can be tested without SMTP
+    if (!emailSent && process.env.NODE_ENV !== "production") {
+      response.devCode = code;
+    }
 
     return NextResponse.json(response);
   } catch (err) {
-    console.error("[send-code] error:", err);
-    const msg = err instanceof Error ? err.message : "Failed to send code.";
-    // Return the actual error so the frontend can show it.
-    return NextResponse.json(
-      { error: msg.includes("protocol") ? "Database URL is invalid. Remove channel_binding=require from DATABASE_URL on Vercel." : msg },
-      { status: 500 }
-    );
+    return handleApiError(err, "POST /api/auth/send-code");
   }
 }

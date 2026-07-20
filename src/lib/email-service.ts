@@ -127,3 +127,37 @@ export async function sendPasswordResetEmail(
     text: `Hi ${name},\n\nReset your password:\n${resetUrl}\n\nThis link expires in 1 hour.`,
   });
 }
+
+/** Send a 6-digit verification code email (for login/code auth flow). */
+export async function sendVerificationCodeEmail(
+  email: string,
+  name: string,
+  code: string
+): Promise<void> {
+  const t = getTransporter();
+  if (!t) {
+    console.warn(`[email] Skipped verification code email to ${email} (no SMTP).`);
+    return;
+  }
+
+  const from = process.env.GMAIL_USER || "noreply@spyrolabs.com";
+
+  await t.sendMail({
+    from: `"SPYRO V1" <${from}>`,
+    to: email,
+    subject: "Your SPYRO V1 verification code",
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; background: #16110d; color: #f5ecd9; padding: 32px; border-radius: 16px;">
+        <h1 style="color: #ff7a1a; margin: 0 0 8px;">🐉 SPYRO V1</h1>
+        <p style="font-size: 15px; line-height: 1.6;">Hi ${name},</p>
+        <p style="font-size: 15px; line-height: 1.6;">Here's your verification code:</p>
+        <div style="text-align: center; margin: 24px 0;">
+          <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #ff7a1a; background: rgba(255,122,26,0.1); padding: 16px 32px; border-radius: 12px; display: inline-block;">${code}</span>
+        </div>
+        <p style="font-size: 13px; color: #a99c87;">This code expires in 10 minutes. Enter it in the app to verify your account.</p>
+        <p style="font-size: 12px; color: #a99c87; margin-top: 24px;">— SPYRO Labs, Kenya 🇰🇪</p>
+      </div>
+    `,
+    text: `Hi ${name},\n\nYour verification code is: ${code}\n\nThis code expires in 10 minutes.`,
+  });
+}
