@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.activityLog.create({
         data: {
-          userId: "bot",
+          userId: null,
           type: "auth",
           description: `Honeypot triggered on registration from ${ip}`,
         },

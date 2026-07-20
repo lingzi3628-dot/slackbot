@@ -21,9 +21,9 @@ import { db } from "@/lib/db";
 import { getClientIp } from "@/lib/rate-limit";
 
 export interface AuditLogParams {
-  userId: string;
-  type: string; // "auth" | "api_key" | "security" | "god_mode" | "image_gen" | "remove_bg" | "transcribe" | "error"
-  action: string; // human-readable description
+  userId: string | null;  // null for unauthenticated actions
+  type: string;
+  action: string;
   req?: Request;
   metadata?: Record<string, unknown>;
 }

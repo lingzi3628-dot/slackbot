@@ -110,11 +110,12 @@ export async function POST(req: NextRequest) {
       await checkLoginFailIp(ip);
 
       // ── Audit log with HASHED email (privacy) ──────────────────────
+      // userId is nullable in ActivityLog — null for nonexistent users.
       const hashedEmail = hashEmailForAudit(email);
       try {
         await db.activityLog.create({
           data: {
-            userId: user?.id || "unknown",
+            userId: user?.id || null,
             type: "auth",
             description: `Failed login (email hash: ${hashedEmail}) from ${ip}`,
             metadata: {

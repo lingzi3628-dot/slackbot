@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     try {
       await db.activityLog.create({
         data: {
-          userId: "unknown",
+          userId: null,
           type: "security",
           description: `Unauthorized /api/security access from ${ip} (UA: ${userAgent.slice(0, 100)})`,
         },

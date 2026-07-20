@@ -291,12 +291,12 @@ model Notification {
 // ── Activity Log ──────────────────────────────────────────────────────
 model ActivityLog {
   id          String   @id @default(cuid())
-  userId      String
-  type        String   // "agent" | "knowledge" | "comm" | "export" | "automation" | "chat" | "file" | "project"
+  userId      String?  // nullable — audit logs for unauthenticated actions (failed login, honeypot) have no user
+  type        String   // "agent" | "knowledge" | "comm" | "export" | "automation" | "chat" | "file" | "project" | "auth" | "error" | "security"
   description String
   metadata    Json?
   createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])

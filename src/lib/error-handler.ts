@@ -73,7 +73,7 @@ export async function handleApiErrorAudited(
   try {
     await db.activityLog.create({
       data: {
-        userId: userId || "unknown",
+        userId: userId || null,
         type: "error",
         description: `[${context}] ${errorMessage.slice(0, 200)}`,
         metadata: {

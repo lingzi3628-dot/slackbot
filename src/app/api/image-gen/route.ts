@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
     try {
       await db.activityLog.create({
         data: {
-          userId: userId || "unknown",
+          userId: userId || null,
           type: "image_gen",
           description: `Generated image (${size}, prompt: "${prompt.slice(0, 80)}")`,
         },

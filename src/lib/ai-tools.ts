@@ -95,7 +95,7 @@ export async function auditPrompt(params: {
   try {
     await db.activityLog.create({
       data: {
-        userId: params.userId || "anonymous",
+        userId: params.userId || null,
         type: "ai_prompt",
         description: `[${params.model}] ${params.rejected ? "REJECTED: " + (params.rejectionReason || "") : "OK"} "${params.prompt.slice(0, 200)}"`,
       },
