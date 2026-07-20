@@ -13,18 +13,19 @@ interface TurnstileWidgetProps {
 /**
  * Cloudflare Turnstile widget — bot protection for auth forms.
  *
- * Renders a CAPTCHA challenge. On success, calls onVerify with the token.
- * The token must be sent to the server for verification.
+ * Behavior:
+ * - If NEXT_PUBLIC_TURNSTILE_SITE_KEY is set → render the real Turnstile widget.
+ *   The user solves the challenge, a token is sent to the server for verification.
+ * - If NEXT_PUBLIC_TURNSTILE_SITE_KEY is NOT set → dev mode, auto-verify.
  *
- * If NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set (dev mode), renders a
- * fallback "dev mode" badge and auto-verifies with a placeholder token.
+ * On localhost, Cloudflare Turnstile renders in "test mode" (always passes)
+ * when using the test site key 1x00000000000000000000AA.
  */
 export function TurnstileWidget({ onVerify, onExpire, onError, className }: TurnstileWidgetProps) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const isDevMode = !siteKey;
 
   // Auto-verify in dev mode (no Turnstile configured).
-  // Must be called unconditionally (before any early return) per React Hooks rules.
   React.useEffect(() => {
     if (isDevMode) {
       onVerify("dev-mode-no-turnstile");

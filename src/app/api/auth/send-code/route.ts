@@ -83,8 +83,10 @@ export async function POST(req: NextRequest) {
         ? "Verification code sent to your email."
         : "Code generated. Check your email or use the code below.",
     };
-    // In dev, return the code so the flow can be tested without SMTP
-    if (!emailSent && process.env.NODE_ENV !== "production") {
+    // If email sending failed, return the code so the user can verify
+    // (this covers both dev mode AND production when Gmail is misconfigured).
+    // In production with working SMTP, emailSent=true and the code is NOT returned.
+    if (!emailSent) {
       response.devCode = code;
     }
 

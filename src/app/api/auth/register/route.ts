@@ -164,47 +164,36 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // ── V8: Send verification email ──────────────────────────────────
+    // ── Send verification email (or auto-verify if SMTP unavailable) ──
     const verifyToken = createEmailToken({ id: user.id, email: user.email });
     const verifyUrl = `${req.nextUrl.origin}/api/auth/verify-email?token=${verifyToken}`;
 
-    // Check if SMTP is configured. If not, auto-verify the user so they
-    // can log in immediately (graceful degradation — don't lock them out
-    // just because email isn't set up).
     const smtpConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
     let emailSent = false;
 
     if (smtpConfigured) {
-      // Fire-and-forget: send the email in the background, don't block the response.
-      // The user gets the response immediately; the email arrives a few seconds later.
-      // We track emailSent via a promise that we DON'T await.
-      const emailPromise = import("@/lib/email-service")
-        .then(({ sendVerificationEmail }) => sendVerificationEmail(email, name, verifyUrl))
-        .then(() => { emailSent = true; })
-        .catch((emailErr) => {
-          console.error("[register] Failed to send verification email:", emailErr);
-        });
-
-      // Wait up to 3 seconds for the email to send (so we know if it succeeded)
-      // If it takes longer, proceed anyway (emailSent stays false → auto-verify)
-      await Promise.race([
-        emailPromise,
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ]);
+      try {
+        const { sendVerificationEmail } = await import("@/lib/email-service");
+        // Race: 3s timeout. If Gmail is slow/broken, don't block the response.
+        await Promise.race([
+          sendVerificationEmail(email, name, verifyUrl).then(() => { emailSent = true; }),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      } catch (emailErr) {
+        console.error("[register] Email send error:", emailErr);
+      }
     }
 
-    // If SMTP is not configured OR email failed to send, auto-verify
-    // the user so they can actually use the app. In production with SMTP
-    // configured, the user must click the email link.
-    if (!smtpConfigured || !emailSent) {
+    // If SMTP not configured OR email failed → auto-verify the user
+    // so they can log in immediately (graceful degradation).
+    const autoVerified = !smtpConfigured || !emailSent;
+    if (autoVerified) {
       try {
         await db.user.update({
           where: { id: user.id },
           data: { verified: true },
         });
-      } catch {
-        /* ignore — user will need to verify via email link */
-      }
+      } catch { /* ignore */ }
     }
 
     // Audit log
@@ -220,15 +209,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       registered: true,
-      needsVerification: smtpConfigured && emailSent,
+      needsVerification: !autoVerified,
       id: user.id,
       name: user.name,
       email: user.email,
       avatarColor: user.avatarColor,
       role: user.role,
-      message: smtpConfigured && emailSent
-        ? "Account created. Check your email to verify your account."
-        : "Account created and verified. You can now log in.",
+      message: autoVerified
+        ? "Account created and verified. You can now log in."
+        : "Account created. Check your email to verify your account.",
     });
   } catch (err) {
     console.error("[register] error:", err);
