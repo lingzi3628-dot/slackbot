@@ -175,13 +175,22 @@ export async function POST(req: NextRequest) {
     let emailSent = false;
 
     if (smtpConfigured) {
-      try {
-        const { sendVerificationEmail } = await import("@/lib/email-service");
-        await sendVerificationEmail(email, name, verifyUrl);
-        emailSent = true;
-      } catch (emailErr) {
-        console.error("[register] Failed to send verification email:", emailErr);
-      }
+      // Fire-and-forget: send the email in the background, don't block the response.
+      // The user gets the response immediately; the email arrives a few seconds later.
+      // We track emailSent via a promise that we DON'T await.
+      const emailPromise = import("@/lib/email-service")
+        .then(({ sendVerificationEmail }) => sendVerificationEmail(email, name, verifyUrl))
+        .then(() => { emailSent = true; })
+        .catch((emailErr) => {
+          console.error("[register] Failed to send verification email:", emailErr);
+        });
+
+      // Wait up to 3 seconds for the email to send (so we know if it succeeded)
+      // If it takes longer, proceed anyway (emailSent stays false → auto-verify)
+      await Promise.race([
+        emailPromise,
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
     }
 
     // If SMTP is not configured OR email failed to send, auto-verify

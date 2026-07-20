@@ -18,7 +18,9 @@ let transporter: nodemailer.Transporter | null = null;
 function getTransporter(): nodemailer.Transporter | null {
   if (transporter) return transporter;
   const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
+  // Strip spaces from the app password (Gmail formats them as "xxxx xxxx xxxx xxxx"
+  // but the actual password has no spaces)
+  const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
   if (!user || !pass) {
     if (process.env.NODE_ENV === "production") {
       console.error("[email] GMAIL_USER or GMAIL_APP_PASSWORD not set — cannot send emails.");
@@ -30,6 +32,10 @@ function getTransporter(): nodemailer.Transporter | null {
   transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user, pass },
+    // 10s connection timeout — don't let a slow Gmail hang the entire request
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
   });
   return transporter;
 }

@@ -49,11 +49,17 @@ export async function verifyTurnstileToken(
     body.append("response", token);
     if (remoteip) body.append("remoteip", remoteip);
 
+    // 5s timeout — Cloudflare is fast, if it hasn't responded in 5s something is wrong
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
     const res = await fetch(TURNSTILE_VERIFY_URL, {
       method: "POST",
       body,
       headers: { "content-type": "application/x-www-form-urlencoded" },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
       console.error("[turnstile] Verify API returned", res.status);
@@ -64,6 +70,9 @@ export async function verifyTurnstileToken(
     return data.success === true;
   } catch (err) {
     console.error("[turnstile] Verification failed:", err);
-    return false;
+    // On network error / timeout, FAIL OPEN (allow the registration)
+    // — better to let a few bots through than block all real users
+    // when Cloudflare is temporarily unreachable.
+    return true;
   }
 }
