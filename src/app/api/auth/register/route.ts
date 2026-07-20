@@ -14,6 +14,7 @@ import { createEmailToken } from "@/lib/email-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // bcrypt cost 12 ~3s + Turnstile verify + DB + email
 
 interface RegisterBody {
   name?: unknown;
@@ -139,7 +140,16 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Hash password (bcrypt cost 12) ────────────────────────────────
-  const hashed = await bcrypt.hash(password, 12);
+  let hashed: string;
+  try {
+    hashed = await bcrypt.hash(password, 12);
+  } catch (hashErr) {
+    console.error("[register] bcrypt error:", hashErr);
+    return NextResponse.json(
+      { error: "Server error during password hashing. Please try again." },
+      { status: 500 }
+    );
+  }
 
   // ── Create user (unverified — must click email link) ──────────────
   const colors = ["#ff7a1a", "#e8421b", "#ff9a3c", "#ffd27a", "#8B5CF6", "#10b981"];
@@ -150,7 +160,7 @@ export async function POST(req: NextRequest) {
         email,
         password: hashed,
         avatarColor: colors[Math.floor(Math.random() * colors.length)],
-        verified: false, // V8: must verify email before login
+        verified: false,
       },
     });
 
@@ -213,6 +223,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[register] error:", err);
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    // Return a user-friendly error, never leak internals
+    if (msg.includes("Unique constraint")) {
+      return NextResponse.json(
+        { error: "An account with this email already exists. Try logging in." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: "Registration failed. Please try again." },
       { status: 500 }

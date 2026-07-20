@@ -17,6 +17,7 @@ import { handleApiError } from "@/lib/error-handler";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // bcrypt compare ~3s + DB queries + session creation
 
 interface LoginBody {
   email?: unknown;
