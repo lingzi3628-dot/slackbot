@@ -111,10 +111,28 @@ export function RegisterPage() {
       const body = mode === "register"
         ? { name: name.trim(), email: email.trim(), password, turnstileToken, website: "", company_website: "" }
         : { email: email.trim(), password, turnstileToken };
-      const res = await authFetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+      // Step 1: fetch with CSRF token (authFetch handles this)
+      const res = await authFetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
       // Reset Turnstile after each attempt
       setTurnstileToken("");
-      const data = await res.json();
+
+      // Step 2: parse response — handle non-JSON responses gracefully
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        // Server returned non-JSON (e.g. HTML error page, empty body)
+        setError(`Server error (HTTP ${res.status}). Please try again.`);
+        return;
+      }
+
+      // Step 3: handle the response
       if (mode === "register" && data.needsVerification) {
         setVerifyEmail(data.email); await sendCode(data.email); setStep("verify"); setLoading(false); return;
       }
@@ -123,7 +141,16 @@ export function RegisterPage() {
         signIn(data.email, data.name); setView("home");
       }
       else { setError(data.error || "Something went wrong."); }
-    } catch { setError("Network error. Please try again."); }
+    } catch (err) {
+      // Distinguish between CSRF fetch failure and actual network error
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      if (msg.includes("CSRF")) {
+        setError("Security token expired. Please refresh the page and try again.");
+      } else {
+        setError("Network error. Please check your connection and try again.");
+      }
+      console.error("[auth] submit error:", err);
+    }
     finally { setLoading(false); }
   };
 

@@ -96,8 +96,10 @@ const SECURITY_HEADERS: Record<string, string> = {
   "X-XSS-Protection": "1; mode=block",
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Permissions-Policy": "camera=(), microphone=(self), geolocation=(), payment=()",
+  // NOTE: Cross-Origin-Embedder-Policy and Cross-Origin-Resource-Policy
+  // removed — they were breaking same-origin fetch calls on Vercel.
+  // COOP kept as same-origin (doesn't affect fetch).
   "Cross-Origin-Opener-Policy": "same-origin",
-  "Cross-Origin-Resource-Policy": "same-origin",
 };
 
 export async function middleware(req: NextRequest) {
