@@ -1,6 +1,11 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { runGodMode, type GodModeStep } from "@/lib/god-mode";
 import type { SpyroMessage } from "@/lib/spyro-engine";
+import { getSession } from "@/lib/session";
+import { db } from "@/lib/db";
+import { checkRateLimit, getClientIp, buildRateLimitHeaders } from "@/lib/rate-limit";
+import { sanitizePrompt, detectSqlInjection, LIMITS } from "@/lib/input-validation";
+import { SECURITY_GUARDRAIL } from "@/lib/ai-tools";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,37 +16,158 @@ interface GodModeRequestBody {
   messages?: SpyroMessage[];
 }
 
+/** Premium plans allowed to use God Mode. */
+const GOD_MODE_PLANS = new Set(["pro", "plus", "ultra", "business", "enterprise"]);
+
+/** Daily God Mode invocation limit per plan. */
+const DAILY_LIMITS: Record<string, number> = {
+  pro: 10,
+  plus: 25,
+  ultra: 50,
+  business: 100,
+  enterprise: 500,
+};
+
 /**
- * God Mode endpoint — runs the multi-agent pipeline and streams progress
- * as NDJSON (newline-delimited JSON). Each line is either a step update
- * or the final result.
+ * God Mode endpoint — multi-agent AI pipeline.
  *
- * Format:
- *   {"type":"step","step":{"agent":"Planner","status":"thinking",...}}
- *   {"type":"step","step":{"agent":"Planner","status":"done","output":"..."}}
- *   ...
- *   {"type":"done","finalAnswer":"..."}
+ * V5 (round 2) FIX:
+ *  - Requires authentication (valid session).
+ *  - Requires premium plan (pro, plus, ultra, business, enterprise).
+ *  - Daily quota per plan (10-500 invocations/day).
+ *  - GET returns only {"status":"online"} — no agent architecture leak.
+ *  - Prompt sanitized (null bytes, control chars, max 4000 chars).
+ *  - SQL injection patterns blocked.
+ *  - Security guardrail prepended to all agent prompts.
+ *  - Every invocation audit-logged (user ID, prompt length, timestamp).
  */
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  const userAgent = req.headers.get("user-agent") || "unknown";
+
+  // ── 1. Auth check ──────────────────────────────────────────────────
+  const session = getSession(req);
+  if (!session) {
+    return NextResponse.json(
+      { error: "Authentication required. Please sign in to use God Mode." },
+      { status: 401 }
+    );
+  }
+
+  // ── 2. Plan check (premium only) ──────────────────────────────────
+  if (!GOD_MODE_PLANS.has(session.role === "admin" ? "enterprise" : "")) {
+    // Check the user's plan from the DB for accuracy
+    let userPlan = "free";
+    try {
+      const user = await db.user.findUnique({
+        where: { id: session.id },
+        select: { plan: true },
+      });
+      userPlan = user?.plan || "free";
+    } catch {
+      // DB unavailable — deny to be safe
+      return NextResponse.json(
+        { error: "Could not verify subscription. Please try again." },
+        { status: 503 }
+      );
+    }
+
+    if (!GOD_MODE_PLANS.has(userPlan)) {
+      // Audit log the denied attempt
+      try {
+        await db.activityLog.create({
+          data: {
+            userId: session.id,
+            type: "god_mode",
+            description: `Denied (plan: ${userPlan}) from ${ip}`,
+          },
+        });
+      } catch { /* ignore */ }
+      return NextResponse.json(
+        {
+          error: "God Mode is a premium feature. Upgrade to Pro or higher to access multi-agent AI pipelines.",
+          plan: userPlan,
+          upgradeUrl: "/premium",
+        },
+        { status: 403 }
+      );
+    }
+  }
+
+  // ── 3. Daily quota check ───────────────────────────────────────────
+  const planForQuota = session.role === "admin" ? "enterprise" : (await db.user.findUnique({ where: { id: session.id }, select: { plan: true } }))?.plan || "pro";
+  const dailyLimit = DAILY_LIMITS[planForQuota] || 10;
+  const quotaKey = `godmode-daily:${session.id}`;
+  const quota = await checkRateLimit(quotaKey, dailyLimit, 24 * 60 * 60 * 1000); // 24h window
+  if (!quota.allowed) {
+    const hoursLeft = Math.ceil((quota.resetAt - Date.now()) / (60 * 60 * 1000));
+    return NextResponse.json(
+      {
+        error: `Daily God Mode limit reached (${dailyLimit}/day for ${planForQuota} plan). Resets in ${hoursLeft} hour${hoursLeft === 1 ? "" : "s"}.`,
+        limit: dailyLimit,
+        resetAt: quota.resetAt,
+      },
+      { status: 429, headers: buildRateLimitHeaders(quota) }
+    );
+  }
+
+  // ── 4. Parse + sanitize input ──────────────────────────────────────
   let body: GodModeRequestBody;
   try {
     body = await req.json();
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-      status: 400,
-      headers: { "content-type": "application/json" },
-    });
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const prompt = body.prompt?.trim();
-  if (!prompt) {
-    return new Response(JSON.stringify({ error: "No prompt provided" }), {
-      status: 400,
-      headers: { "content-type": "application/json" },
-    });
+  const rawPrompt = typeof body.prompt === "string" ? body.prompt : "";
+  const prompt = sanitizePrompt(rawPrompt.slice(0, 4000)); // max 4000 chars
+
+  if (!prompt || prompt.length < 3) {
+    return NextResponse.json({ error: "A prompt of at least 3 characters is required" }, { status: 400 });
   }
 
-  const history = Array.isArray(body.messages) ? body.messages : [];
+  // ── 5. SQL injection check ────────────────────────────────────────
+  if (detectSqlInjection(prompt)) {
+    try {
+      await db.activityLog.create({
+        data: {
+          userId: session.id,
+          type: "god_mode",
+          description: `Blocked SQL injection attempt (prompt: "${prompt.slice(0, 100)}") from ${ip}`,
+        },
+      });
+    } catch { /* ignore */ }
+    return NextResponse.json(
+      { error: "Your prompt contains content that cannot be processed." },
+      { status: 400 }
+    );
+  }
+
+  // ── 6. Audit log the invocation ───────────────────────────────────
+  try {
+    await db.activityLog.create({
+      data: {
+        userId: session.id,
+        type: "god_mode",
+        description: `God Mode invoked (prompt length: ${prompt.length}, plan: ${planForQuota}) from ${ip}`,
+      },
+    });
+  } catch { /* ignore */ }
+
+  // ── 7. Run the pipeline with security guardrail ───────────────────
+  const history = Array.isArray(body.messages)
+    ? body.messages.filter((m) => m && typeof m.content === "string").slice(-20)
+    : [];
+
+  // Prepend the non-overridable security guardrail to every agent invocation
+  const securedHistory: SpyroMessage[] = [
+    { role: "system", content: SECURITY_GUARDRAIL },
+    ...history.map((m) => ({
+      role: m.role,
+      content: sanitizePrompt(m.content),
+    })),
+  ];
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -51,15 +177,11 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        await runGodMode(prompt, history, {
+        await runGodMode(prompt, securedHistory, {
           onStep: (step: GodModeStep) => {
             send({ type: "step", step });
           },
         });
-
-        // The final answer is in the last step's output.
-        // We send it as a "done" event for the client to pick up.
-        // (The client also gets it from the last step, but this is explicit.)
       } catch (err) {
         send({
           type: "error",
@@ -78,17 +200,25 @@ export async function POST(req: NextRequest) {
       "cache-control": "no-cache, no-transform",
       "x-content-type-options": "nosniff",
       "x-spyro-mode": "god-mode",
+      ...buildRateLimitHeaders(quota),
     },
   });
 }
 
-/** GET — health check. */
-export async function GET() {
+/**
+ * GET — minimal health check. Does NOT reveal agent architecture.
+ * V5 (round 2): returns only {"status":"online"} — no agent names, no description.
+ */
+export async function GET(req: NextRequest) {
+  const session = getSession(req);
+  if (!session) {
+    // Unauthenticated: minimal response, no architecture leak
+    return Response.json({ status: "online" });
+  }
+  // Authenticated: show minimal info
   return Response.json({
-    mode: "God Mode",
     status: "online",
-    agents: ["Planner", "Researcher", "Coder", "Synthesizer"],
-    description:
-      "Multi-agent collaboration. POST { prompt, messages? } to run the pipeline.",
+    description: "Multi-agent AI pipeline (premium feature).",
+    dailyLimit: DAILY_LIMITS["pro"], // don't leak the full table
   });
 }

@@ -5,9 +5,12 @@ import {
   validateEmail,
   validatePassword,
   sanitizeName,
-  LIMITS,
+  isDisposableEmail,
+  isHoneypotTriggered,
 } from "@/lib/input-validation";
 import { checkRateLimit, getClientIp, buildRateLimitHeaders } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
+import { createEmailToken } from "@/lib/email-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,26 +19,31 @@ interface RegisterBody {
   name?: unknown;
   email?: unknown;
   password?: unknown;
+  /** V8: Turnstile CAPTCHA token from the client widget. */
+  turnstileToken?: unknown;
+  /** V8: Honeypot field — must be empty (bots fill hidden fields). */
+  website?: unknown; // hidden field, should be empty
+  company_website?: unknown; // another honeypot
 }
 
 /**
  * POST /api/auth/register — create a new user account.
  *
- * V10 FIX:
- *  - Strong password policy: ≥12 chars, upper+lower+digit+special, no common passwords.
- *  - Specific error messages per validation failure.
- *  - No email enumeration: returns the SAME success-like response whether the
- *    email is already registered or not. (We still create the account if it's
- *    new; for existing emails we silently return success to avoid leaking
- *    which emails are registered.)
- *  - bcrypt cost factor 12 (not 10).
- *  - Input sanitization (strip HTML, null bytes, control chars).
- *  - Rate limited: 5 registrations per IP per 15 minutes.
+ * V8 (round 2) FIX:
+ *  - Cloudflare Turnstile CAPTCHA required (server-side verified).
+ *  - Honeypot fields: "website" and "company_website" — bots fill them, humans don't.
+ *  - Disposable email domains rejected (mailinator.com, 10minutemail.com, etc.).
+ *  - Email verification flow: user created as "unverified", verification email sent.
+ *  - Rate limited: 3 registrations per IP per hour (stricter than before).
+ *  - Strong password policy (12+ chars, complexity).
+ *  - No email enumeration (same response whether email exists or not).
+ *  - bcrypt cost 12.
+ *  - Audit log all registration attempts.
  */
 export async function POST(req: NextRequest) {
-  // ── Rate limit: 5 registrations / 15 min / IP ─────────────────────
+  // ── Rate limit: 3 registrations / hour / IP (V8: stricter) ─────────
   const ip = getClientIp(req);
-  const rl = await checkRateLimit(`register:${ip}`, 5, 15 * 60 * 1000);
+  const rl = await checkRateLimit(`register:${ip}`, 3, 60 * 60 * 1000);
   if (!rl.allowed) {
     const mins = Math.ceil((rl.resetAt - Date.now()) / 60000);
     return NextResponse.json(
@@ -52,6 +60,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
+  // ── V8: Honeypot check ────────────────────────────────────────────
+  // If either honeypot field is filled, it's a bot. Pretend success to
+  // not tip off the attacker, but don't create the account.
+  if (isHoneypotTriggered(body.website) || isHoneypotTriggered(body.company_website)) {
+    // Log the bot attempt
+    try {
+      await db.activityLog.create({
+        data: {
+          userId: "bot",
+          type: "auth",
+          description: `Honeypot triggered on registration from ${ip}`,
+        },
+      });
+    } catch { /* ignore */ }
+    // Return success-like response (don't reveal that we detected the bot)
+    return NextResponse.json({
+      registered: true,
+      needsVerification: true,
+      message: "If this email is not already registered, check your inbox to verify.",
+    });
+  }
+
+  // ── V8: Turnstile CAPTCHA verification ────────────────────────────
+  const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+  const captchaValid = await verifyTurnstileToken(turnstileToken, ip);
+  if (!captchaValid) {
+    return NextResponse.json(
+      { error: "Bot verification failed. Please complete the CAPTCHA and try again." },
+      { status: 400, headers: buildRateLimitHeaders(rl) }
+    );
+  }
+
+  // ── Validate name + email ─────────────────────────────────────────
   const name = sanitizeName(body.name);
   const email = validateEmail(body.email);
 
@@ -68,10 +109,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── V8: Disposable email domain check ─────────────────────────────
+  if (isDisposableEmail(email)) {
+    return NextResponse.json(
+      { error: "Disposable email addresses are not allowed. Please use a real email address." },
+      { status: 400, headers: buildRateLimitHeaders(rl) }
+    );
+  }
+
   // ── Password validation (strong policy) ──────────────────────────
   const pwCheck = validatePassword(body.password, email);
   if (!pwCheck.valid) {
-    // Return ALL errors so the user can fix them at once.
     return NextResponse.json(
       { error: pwCheck.errors.join(". ") },
       { status: 400, headers: buildRateLimitHeaders(rl) }
@@ -80,13 +128,9 @@ export async function POST(req: NextRequest) {
   const password = body.password as string;
 
   // ── Check if user exists (NO enumeration leak) ────────────────────
-  // If the email is already registered, we return a success-like response
-  // that says "check your email to verify" — identical to a new signup.
-  // This prevents attackers from enumerating which emails are registered.
   const existing = await db.user.findUnique({ where: { email } });
   if (existing) {
-    // Optionally: send a "someone tried to register with your email" notice
-    // to the existing user. For now, just return success-like response.
+    // Return success-like response (don't reveal the email is registered)
     return NextResponse.json({
       registered: true,
       needsVerification: true,
@@ -97,7 +141,7 @@ export async function POST(req: NextRequest) {
   // ── Hash password (bcrypt cost 12) ────────────────────────────────
   const hashed = await bcrypt.hash(password, 12);
 
-  // ── Create user ───────────────────────────────────────────────────
+  // ── Create user (unverified — must click email link) ──────────────
   const colors = ["#ff7a1a", "#e8421b", "#ff9a3c", "#ffd27a", "#8B5CF6", "#10b981"];
   try {
     const user = await db.user.create({
@@ -106,8 +150,33 @@ export async function POST(req: NextRequest) {
         email,
         password: hashed,
         avatarColor: colors[Math.floor(Math.random() * colors.length)],
+        verified: false, // V8: must verify email before login
       },
     });
+
+    // ── V8: Send verification email ──────────────────────────────────
+    const verifyToken = createEmailToken({ id: user.id, email: user.email });
+    const verifyUrl = `${req.nextUrl.origin}/api/auth/verify-email?token=${verifyToken}`;
+
+    // Send the email (best-effort — don't fail registration if email fails)
+    try {
+      const { sendVerificationEmail } = await import("@/lib/email-service");
+      await sendVerificationEmail(email, name, verifyUrl);
+    } catch (emailErr) {
+      console.error("[register] Failed to send verification email:", emailErr);
+      // Don't fail the registration — the user can request a resend.
+    }
+
+    // Audit log
+    try {
+      await db.activityLog.create({
+        data: {
+          userId: user.id,
+          type: "auth",
+          description: `New registration from ${ip}`,
+        },
+      });
+    } catch { /* ignore */ }
 
     return NextResponse.json({
       registered: true,
@@ -117,7 +186,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       avatarColor: user.avatarColor,
       role: user.role,
-      message: "Account created. Check your email to verify.",
+      message: "Account created. Check your email to verify your account.",
     });
   } catch (err) {
     console.error("[register] error:", err);
@@ -128,5 +197,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Helper exports for password-reset routes to reuse the same validation.
-export { validatePassword, validateEmail, sanitizeName, LIMITS };
+// Re-export validators for password-reset routes.
+export { validatePassword, validateEmail, sanitizeName };

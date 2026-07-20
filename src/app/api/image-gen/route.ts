@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
-import { checkImageRateLimit, buildRateLimitHeaders, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, buildRateLimitHeaders, getClientIp } from "@/lib/rate-limit";
+import { getSession } from "@/lib/session";
+import { getUserByApiKey } from "@/lib/api-auth";
+import { db } from "@/lib/db";
+import { sanitizePrompt } from "@/lib/input-validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,17 +77,46 @@ function buildWatermarkSvg(width: number, height: number): Buffer {
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, size = "1024x1024" } = (await req.json()) as ImageGenBody;
-    if (!prompt || typeof prompt !== "string") {
+    const body = (await req.json()) as ImageGenBody;
+    const rawPrompt = typeof body.prompt === "string" ? body.prompt : "";
+    // V4 (round 2): sanitize prompt (strip nulls, control chars, max length)
+    const prompt = sanitizePrompt(rawPrompt);
+    if (!prompt) {
       return NextResponse.json(
         { error: "No prompt provided." },
         { status: 400 }
       );
     }
 
-    // ── Rate limit check (distributed via Upstash, falls back to memory) ──
-    const ip = getClientIp(req);
-    const rateLimit = await checkImageRateLimit(ip);
+    // ── V4 (round 2): Authentication required ─────────────────────────
+    // Accept either a session cookie OR an x-api-key header.
+    const session = getSession(req);
+    const apiKey = req.headers.get("x-api-key");
+    let userId: string | null = null;
+
+    if (session) {
+      userId = session.id;
+    } else if (apiKey) {
+      const apiUser = await getUserByApiKey(apiKey);
+      if (apiUser) {
+        userId = apiUser.id;
+      } else {
+        return NextResponse.json(
+          { error: "Invalid API key." },
+          { status: 401 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: "Authentication required. Sign in or provide an x-api-key header." },
+        { status: 401 }
+      );
+    }
+
+    // ── Rate limit: per USER (not per IP) — V4 (round 2) ──────────────
+    // 10 images/hour per authenticated user. Falls back to IP if userId is null.
+    const rateLimitId = userId || getClientIp(req);
+    const rateLimit = await checkRateLimit(`img:${rateLimitId}`, 10, 60 * 60 * 1000);
     if (!rateLimit.allowed) {
       const minsLeft = Math.ceil((rateLimit.resetAt - Date.now()) / 60000);
       return NextResponse.json(
@@ -96,11 +129,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const size = body.size ?? "1024x1024";
     const dims = SIZE_MAP[size] ?? SIZE_MAP["1024x1024"];
     const encodedPrompt = encodeURIComponent(prompt.slice(0, 500));
     const imageUrl = `${POLLINATIONS_IMAGE_BASE}/${encodedPrompt}?width=${dims.width}&height=${dims.height}&nologo=true&referrer=spyro-v1-app`;
-
-    // Fetch the raw image from Pollinations — with retry + timeout.
     // The upstream can be slow or flaky, so we try up to 3 times with
     // a 30s timeout per attempt.
     let imgBuffer: Buffer | null = null;
@@ -185,6 +217,17 @@ export async function POST(req: NextRequest) {
     const base64 = resultBuffer.toString("base64");
     const dataUrl = `data:image/jpeg;base64,${base64}`;
 
+    // ── V4 (round 2): Audit log ───────────────────────────────────────
+    try {
+      await db.activityLog.create({
+        data: {
+          userId: userId || "unknown",
+          type: "image_gen",
+          description: `Generated image (${size}, prompt: "${prompt.slice(0, 80)}")`,
+        },
+      });
+    } catch { /* ignore audit errors */ }
+
     return NextResponse.json({
       image: dataUrl,
       prompt,
@@ -206,10 +249,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/** GET — minimal status. V4 (round 2): no rateLimit detail leak. */
 export async function GET() {
-  return Response.json({
-    status: "online",
-    watermark: "🐉 SPYRO AI",
-    rateLimit: "10 images per hour per IP",
-  });
+  return Response.json({ status: "online" });
 }

@@ -237,15 +237,22 @@ export async function POST(req: NextRequest) {
   });
 }
 
-/** GET — health check + available models. */
-export async function GET() {
+/**
+ * GET — minimal health check. V9 (round 2):
+ * Unauthenticated users get only {"status":"online"}.
+ * Authenticated users get the full model list + tools.
+ */
+export async function GET(req: NextRequest) {
+  const session = getSession(req);
+  if (!session) {
+    // Unauthenticated: minimal response, no model/tool enumeration
+    return Response.json({ status: "online" });
+  }
+  // Authenticated: show models + tools
   return Response.json({
-    model: "SPYRO V1",
     status: "online",
     models: SPYRO_MODELS,
     tools: ["web_search", "calculator"],
-    description:
-      "Dragon-powered AI chat. POST { messages } to stream. " +
-      "All prompts are sanitized + audit-logged. Model is server-pinned.",
+    description: "Dragon-powered AI chat. POST { messages } to stream.",
   });
 }

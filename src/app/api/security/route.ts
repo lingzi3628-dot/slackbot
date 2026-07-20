@@ -1,72 +1,75 @@
-import { NextResponse } from "next/server";
-import { SECURITY_HEADERS } from "@/lib/security";
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminSession } from "@/lib/admin-session";
+import { db } from "@/lib/db";
+import { getClientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Security audit — shows what security measures are active.
- * Useful for debugging and verification.
+ * Security audit endpoint — admin-only, minimal disclosure.
+ *
+ * V1 (round 2) FIX: Previously this endpoint leaked:
+ *  - Which env vars exist (DATABASE_URL, GMAIL_USER, GMAIL_APP_PASSWORD, FIREBASE_API_KEY)
+ *  - CORS configuration ("Access-Control-Allow-Origin": "*")
+ *  - Rate limiting implementation ("In-memory Map (resets on cold start)")
+ *  - Authentication method details (bcrypt, cookie config, api_key)
+ *  - Data privacy info
+ *  - Known issues
+ *
+ * Now: requires admin session, logs every access, returns ONLY:
+ *  - timestamp
+ *  - security_headers (safe to disclose — they're response headers anyway)
+ *  - generic status
  */
-export async function GET() {
-  const dbUrl = process.env.DATABASE_URL;
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
-  const firebaseKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+export async function GET(req: NextRequest) {
+  const ip = getClientIp(req);
+  const userAgent = req.headers.get("user-agent") || "unknown";
 
+  // ── Auth check: admin-only ─────────────────────────────────────────
+  const session = await getAdminSession();
+  if (!session) {
+    // Log unauthorized access attempt
+    try {
+      await db.activityLog.create({
+        data: {
+          userId: "unknown",
+          type: "security",
+          description: `Unauthorized /api/security access from ${ip} (UA: ${userAgent.slice(0, 100)})`,
+        },
+      });
+    } catch {
+      /* ignore audit errors */
+    }
+    return NextResponse.json({ status: "unauthorized" }, { status: 401 });
+  }
+
+  // ── Log authorized access ──────────────────────────────────────────
+  try {
+    await db.activityLog.create({
+      data: {
+        userId: session.id,
+        type: "security",
+        description: `Admin ${session.email} accessed /api/security from ${ip}`,
+      },
+    });
+  } catch {
+    /* ignore audit errors */
+  }
+
+  // ── Return minimal, safe information ───────────────────────────────
+  // NO env var details, NO CORS config, NO rate limit implementation,
+  // NO authentication method details, NO data privacy info, NO known issues.
   return NextResponse.json({
+    status: "ok",
     timestamp: new Date().toISOString(),
-
     security_headers: {
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
       "X-XSS-Protection": "1; mode=block",
       "Referrer-Policy": "strict-origin-when-cross-origin",
       "Permissions-Policy": "camera=(), microphone=(self), geolocation=()",
-      "HSTS": "max-age=31536000; includeSubDomains",
+      "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
     },
-
-    rate_limiting: {
-      anonymous: "20 requests / minute per IP",
-      authenticated: "100 requests / minute per API key",
-      image_generation: "10 images / hour per IP",
-      implementation: "In-memory Map (resets on cold start)",
-      headers: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
-    },
-
-    authentication: {
-      method: "bcrypt password hashing + HttpOnly session cookie",
-      cookie: {
-        httpOnly: true,
-        secure: true,
-        sameSite: "Lax",
-        maxAge: "7 days",
-      },
-      api_key: "Optional x-api-key header for higher rate limits",
-    },
-
-    cors: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization, x-api-key",
-    },
-
-    environment: {
-      DATABASE_URL_set: !!dbUrl,
-      DATABASE_URL_valid: dbUrl?.startsWith("postgresql://") || false,
-      GMAIL_USER_set: !!gmailUser,
-      GMAIL_APP_PASSWORD_set: !!gmailPass,
-      FIREBASE_API_KEY_set: !!firebaseKey,
-    },
-
-    data_privacy: {
-      conversations: "Stored in localStorage (browser) — not sent to server",
-      prompts: "Sent to SPYRO V1 engine for AI response generation only",
-      passwords: "bcrypt hashed — never stored in plain text",
-      api_keys: "Stored in Neon DB, returned once on generation",
-      logs: "No conversation content logged server-side",
-    },
-
-    known_issues: [],
-  }, { headers: SECURITY_HEADERS });
+  });
 }

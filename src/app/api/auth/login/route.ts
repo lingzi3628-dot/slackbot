@@ -129,6 +129,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ── V8 (round 2): Require verified email ──────────────────────────
+  if (!user.verified) {
+    return NextResponse.json(
+      {
+        error: "Please verify your email before signing in. Check your inbox for the verification link.",
+        needsVerification: true,
+        email: user.email,
+      },
+      { status: 403 }
+    );
+  }
+
   // ── Success: create session ───────────────────────────────────────
   const token = createSessionToken({
     id: user.id,

@@ -213,3 +213,214 @@ export function validatePhone(input: unknown): string | null {
   if (/^\+\d{8,15}$/.test(phone)) return phone;
   return null;
 }
+
+// ── Username validation (V11 round 2) ─────────────────────────────────
+/**
+ * Validate a username: alphanumeric + underscore/hyphen, 3-30 chars,
+ * no consecutive special chars, no leading/trailing special chars.
+ */
+export function validateUsername(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const name = input.trim();
+  if (name.length < 3 || name.length > 30) return null;
+  // Alphanumeric + underscore + hyphen only
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) return null;
+  // No consecutive special chars
+  if (/[_-]{2,}/.test(name)) return null;
+  // No leading/trailing special chars
+  if (/^[_-]|[_-]$/.test(name)) return null;
+  return name;
+}
+
+// ── URL validation with SSRF prevention (V11 round 2) ────────────────
+/**
+ * Validate a URL. Rejects non-http(s) protocols, private IP ranges,
+ * localhost, and link-local addresses to prevent SSRF.
+ *
+ * Returns the validated URL string, or null if invalid/unsafe.
+ */
+export function validateUrl(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(input.trim());
+  } catch {
+    return null;
+  }
+  // Only allow http and https
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  const hostname = parsed.hostname.toLowerCase();
+  // Reject localhost and loopback
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return null;
+  // Reject private IP ranges (IPv4)
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+    const parts = hostname.split(".").map(Number);
+    // 10.0.0.0/8
+    if (parts[0] === 10) return null;
+    // 172.16.0.0/12
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return null;
+    // 192.168.0.0/16
+    if (parts[0] === 192 && parts[1] === 168) return null;
+    // 169.254.0.0/16 (link-local)
+    if (parts[0] === 169 && parts[1] === 254) return null;
+    // 0.0.0.0/8
+    if (parts[0] === 0) return null;
+    // 127.0.0.0/8 (loopback — already caught above but be thorough)
+    if (parts[0] === 127) return null;
+  }
+  // Reject .local, .internal, .localhost TLDs
+  if (/\.(local|internal|localhost)$/i.test(hostname)) return null;
+  // Reject IPv6 link-local (fe80::/10) and Unique Local (fc00::/7) — basic check
+  if (/^(fe80|fc|fd)/i.test(hostname)) return null;
+  return parsed.toString();
+}
+
+// ── Hex color validation (V11 round 2) ───────────────────────────────
+/** Validate a hex color string (#RRGGBB). Returns normalized or null. */
+export function validateHexColor(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(trimmed)) return trimmed.toLowerCase();
+  // Allow 3-digit shorthand #RGB → expand to #RRGGBB
+  if (/^#[0-9A-Fa-f]{3}$/.test(trimmed)) {
+    const hex = trimmed.slice(1);
+    return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`.toLowerCase();
+  }
+  return null;
+}
+
+// ── API key validation (V11 round 2) ─────────────────────────────────
+/**
+ * Validate an API key format: UUID v4 or a Spyro-prefixed key
+ * (spyro-<32hexchars>). Returns normalized or null.
+ */
+export function validateApiKey(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  // UUID v4
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  // Spyro-prefixed key: spyro-<32 hex chars>
+  if (/^spyro-[0-9a-f]{32}$/i.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  return null;
+}
+
+// ── Numeric parameter validation (V11 round 2) ───────────────────────
+/**
+ * Parse and validate a numeric parameter. Returns null if invalid.
+ * @param input   The input value (string, number, etc.)
+ * @param min     Minimum value (inclusive)
+ * @param max     Maximum value (inclusive)
+ * @param integer If true, require an integer (no decimals)
+ */
+export function validateNumber(
+  input: unknown,
+  min: number,
+  max: number,
+  integer: boolean = true
+): number | null {
+  if (typeof input === "number") {
+    if (integer && !Number.isInteger(input)) return null;
+    if (input < min || input > max) return null;
+    return input;
+  }
+  if (typeof input === "string") {
+    const n = parseInt(input, 10);
+    if (isNaN(n)) return null;
+    if (integer && !Number.isInteger(n)) return null;
+    if (n < min || n > max) return null;
+    return n;
+  }
+  return null;
+}
+
+/** Validate a boolean parameter (accepts true/false, "true"/"false", 0/1). */
+export function validateBoolean(input: unknown): boolean | null {
+  if (typeof input === "boolean") return input;
+  if (typeof input === "string") {
+    const lower = input.toLowerCase().trim();
+    if (lower === "true" || lower === "1") return true;
+    if (lower === "false" || lower === "0") return false;
+  }
+  if (typeof input === "number") {
+    if (input === 1) return true;
+    if (input === 0) return false;
+  }
+  return null;
+}
+
+// ── File type validation (for uploads — V6, V10) ─────────────────────
+/** Allowed image MIME types + their magic bytes (first 4-8 bytes). */
+export const ALLOWED_IMAGE_TYPES: Record<string, { mime: string; magic: number[] }> = {
+  png: { mime: "image/png", magic: [0x89, 0x50, 0x4e, 0x47] },
+  jpg: { mime: "image/jpeg", magic: [0xff, 0xd8, 0xff] },
+  jpeg: { mime: "image/jpeg", magic: [0xff, 0xd8, 0xff] },
+  webp: { mime: "image/webp", magic: [0x52, 0x49, 0x46, 0x46] }, // RIFF
+  gif: { mime: "image/gif", magic: [0x47, 0x49, 0x46, 0x38] }, // GIF8
+};
+
+/** Allowed audio MIME types + magic bytes (for transcription — V10). */
+export const ALLOWED_AUDIO_TYPES: Record<string, { mime: string; magic: number[] }> = {
+  mp3: { mime: "audio/mpeg", magic: [0xff, 0xfb] }, // MP3 (also 0x49 0x44 0x33 for ID3)
+  mp4: { mime: "audio/mp4", magic: [0x66, 0x74, 0x79, 0x70] }, // ftyp
+  mpeg: { mime: "audio/mpeg", magic: [0xff, 0xfb] },
+  mpga: { mime: "audio/mpeg", magic: [0xff, 0xfb] },
+  m4a: { mime: "audio/mp4", magic: [0x66, 0x74, 0x79, 0x70] },
+  wav: { mime: "audio/wav", magic: [0x52, 0x49, 0x46, 0x46] }, // RIFF
+  webm: { mime: "audio/webm", magic: [0x1a, 0x45, 0xdf, 0xa3] }, // EBML
+};
+
+/**
+ * Validate a file buffer by checking its magic bytes (not just the extension).
+ * Returns the detected type key, or null if not allowed.
+ */
+export function validateFileType(
+  buffer: Buffer,
+  allowed: Record<string, { mime: string; magic: number[] }>
+): string | null {
+  for (const [type, def] of Object.entries(allowed)) {
+    if (buffer.length < def.magic.length) continue;
+    const matches = def.magic.every((byte, i) => buffer[i] === byte);
+    if (matches) return type;
+  }
+  return null;
+}
+
+// ── Disposable email domain blocklist (V8 round 2) ───────────────────
+// Top ~40 disposable email providers. For full list see
+// https://github.com/disposable-email-domains/disposable-email-domains
+const DISPOSABLE_DOMAINS = new Set([
+  "mailinator.com", "guerrillamail.com", "10minutemail.com", "tempmail.com",
+  "throwaway.email", "getnada.com", "mailnesia.com", "sharklasers.com",
+  "guerrillamailblock.com", "spam4.me", "disposableinbox.com", "maildrop.cc",
+  "discard.email", "fakeinbox.com", "mailcatch.com", "tempinbox.com",
+  "spam.la", "trbvm.com", "tempr.email", "moakt.com", "tmpmail.org",
+  "burnermail.io", "inboxbear.com", "mohmal.com", "yopmail.com",
+  "yopmail.fr", "cool.fr", "jetable.fr", "nospam.ze.tc", "nomail.xl.cx",
+  "mega.zik.dj", "speed.1s.fr", "courriel.temporaire.ligne", "mail-temporaire",
+  "30secondmail.com", "15minuteemail.com", "temp-mail.org", "tempmailo.com",
+  "emailondeck.com", "mimicmail.com", "makemetheking.com", "anonbox.net",
+  "trashmail.com", "trashmail.net", "trashmail.me", "mytemp.email",
+  "tempmailaddress.com", "tempmailo.com", "dispostable.com", "mailify.com",
+]);
+
+/** Check if an email uses a disposable/temporary domain. */
+export function isDisposableEmail(email: string): boolean {
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain) return false;
+  return DISPOSABLE_DOMAINS.has(domain);
+}
+
+// ── Honeypot field check (V8 round 2) ────────────────────────────────
+/**
+ * Check if a honeypot field was filled (indicating a bot).
+ * Honeypot fields are hidden in the UI — humans never fill them.
+ * Returns true if the field has any content (bot detected).
+ */
+export function isHoneypotTriggered(field: unknown): boolean {
+  if (typeof field !== "string") return false;
+  return field.trim().length > 0;
+}
