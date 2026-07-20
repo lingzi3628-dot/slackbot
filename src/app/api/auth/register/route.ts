@@ -170,37 +170,31 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // ── Send verification email (or auto-verify if SMTP unavailable) ──
+    // ── Email verification (fire-and-forget — never blocks the response) ──
     const verifyToken = createEmailToken({ id: user.id, email: user.email });
     const verifyUrl = `${req.nextUrl.origin}/api/auth/verify-email?token=${verifyToken}`;
 
     const smtpConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
-    let emailSent = false;
 
+    // Fire-and-forget: send email in the background. We do NOT await this.
+    // The response returns immediately. If Gmail is slow/broken, it doesn't
+    // affect the user's registration. The email promise is caught so it
+    // never causes an unhandled rejection.
     if (smtpConfigured) {
-      try {
-        const { sendVerificationEmail } = await import("@/lib/email-service");
-        // Race: 3s timeout. If Gmail is slow/broken, don't block the response.
-        await Promise.race([
-          sendVerificationEmail(email, name, verifyUrl).then(() => { emailSent = true; }),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch (emailErr) {
-        console.error("[register] Email send error:", emailErr);
-      }
+      import("@/lib/email-service")
+        .then(({ sendVerificationEmail }) => sendVerificationEmail(email, name, verifyUrl))
+        .catch((err) => console.error("[register] Email send error:", err.message));
     }
 
-    // If SMTP not configured OR email failed → auto-verify the user
-    // so they can log in immediately (graceful degradation).
-    const autoVerified = !smtpConfigured || !emailSent;
-    if (autoVerified) {
-      try {
-        await db.user.update({
-          where: { id: user.id },
-          data: { verified: true },
-        });
-      } catch { /* ignore */ }
-    }
+    // Since we can't guarantee email delivery, ALWAYS auto-verify the user.
+    // When Gmail is properly configured and working, you can change this to
+    // only auto-verify when SMTP fails. For now, auto-verify everyone.
+    try {
+      await db.user.update({
+        where: { id: user.id },
+        data: { verified: true },
+      });
+    } catch { /* ignore */ }
 
     // Audit log
     try {
@@ -215,15 +209,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       registered: true,
-      needsVerification: !autoVerified,
+      needsVerification: false,
       id: user.id,
       name: user.name,
       email: user.email,
       avatarColor: user.avatarColor,
       role: user.role,
-      message: autoVerified
-        ? "Account created and verified. You can now log in."
-        : "Account created. Check your email to verify your account.",
+      message: "Account created. You can now log in.",
     });
   } catch (err) {
     console.error("[register] error:", err);
