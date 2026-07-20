@@ -1,44 +1,45 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminSession } from "@/lib/admin-session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Health check — tests if the database connection is working.
- * Visit /api/health to see the DB status + env var info.
+ * Health check — admin-only. Returns ONLY { status, timestamp }.
+ *
+ * V1 FIX: Previously this endpoint leaked the existence of every env var
+ * (DATABASE_URL, GMAIL_USER, GMAIL_APP_PASSWORD, FIREBASE_API_KEY) in the
+ * response body. That's an information-disclosure vulnerability — attackers
+ * could enumerate which secrets to target.
+ *
+ * Now: requires admin session, returns no env details whatsoever.
+ * Public unauthenticated requests get a 401 with no info.
  */
-export async function GET() {
-  const dbUrl = process.env.DATABASE_URL;
-  const hasChannelBinding = dbUrl?.includes("channel_binding");
+export async function GET(req: NextRequest) {
+  // ── Auth check: admin-only ─────────────────────────────────────────
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json(
+      { status: "unauthorized" },
+      { status: 401 }
+    );
+  }
 
-  const status: Record<string, unknown> = {
+  // ── Public (admin-visible) response — no env details ──────────────
+  const base = {
+    status: "ok" as "ok" | "degraded" | "down",
     timestamp: new Date().toISOString(),
-    env: {
-      DATABASE_URL_set: !!dbUrl,
-      DATABASE_URL_starts_with_postgres: dbUrl?.startsWith("postgresql://") || dbUrl?.startsWith("postgres://"),
-      has_channel_binding: hasChannelBinding,
-      GMAIL_USER_set: !!process.env.GMAIL_USER,
-      GMAIL_APP_PASSWORD_set: !!process.env.GMAIL_APP_PASSWORD,
-      FIREBASE_API_KEY_set: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    },
   };
 
-  if (hasChannelBinding) {
-    status.error = "DATABASE_URL contains 'channel_binding=require' which Prisma doesn't support. Remove it from your Vercel env var.";
-    status.fix = "Remove 'channel_binding=require' from your DATABASE_URL env var. Prisma doesn't support it.";
-    return NextResponse.json(status, { status: 500 });
-  }
-
-  // Try to connect to the DB.
+  // ── Optional: quick DB ping (admin only, no counts or details) ────
   try {
     const { db } = await import("@/lib/db");
-    const userCount = await db.user.count();
-    status.database = "connected";
-    status.userCount = userCount;
-    return NextResponse.json(status);
-  } catch (err) {
-    status.database = "error";
-    status.error = err instanceof Error ? err.message : "Unknown DB error";
-    return NextResponse.json(status, { status: 500 });
+    // A trivial query — just checks the connection is alive.
+    await db.$queryRaw`SELECT 1`;
+    base.status = "ok";
+  } catch {
+    base.status = "degraded";
   }
+
+  return NextResponse.json(base);
 }

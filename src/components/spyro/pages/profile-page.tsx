@@ -18,6 +18,7 @@ import { useLocalAuth } from "@/store/local-auth";
 import { useChatStore } from "@/store/chat-store";
 import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/csrf-client";
 
 export function ProfilePage({ onBack }: { onBack: () => void }) {
   const { user, signOut, updateProfile } = useLocalAuth();
@@ -46,7 +47,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
 
   const handleSignOut = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await authFetch("/api/auth/logout", { method: "POST" });
     } catch {
       /* ignore */
     }

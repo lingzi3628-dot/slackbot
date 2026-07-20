@@ -11,6 +11,7 @@ import { useLocalAuth } from "@/store/local-auth";
 import { useUIStore } from "@/store/ui-store";
 import { SpyroLogo } from "../spyro-logo";
 import { cn } from "@/lib/utils";
+import { authFetch } from "@/lib/csrf-client";
 
 // ── Landing hero features ─────────────────────────────────────────────
 const FEATURES = [
@@ -74,7 +75,7 @@ export function RegisterPage() {
   React.useEffect(() => {
     if (step === "verify" && verifyEmail && !devCode) {
       // Silently resend the code
-      fetch("/api/auth/send-code", {
+      authFetch("/api/auth/send-code", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: verifyEmail }),
@@ -92,7 +93,7 @@ export function RegisterPage() {
     try {
       const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";
       const body = mode === "register" ? { name: name.trim(), email: email.trim(), password } : { email: email.trim(), password };
-      const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const res = await authFetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (mode === "register" && data.needsVerification) {
         setVerifyEmail(data.email); await sendCode(data.email); setStep("verify"); setLoading(false); return;
@@ -108,7 +109,7 @@ export function RegisterPage() {
 
   const sendCode = async (targetEmail: string) => {
     try {
-      const res = await fetch("/api/auth/send-code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: targetEmail }) });
+      const res = await authFetch("/api/auth/send-code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: targetEmail }) });
       const data = await res.json();
       if (data.devCode) setDevCode(data.devCode); else setDevCode(null);
     } catch { /* ignore */ }
@@ -120,7 +121,7 @@ export function RegisterPage() {
     if (!code.trim() || code.length !== 6) { setCodeError("Enter the 6-digit code."); return; }
     setCodeLoading(true); setCodeError(null);
     try {
-      const res = await fetch("/api/auth/verify-code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: verifyEmail, code: code.trim() }) });
+      const res = await authFetch("/api/auth/verify-code", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: verifyEmail, code: code.trim() }) });
       const data = await res.json();
       if (data.verified) {
         // Clear persisted form data on success
@@ -138,7 +139,7 @@ export function RegisterPage() {
     if (!forgotEmail.trim()) return;
     setForgotLoading(true);
     try {
-      await fetch("/api/auth/forgot-password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: forgotEmail.trim() }) });
+      await authFetch("/api/auth/forgot-password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: forgotEmail.trim() }) });
       setForgotSent(true);
     } catch { setForgotSent(true); }
     finally { setForgotLoading(false); }

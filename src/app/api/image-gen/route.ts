@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import sharp from "sharp";
+import { checkImageRateLimit, buildRateLimitHeaders, getClientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,30 +19,6 @@ const SIZE_MAP: Record<string, { width: number; height: number }> = {
   "1344x768": { width: 1344, height: 768 },
   "1440x720": { width: 1440, height: 720 },
 };
-
-// ── Rate limiting ─────────────────────────────────────────────────────
-// 10 images per hour per IP (stored in memory — resets on cold start).
-// For production, swap with Upstash Redis.
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
-const RATE_LIMIT_MAX = 10;
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
-    return { allowed: true, remaining: RATE_LIMIT_MAX - 1, resetAt: now + RATE_LIMIT_WINDOW };
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: RATE_LIMIT_MAX - entry.count, resetAt: entry.resetAt };
-}
 
 /** Build a premium SPYRO AI watermark SVG overlay — large, clear, center-bottom. */
 function buildWatermarkSvg(width: number, height: number): Buffer {
@@ -104,18 +81,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Rate limit check ──────────────────────────────────────────────
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
-    const rateLimit = checkRateLimit(ip);
+    // ── Rate limit check (distributed via Upstash, falls back to memory) ──
+    const ip = getClientIp(req);
+    const rateLimit = await checkImageRateLimit(ip);
     if (!rateLimit.allowed) {
       const minsLeft = Math.ceil((rateLimit.resetAt - Date.now()) / 60000);
       return NextResponse.json(
         {
-          error: `Rate limit reached. You've generated ${RATE_LIMIT_MAX} images this hour. Try again in ${minsLeft} minute${minsLeft === 1 ? "" : "s"}.`,
+          error: `Rate limit reached. You've generated ${rateLimit.limit} images this hour. Try again in ${minsLeft} minute${minsLeft === 1 ? "" : "s"}.`,
           rateLimited: true,
           resetAt: rateLimit.resetAt,
         },
-        { status: 429 }
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
       );
     }
 
@@ -215,7 +192,7 @@ export async function POST(req: NextRequest) {
       watermarked: true,
       rateLimit: {
         remaining: rateLimit.remaining,
-        limit: RATE_LIMIT_MAX,
+        limit: rateLimit.limit,
         resetAt: rateLimit.resetAt,
       },
     });
@@ -233,6 +210,6 @@ export async function GET() {
   return Response.json({
     status: "online",
     watermark: "🐉 SPYRO AI",
-    rateLimit: `${RATE_LIMIT_MAX} images per hour`,
+    rateLimit: "10 images per hour per IP",
   });
 }
