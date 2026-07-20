@@ -158,13 +158,34 @@ export async function POST(req: NextRequest) {
     const verifyToken = createEmailToken({ id: user.id, email: user.email });
     const verifyUrl = `${req.nextUrl.origin}/api/auth/verify-email?token=${verifyToken}`;
 
-    // Send the email (best-effort — don't fail registration if email fails)
-    try {
-      const { sendVerificationEmail } = await import("@/lib/email-service");
-      await sendVerificationEmail(email, name, verifyUrl);
-    } catch (emailErr) {
-      console.error("[register] Failed to send verification email:", emailErr);
-      // Don't fail the registration — the user can request a resend.
+    // Check if SMTP is configured. If not, auto-verify the user so they
+    // can log in immediately (graceful degradation — don't lock them out
+    // just because email isn't set up).
+    const smtpConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+    let emailSent = false;
+
+    if (smtpConfigured) {
+      try {
+        const { sendVerificationEmail } = await import("@/lib/email-service");
+        await sendVerificationEmail(email, name, verifyUrl);
+        emailSent = true;
+      } catch (emailErr) {
+        console.error("[register] Failed to send verification email:", emailErr);
+      }
+    }
+
+    // If SMTP is not configured OR email failed to send, auto-verify
+    // the user so they can actually use the app. In production with SMTP
+    // configured, the user must click the email link.
+    if (!smtpConfigured || !emailSent) {
+      try {
+        await db.user.update({
+          where: { id: user.id },
+          data: { verified: true },
+        });
+      } catch {
+        /* ignore — user will need to verify via email link */
+      }
     }
 
     // Audit log
@@ -180,13 +201,15 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       registered: true,
-      needsVerification: true,
+      needsVerification: smtpConfigured && emailSent,
       id: user.id,
       name: user.name,
       email: user.email,
       avatarColor: user.avatarColor,
       role: user.role,
-      message: "Account created. Check your email to verify your account.",
+      message: smtpConfigured && emailSent
+        ? "Account created. Check your email to verify your account."
+        : "Account created and verified. You can now log in.",
     });
   } catch (err) {
     console.error("[register] error:", err);

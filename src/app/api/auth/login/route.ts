@@ -133,16 +133,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Require verified email ───────────────────────────────────────
+    // ── Require verified email (unless SMTP not configured — graceful degradation) ────
     if (!user.verified) {
-      return NextResponse.json(
-        {
-          error: "Please verify your email before signing in. Check your inbox for the verification link.",
-          needsVerification: true,
-          email: user.email,
-        },
-        { status: 403 }
-      );
+      // If SMTP is not configured, auto-verify the user (they can't have
+      // received a verification email anyway). This prevents lockout.
+      const smtpConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+      if (!smtpConfigured) {
+        try {
+          await db.user.update({
+            where: { id: user.id },
+            data: { verified: true },
+          });
+        } catch { /* ignore */ }
+      } else {
+        return NextResponse.json(
+          {
+            error: "Please verify your email before signing in. Check your inbox for the verification link.",
+            needsVerification: true,
+            email: user.email,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // ── Success: create DB-stored session (regenerated ID) ────────────

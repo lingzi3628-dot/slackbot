@@ -88,7 +88,7 @@ export function RegisterPage() {
   const submit = async () => {
     if (!email.trim() || !password.trim()) { setError("Email and password are required."); return; }
     if (mode === "register" && !name.trim()) { setError("Name is required."); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    if (password.length < 12) { setError("Password must be at least 12 characters with uppercase, lowercase, digit, and special character."); return; }
     setLoading(true); setError(null);
     try {
       const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";

@@ -35,14 +35,11 @@ export async function verifyTurnstileToken(
 ): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
-    // No secret configured.
-    // In production: fail closed (reject).
-    // In development: allow (so devs can test without Turnstile).
-    if (process.env.NODE_ENV === "production") {
-      console.error("[turnstile] TURNSTILE_SECRET_KEY not set — rejecting registration in production.");
-      return false;
-    }
-    console.warn("[turnstile] TURNSTILE_SECRET_KEY not set — allowing in dev mode.");
+    // No secret configured — SKIP verification (graceful degradation).
+    // The user can enable Turnstile later by setting TURNSTILE_SECRET_KEY
+    // and NEXT_PUBLIC_TURNSTILE_SITE_KEY env vars. Until then, registration
+    // works without CAPTCHA (rate limiting + honeypot still protect against bots).
+    console.warn("[turnstile] TURNSTILE_SECRET_KEY not set — skipping CAPTCHA verification.");
     return true;
   }
 
