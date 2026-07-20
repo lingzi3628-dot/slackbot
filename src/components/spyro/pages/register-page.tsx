@@ -12,6 +12,7 @@ import { useUIStore } from "@/store/ui-store";
 import { SpyroLogo } from "../spyro-logo";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/csrf-client";
+import { TurnstileWidget } from "@/components/turnstile-widget";
 
 // ── Landing hero features ─────────────────────────────────────────────
 const FEATURES = [
@@ -44,6 +45,18 @@ export function RegisterPage() {
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [forgotSent, setForgotSent] = React.useState(false);
   const [forgotLoading, setForgotLoading] = React.useState(false);
+
+  // CAPTCHA (Cloudflare Turnstile) — bot protection
+  const [turnstileToken, setTurnstileToken] = React.useState("");
+
+  // Password reset portal (triggered by ?reset=<token> URL param)
+  const [resetToken, setResetToken] = React.useState<string | null>(null);
+  const [resetPassword, setResetPassword] = React.useState("");
+  const [resetPasswordConfirm, setResetPasswordConfirm] = React.useState("");
+  const [resetLoading, setResetLoading] = React.useState(false);
+  const [resetError, setResetError] = React.useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = React.useState(false);
+  const [showResetPassword, setShowResetPassword] = React.useState(false);
 
   // Verification state — persist in sessionStorage so refresh doesn't lose it
   const [step, setStep] = React.useState<"form" | "verify">(() => {
@@ -88,12 +101,19 @@ export function RegisterPage() {
   const submit = async () => {
     if (!email.trim() || !password.trim()) { setError("Email and password are required."); return; }
     if (mode === "register" && !name.trim()) { setError("Name is required."); return; }
-    if (password.length < 12) { setError("Password must be at least 12 characters with uppercase, lowercase, digit, and special character."); return; }
+    // Only enforce 12-char policy on REGISTER. Old users with 6-char passwords
+    // must still be able to LOGIN. The server validates accordingly.
+    if (mode === "register" && password.length < 12) { setError("Password must be at least 12 characters with uppercase, lowercase, digit, and special character."); return; }
+    if (mode === "register" && !turnstileToken) { setError("Please complete the security check (CAPTCHA)."); return; }
     setLoading(true); setError(null);
     try {
       const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";
-      const body = mode === "register" ? { name: name.trim(), email: email.trim(), password } : { email: email.trim(), password };
+      const body = mode === "register"
+        ? { name: name.trim(), email: email.trim(), password, turnstileToken, website: "", company_website: "" }
+        : { email: email.trim(), password, turnstileToken };
       const res = await authFetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      // Reset Turnstile after each attempt
+      setTurnstileToken("");
       const data = await res.json();
       if (mode === "register" && data.needsVerification) {
         setVerifyEmail(data.email); await sendCode(data.email); setStep("verify"); setLoading(false); return;
@@ -134,6 +154,46 @@ export function RegisterPage() {
   };
 
   const continueAsGuest = () => { signIn("guest@spyro.ai", "Guest"); setView("home"); };
+
+  // ── Password reset portal — detect ?reset=<token> in URL ────────────
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const reset = params.get("reset");
+    if (reset) {
+      setResetToken(reset);
+      setShowResetPassword(true);
+      // Clean the URL (remove ?reset=... so it doesn't persist on refresh)
+      const url = new URL(window.location.href);
+      url.searchParams.delete("reset");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
+  const submitResetPassword = async () => {
+    setResetError(null);
+    if (!resetToken) { setResetError("Invalid reset token. Please request a new reset link."); return; }
+    if (!resetPassword || resetPassword.length < 12) { setResetError("Password must be at least 12 characters with uppercase, lowercase, digit, and special character."); return; }
+    if (resetPassword !== resetPasswordConfirm) { setResetError("Passwords do not match."); return; }
+    setResetLoading(true);
+    try {
+      const res = await authFetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: resetToken, password: resetPassword }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setResetSuccess(true);
+      } else {
+        setResetError(data.error || "Reset failed. Please try again.");
+      }
+    } catch {
+      setResetError("Network error. Please try again.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const sendForgotPassword = async () => {
     if (!forgotEmail.trim()) return;
@@ -263,10 +323,19 @@ export function RegisterPage() {
 
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="Password (min 6 chars)" className="w-full rounded-[18px] border border-border bg-secondary/50 py-2.5 pl-10 pr-10 text-sm focus:border-primary/30 focus:outline-none" />
+                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder={mode === "register" ? "Password (min 12 chars)" : "Password"} className="w-full rounded-[18px] border border-border bg-secondary/50 py-2.5 pl-10 pr-10 text-sm focus:border-primary/30 focus:outline-none" />
                     <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" type="button">
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
+                  </div>
+
+                  {/* CAPTCHA (Cloudflare Turnstile) — bot protection */}
+                  <div className="flex justify-center">
+                    <TurnstileWidget
+                      onVerify={(token) => setTurnstileToken(token)}
+                      onExpire={() => setTurnstileToken("")}
+                      onError={() => setTurnstileToken("")}
+                    />
                   </div>
 
                   {mode === "login" && (
@@ -318,6 +387,163 @@ export function RegisterPage() {
                   <div className="mt-4 flex gap-2">
                     <button onClick={() => setShowForgot(false)} className="flex-1 rounded-[18px] border border-border py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
                     <button onClick={sendForgotPassword} disabled={forgotLoading || !forgotEmail.trim()} className="flex-1 rounded-[18px] spyro-bg-gradient py-2 text-sm font-medium text-white disabled:opacity-50">{forgotLoading ? "Sending…" : "Send Link"}</button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Password Reset Portal — triggered by ?reset=<token> in URL */}
+      <AnimatePresence>
+        {showResetPassword && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
+            onClick={() => !resetLoading && setShowResetPassword(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-strong w-full max-w-md rounded-[28px] p-8 shadow-elevated"
+            >
+              {resetSuccess ? (
+                <div className="text-center">
+                  <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-full bg-green-500/15">
+                    <Check className="h-8 w-8 text-green-500" />
+                  </div>
+                  <h3 className="text-xl font-bold">Password Reset!</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Your password has been changed successfully. You can now log in with your new password.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowResetPassword(false);
+                      setResetSuccess(false);
+                      setResetToken(null);
+                      setResetPassword("");
+                      setResetPasswordConfirm("");
+                      setMode("login");
+                    }}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-[18px] spyro-bg-gradient py-3 text-sm font-semibold text-white transition-all hover:spyro-glow"
+                  >
+                    <ArrowRight className="h-4 w-4" /> Continue to Login
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="grid h-10 w-10 place-items-center rounded-xl spyro-bg-gradient">
+                      <KeyRound className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">Set New Password</h3>
+                      <p className="text-xs text-muted-foreground">Enter your new password below</p>
+                    </div>
+                  </div>
+
+                  {/* New password */}
+                  <div className="mt-4 space-y-3">
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type={showResetPassword ? "text" : "password"}
+                        value={resetPassword}
+                        onChange={(e) => setResetPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && submitResetPassword()}
+                        placeholder="New password (min 12 chars)"
+                        className="w-full rounded-[18px] border border-border bg-secondary/50 py-2.5 pl-10 pr-10 text-sm focus:border-primary/30 focus:outline-none"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        type="button"
+                      >
+                        {showResetPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+
+                    {/* Confirm new password */}
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type={showResetPassword ? "text" : "password"}
+                        value={resetPasswordConfirm}
+                        onChange={(e) => setResetPasswordConfirm(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && submitResetPassword()}
+                        placeholder="Repeat new password"
+                        className={cn(
+                          "w-full rounded-[18px] border bg-secondary/50 py-2.5 pl-10 pr-10 text-sm focus:outline-none",
+                          resetPasswordConfirm.length > 0 && resetPassword !== resetPasswordConfirm
+                            ? "border-destructive/50 focus:border-destructive"
+                            : "border-border focus:border-primary/30"
+                        )}
+                      />
+                      {resetPasswordConfirm.length > 0 && resetPassword === resetPasswordConfirm && (
+                        <Check className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-green-500" />
+                      )}
+                    </div>
+
+                    {/* Password requirements hint */}
+                    <div className="rounded-[14px] border border-border bg-card/30 p-3 text-[11px] text-muted-foreground">
+                      <p className="mb-1.5 font-medium text-foreground/70">Password must contain:</p>
+                      <ul className="space-y-0.5">
+                        <li className={cn("flex items-center gap-1.5", resetPassword.length >= 12 ? "text-green-500" : "text-muted-foreground/60")}>
+                          {resetPassword.length >= 12 ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
+                          At least 12 characters
+                        </li>
+                        <li className={cn("flex items-center gap-1.5", /[A-Z]/.test(resetPassword) ? "text-green-500" : "text-muted-foreground/60")}>
+                          {/[A-Z]/.test(resetPassword) ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
+                          Uppercase letter
+                        </li>
+                        <li className={cn("flex items-center gap-1.5", /[a-z]/.test(resetPassword) ? "text-green-500" : "text-muted-foreground/60")}>
+                          {/[a-z]/.test(resetPassword) ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
+                          Lowercase letter
+                        </li>
+                        <li className={cn("flex items-center gap-1.5", /\d/.test(resetPassword) ? "text-green-500" : "text-muted-foreground/60")}>
+                          {/\d/.test(resetPassword) ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
+                          Digit (0-9)
+                        </li>
+                        <li className={cn("flex items-center gap-1.5", /[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]/.test(resetPassword) ? "text-green-500" : "text-muted-foreground/60")}>
+                          {/[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]/.test(resetPassword) ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
+                          Special character (!@#$%^&*)
+                        </li>
+                        <li className={cn("flex items-center gap-1.5", resetPassword && resetPassword === resetPasswordConfirm ? "text-green-500" : "text-muted-foreground/60")}>
+                          {resetPassword && resetPassword === resetPasswordConfirm ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
+                          Passwords match
+                        </li>
+                      </ul>
+                    </div>
+
+                    {resetError && (
+                      <div className="flex items-center gap-2 rounded-[18px] border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />{resetError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowResetPassword(false)}
+                        disabled={resetLoading}
+                        className="flex-1 rounded-[18px] border border-border py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={submitResetPassword}
+                        disabled={resetLoading || !resetPassword || resetPassword !== resetPasswordConfirm}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-[18px] spyro-bg-gradient py-2.5 text-sm font-semibold text-white transition-all hover:spyro-glow disabled:opacity-50"
+                      >
+                        {resetLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                        {resetLoading ? "Resetting…" : "Reset Password"}
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
