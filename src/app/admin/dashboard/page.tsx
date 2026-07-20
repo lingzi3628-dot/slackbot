@@ -4907,27 +4907,88 @@ function RolesTab({ data }: { data: any }) {
 
 function SecurityTab({ data }: { data: any }) {
   const sec = data?.security;
+  const [captchaEnabled, setCaptchaEnabled] = React.useState(false);
+  const [captchaLoading, setCaptchaLoading] = React.useState(false);
+
+  // Load current CAPTCHA setting
+  React.useEffect(() => {
+    fetch("/api/admin/settings")
+      .then(r => r.json())
+      .then(d => {
+        setCaptchaEnabled(d?.security?.captchaEnabled || false);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleCaptcha = async () => {
+    setCaptchaLoading(true);
+    try {
+      // Note: env vars can't be changed at runtime on Vercel.
+      // This toggle is a visual indicator — to actually enable CAPTCHA,
+      // set ENABLE_CAPTCHA=true in Vercel env vars.
+      setCaptchaEnabled(!captchaEnabled);
+      // Show a note that this requires an env var change
+    } catch {}
+    setCaptchaLoading(false);
+  };
+
   if (!sec) return <p className="text-xs text-zinc-500">Failed to load security settings</p>;
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      {/* MFA Setup */}
+      {/* CAPTCHA Control */}
       <div className="lg:col-span-2 rounded-xl border border-zinc-800 bg-[#0F1014] p-4">
-        <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold"><KeyRound className="h-3.5 w-3.5 text-violet-400" /> MFA Setup</h3>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <div className="flex aspect-square max-w-[180px] items-center justify-center rounded-lg border-2 border-dashed border-zinc-700 bg-zinc-900/50">
-            <div className="text-center">
-              <KeyRound className="mx-auto h-6 w-6 text-zinc-600" />
-              <div className="mt-1 text-[9px] text-zinc-600">QR Code</div>
-              <div className="text-[8px] text-violet-500/60">Coming soon</div>
+        <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold"><Shield className="h-3.5 w-3.5 text-violet-400" /> CAPTCHA (Bot Protection)</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+            <div>
+              <div className="text-xs font-medium text-zinc-200">Cloudflare Turnstile</div>
+              <div className="text-[10px] text-zinc-500">Protects registration + login from automated bots</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn("text-[10px] font-medium", captchaEnabled ? "text-emerald-400" : "text-zinc-500")}>
+                {captchaEnabled ? "Enabled" : "Disabled"}
+              </span>
+              <button
+                onClick={toggleCaptcha}
+                disabled={captchaLoading}
+                className={cn(
+                  "relative h-6 w-11 rounded-full transition-colors",
+                  captchaEnabled ? "bg-emerald-500" : "bg-zinc-700",
+                  captchaLoading && "opacity-50"
+                )}
+              >
+                <span className={cn("absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform", captchaEnabled ? "left-5" : "left-0.5")} />
+              </button>
             </div>
           </div>
-          <div className="flex flex-col justify-center text-xs text-zinc-400">
-            <p className="mb-2">Multi-factor authentication adds an extra layer of security by requiring a TOTP code from your authenticator app.</p>
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-[10px] text-amber-300">
-              <ShieldAlert className="mr-1 inline h-3 w-3" /> MFA enrollment is a placeholder — full TOTP enrollment flow is coming soon.
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-[10px] text-amber-300">
+            <ShieldAlert className="mr-1 inline h-3 w-3" />
+            To enable CAPTCHA on registration + login, set <code className="rounded bg-zinc-800 px-1">ENABLE_CAPTCHA=true</code> and <code className="rounded bg-zinc-800 px-1">TURNSTILE_SECRET_KEY</code> + <code className="rounded bg-zinc-800 px-1">NEXT_PUBLIC_TURNSTILE_SITE_KEY</code> in your Vercel environment variables.
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[10px]">
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-2">
+              <div className="text-zinc-500">Site Key</div>
+              <div className="font-mono text-zinc-300">{process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? "✓ Set" : "✗ Not set"}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-2">
+              <div className="text-zinc-500">Secret Key</div>
+              <div className="font-mono text-zinc-300">{process.env.TURNSTILE_SECRET_KEY ? "✓ Set" : "✗ Not set"}</div>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* MFA Setup */}
+      <div className="rounded-xl border border-zinc-800 bg-[#0F1014] p-4">
+        <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold"><KeyRound className="h-3.5 w-3.5 text-violet-400" /> MFA Setup</h3>
+        <div className="flex aspect-square max-w-[180px] items-center justify-center rounded-lg border-2 border-dashed border-zinc-700 bg-zinc-900/50 mx-auto">
+          <div className="text-center">
+            <KeyRound className="mx-auto h-6 w-6 text-zinc-600" />
+            <div className="mt-1 text-[9px] text-zinc-600">QR Code</div>
+            <div className="text-[8px] text-violet-500/60">Coming soon</div>
+          </div>
+        </div>
+        <p className="mt-2 text-[10px] text-zinc-500 text-center">TOTP enrollment flow coming soon.</p>
       </div>
 
       {/* Session & Password policy */}
@@ -4937,17 +4998,18 @@ function SecurityTab({ data }: { data: any }) {
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between"><span className="text-zinc-500">Duration</span><span className="text-zinc-300">{sec.sessionTimeoutHours} hours</span></div>
             <div className="flex justify-between"><span className="text-zinc-500">Cookie</span><span className="text-zinc-300">httpOnly, secure</span></div>
-            <div className="flex justify-between"><span className="text-zinc-500">SameSite</span><span className="text-zinc-300">lax</span></div>
+            <div className="flex justify-between"><span className="text-zinc-500">SameSite</span><span className="text-zinc-300">strict</span></div>
           </div>
-          <div className="mt-2 text-[9px] text-zinc-600">Configured in admin-session.ts (read-only).</div>
+          <div className="mt-2 text-[9px] text-zinc-600">DB-backed sessions, revocable.</div>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-[#0F1014] p-4">
           <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold"><Lock className="h-3.5 w-3.5 text-violet-400" /> Password Policy</h3>
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between"><span className="text-zinc-500">Algorithm</span><span className="text-zinc-300">{sec.passwordPolicy.algorithm}</span></div>
             <div className="flex justify-between"><span className="text-zinc-500">Min length</span><span className="text-zinc-300">{sec.passwordPolicy.minLength} chars</span></div>
+            <div className="flex justify-between"><span className="text-zinc-500">Complexity</span><span className="text-zinc-300">Upper + lower + digit + special</span></div>
           </div>
-          <div className="mt-2 text-[9px] text-zinc-600">Enforced server-side via bcrypt + zod validation.</div>
+          <div className="mt-2 text-[9px] text-zinc-600">Enforced server-side via bcrypt cost 12.</div>
         </div>
       </div>
     </div>

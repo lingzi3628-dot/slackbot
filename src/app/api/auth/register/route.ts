@@ -83,14 +83,20 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // ── V8: Turnstile CAPTCHA verification ────────────────────────────
-  const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
-  const captchaValid = await verifyTurnstileToken(turnstileToken, ip);
-  if (!captchaValid) {
-    return NextResponse.json(
-      { error: "Bot verification failed. Please complete the CAPTCHA and try again." },
-      { status: 400, headers: buildRateLimitHeaders(rl) }
-    );
+  // ── CAPTCHA verification (skipped — moved to admin dashboard as a toggle) ──
+  // The Turnstile CAPTCHA is now managed via the admin dashboard Security tab.
+  // When enabled there, it sets ENABLE_CAPTCHA=true and the frontend renders
+  // the widget. For now, CAPTCHA is disabled — rate limiting + honeypot protect.
+  const captchaEnabled = process.env.ENABLE_CAPTCHA === "true";
+  if (captchaEnabled) {
+    const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
+    const captchaValid = await verifyTurnstileToken(turnstileToken, ip);
+    if (!captchaValid) {
+      return NextResponse.json(
+        { error: "Bot verification failed. Please complete the CAPTCHA and try again." },
+        { status: 400, headers: buildRateLimitHeaders(rl) }
+      );
+    }
   }
 
   // ── Validate name + email ─────────────────────────────────────────

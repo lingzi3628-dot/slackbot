@@ -71,11 +71,14 @@ export async function GET(req: NextRequest) {
     allPermissionKeys,
     security: {
       mfaSetupAvailable: true,
-      sessionTimeoutHours: 8,
+      sessionTimeoutHours: 24,
       passwordPolicy: {
         algorithm: "bcrypt (12 rounds)",
-        minLength: 8,
+        minLength: 12,
       },
+      captchaEnabled: process.env.ENABLE_CAPTCHA === "true",
+      captchaSiteKeySet: !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+      captchaSecretKeySet: !!process.env.TURNSTILE_SECRET_KEY,
     },
   });
 }

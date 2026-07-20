@@ -12,7 +12,6 @@ import { useUIStore } from "@/store/ui-store";
 import { SpyroLogo } from "../spyro-logo";
 import { cn } from "@/lib/utils";
 import { authFetch } from "@/lib/csrf-client";
-import { TurnstileWidget } from "@/components/turnstile-widget";
 
 // ── Landing hero features ─────────────────────────────────────────────
 const FEATURES = [
@@ -46,8 +45,7 @@ export function RegisterPage() {
   const [forgotSent, setForgotSent] = React.useState(false);
   const [forgotLoading, setForgotLoading] = React.useState(false);
 
-  // CAPTCHA (Cloudflare Turnstile) — bot protection
-  const [turnstileToken, setTurnstileToken] = React.useState("");
+  // CAPTCHA state removed — moved to admin dashboard as a security setting
 
   // Password reset portal (triggered by ?reset=<token> URL param)
   const [resetToken, setResetToken] = React.useState<string | null>(null);
@@ -104,13 +102,12 @@ export function RegisterPage() {
     // Only enforce 12-char policy on REGISTER. Old users with 6-char passwords
     // must still be able to LOGIN. The server validates accordingly.
     if (mode === "register" && password.length < 12) { setError("Password must be at least 12 characters with uppercase, lowercase, digit, and special character."); return; }
-    if (mode === "register" && !turnstileToken) { setError("Please complete the security check (CAPTCHA)."); return; }
     setLoading(true); setError(null);
     try {
       const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";
       const body = mode === "register"
-        ? { name: name.trim(), email: email.trim(), password, turnstileToken, website: "", company_website: "" }
-        : { email: email.trim(), password, turnstileToken };
+        ? { name: name.trim(), email: email.trim(), password, website: "", company_website: "" }
+        : { email: email.trim(), password };
 
       // Step 1: fetch with CSRF token (authFetch handles this)
       const res = await authFetch(endpoint, {
@@ -118,9 +115,6 @@ export function RegisterPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-
-      // Reset Turnstile after each attempt
-      setTurnstileToken("");
 
       // Step 2: parse response — handle non-JSON responses gracefully
       let data;
@@ -354,15 +348,6 @@ export function RegisterPage() {
                     <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" type="button">
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
-                  </div>
-
-                  {/* CAPTCHA (Cloudflare Turnstile) — bot protection */}
-                  <div className="flex justify-center">
-                    <TurnstileWidget
-                      onVerify={(token) => setTurnstileToken(token)}
-                      onExpire={() => setTurnstileToken("")}
-                      onError={() => setTurnstileToken("")}
-                    />
                   </div>
 
                   {mode === "login" && (
