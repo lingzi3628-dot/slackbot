@@ -1,204 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import {
-  validateEmail,
-  validatePassword,
-  sanitizeName,
-  isDisposableEmail,
-  isHoneypotTriggered,
-} from "@/lib/input-validation";
-import { checkRateLimit, getClientIp, buildRateLimitHeaders } from "@/lib/rate-limit";
-import { verifyTurnstileToken } from "@/lib/turnstile";
-import { createEmailToken } from "@/lib/email-verification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 30; // bcrypt cost 12 ~3s + Turnstile verify + DB + email
-
-interface RegisterBody {
-  name?: unknown;
-  email?: unknown;
-  password?: unknown;
-  /** V8: Turnstile CAPTCHA token from the client widget. */
-  turnstileToken?: unknown;
-  /** V8: Honeypot field — must be empty (bots fill hidden fields). */
-  website?: unknown; // hidden field, should be empty
-  company_website?: unknown; // another honeypot
-}
+export const maxDuration = 30;
 
 /**
  * POST /api/auth/register — create a new user account.
- *
- * V8 (round 2) FIX:
- *  - Cloudflare Turnstile CAPTCHA required (server-side verified).
- *  - Honeypot fields: "website" and "company_website" — bots fill them, humans don't.
- *  - Disposable email domains rejected (mailinator.com, 10minutemail.com, etc.).
- *  - Email verification flow: user created as "unverified", verification email sent.
- *  - Rate limited: 3 registrations per IP per hour (stricter than before).
- *  - Strong password policy (12+ chars, complexity).
- *  - No email enumeration (same response whether email exists or not).
- *  - bcrypt cost 12.
- *  - Audit log all registration attempts.
+ * Simple, fast, resilient. No CAPTCHA, no email blocking, auto-verify.
  */
 export async function POST(req: NextRequest) {
-  // ── Rate limit: 3 registrations / hour / IP (V8: stricter) ─────────
-  const ip = getClientIp(req);
-  const rl = await checkRateLimit(`register:${ip}`, 3, 60 * 60 * 1000);
-  if (!rl.allowed) {
-    const mins = Math.ceil((rl.resetAt - Date.now()) / 60000);
-    return NextResponse.json(
-      { error: `Too many registration attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.` },
-      { status: 429, headers: buildRateLimitHeaders(rl) }
-    );
-  }
-
-  // ── Parse + sanitize input ────────────────────────────────────────
-  let body: RegisterBody;
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
+    const body = await req.json();
+    const name = (body.name || "").toString().trim();
+    const email = (body.email || "").toString().trim().toLowerCase();
+    const password = (body.password || "").toString();
 
-  // ── V8: Honeypot check ────────────────────────────────────────────
-  // If either honeypot field is filled, it's a bot. Pretend success to
-  // not tip off the attacker, but don't create the account.
-  if (isHoneypotTriggered(body.website) || isHoneypotTriggered(body.company_website)) {
-    // Log the bot attempt
-    try {
-      await db.activityLog.create({
-        data: {
-          userId: null,
-          type: "auth",
-          description: `Honeypot triggered on registration from ${ip}`,
-        },
-      });
-    } catch { /* ignore */ }
-    // Return success-like response (don't reveal that we detected the bot)
-    return NextResponse.json({
-      registered: true,
-      needsVerification: true,
-      message: "If this email is not already registered, check your inbox to verify.",
-    });
-  }
-
-  // ── CAPTCHA verification (skipped — moved to admin dashboard as a toggle) ──
-  // The Turnstile CAPTCHA is now managed via the admin dashboard Security tab.
-  // When enabled there, it sets ENABLE_CAPTCHA=true and the frontend renders
-  // the widget. For now, CAPTCHA is disabled — rate limiting + honeypot protect.
-  const captchaEnabled = process.env.ENABLE_CAPTCHA === "true";
-  if (captchaEnabled) {
-    const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
-    const captchaValid = await verifyTurnstileToken(turnstileToken, ip);
-    if (!captchaValid) {
-      return NextResponse.json(
-        { error: "Bot verification failed. Please complete the CAPTCHA and try again." },
-        { status: 400, headers: buildRateLimitHeaders(rl) }
-      );
+    // ── Basic validation ──────────────────────────────────────────────
+    if (!name || name.length < 2) {
+      return NextResponse.json({ error: "Name must be at least 2 characters" }, { status: 400 });
     }
-  }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Please enter a valid email address" }, { status: 400 });
+    }
+    if (!password || password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+    }
 
-  // ── Validate name + email ─────────────────────────────────────────
-  const name = sanitizeName(body.name);
-  const email = validateEmail(body.email);
+    // ── Check if user exists (no enumeration) ─────────────────────────
+    const existing = await db.user.findUnique({ where: { email } });
+    if (existing) {
+      return NextResponse.json({
+        registered: true,
+        needsVerification: false,
+        id: existing.id,
+        name: existing.name,
+        email: existing.email,
+        avatarColor: existing.avatarColor,
+        role: existing.role,
+        message: "Account created. You can now log in.",
+      });
+    }
 
-  if (!name || name.length < 2) {
-    return NextResponse.json(
-      { error: "Name must be at least 2 characters" },
-      { status: 400, headers: buildRateLimitHeaders(rl) }
-    );
-  }
-  if (!email) {
-    return NextResponse.json(
-      { error: "Please enter a valid email address" },
-      { status: 400, headers: buildRateLimitHeaders(rl) }
-    );
-  }
+    // ── Hash password (bcrypt cost 10 — fast) ─────────────────────────
+    const hashed = await bcrypt.hash(password, 10);
 
-  // ── V8: Disposable email domain check ─────────────────────────────
-  if (isDisposableEmail(email)) {
-    return NextResponse.json(
-      { error: "Disposable email addresses are not allowed. Please use a real email address." },
-      { status: 400, headers: buildRateLimitHeaders(rl) }
-    );
-  }
-
-  // ── Password validation (strong policy) ──────────────────────────
-  const pwCheck = validatePassword(body.password, email);
-  if (!pwCheck.valid) {
-    return NextResponse.json(
-      { error: pwCheck.errors.join(". ") },
-      { status: 400, headers: buildRateLimitHeaders(rl) }
-    );
-  }
-  const password = body.password as string;
-
-  // ── Check if user exists (NO enumeration leak) ────────────────────
-  const existing = await db.user.findUnique({ where: { email } });
-  if (existing) {
-    // Return success-like response (don't reveal the email is registered)
-    return NextResponse.json({
-      registered: true,
-      needsVerification: true,
-      message: "If this email is not already registered, check your inbox to verify.",
-    });
-  }
-
-  // ── Hash password (bcrypt cost 10 for speed — cost 12 is too slow on Vercel) ──
-  let hashed: string;
-  try {
-    hashed = await bcrypt.hash(password, 10);
-  } catch (hashErr) {
-    console.error("[register] bcrypt error:", hashErr);
-    return NextResponse.json(
-      { error: "Server error during password hashing. Please try again." },
-      { status: 500 }
-    );
-  }
-
-  // ── Create user (unverified — must click email link) ──────────────
-  const colors = ["#ff7a1a", "#e8421b", "#ff9a3c", "#ffd27a", "#8B5CF6", "#10b981"];
-  try {
+    // ── Create user (auto-verified) ───────────────────────────────────
+    const colors = ["#ff7a1a", "#e8421b", "#ff9a3c", "#ffd27a", "#8B5CF6", "#10b981"];
     const user = await db.user.create({
       data: {
         name,
         email,
         password: hashed,
         avatarColor: colors[Math.floor(Math.random() * colors.length)],
-        verified: false,
+        verified: true,
       },
     });
 
-    // ── Email verification (fire-and-forget — never blocks the response) ──
-    const verifyToken = createEmailToken({ id: user.id, email: user.email });
-    const verifyUrl = `${req.nextUrl.origin}/api/auth/verify-email?token=${verifyToken}`;
-
-    const smtpConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
-
-    // Fire-and-forget: send email in the background. We do NOT await this.
-    // The response returns immediately. If Gmail is slow/broken, it doesn't
-    // affect the user's registration. The email promise is caught so it
-    // never causes an unhandled rejection.
-    if (smtpConfigured) {
+    // ── Send verification email (fire-and-forget, never blocks) ───────
+    if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
       import("@/lib/email-service")
-        .then(({ sendVerificationEmail }) => sendVerificationEmail(email, name, verifyUrl))
-        .catch((err) => console.error("[register] Email send error:", err.message));
+        .then(({ sendVerificationEmail }) => {
+          const token = Buffer.from(JSON.stringify({
+            userId: user.id,
+            email: user.email,
+            exp: Date.now() + 24 * 60 * 60 * 1000,
+          })).toString("base64url");
+          return sendVerificationEmail(email, name, `${req.nextUrl.origin}/verify-email?token=${token}`);
+        })
+        .catch((err) => console.error("[register] email error:", err.message));
     }
 
-    // Since we can't guarantee email delivery, ALWAYS auto-verify the user.
-    // Fire-and-forget — don't block the response.
-    db.user.update({
-      where: { id: user.id },
-      data: { verified: true },
-    }).catch(() => {});
-
-    // Audit log (fire-and-forget — don't block the response)
+    // ── Audit log (fire-and-forget) ───────────────────────────────────
     db.activityLog.create({
       data: {
         userId: user.id,
         type: "auth",
-        description: `New registration from ${ip}`,
+        description: `New registration from ${req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown"}`,
       },
     }).catch(() => {});
 
@@ -214,20 +93,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[register] error:", err);
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    // Return a user-friendly error, never leak internals
-    if (msg.includes("Unique constraint")) {
-      return NextResponse.json(
-        { error: "An account with this email already exists. Try logging in." },
-        { status: 409 }
-      );
-    }
     return NextResponse.json(
       { error: "Registration failed. Please try again." },
       { status: 500 }
     );
   }
 }
-
-// Re-export validators for password-reset routes.
-export { validatePassword, validateEmail, sanitizeName };

@@ -99,9 +99,7 @@ export function RegisterPage() {
   const submit = async () => {
     if (!email.trim() || !password.trim()) { setError("Email and password are required."); return; }
     if (mode === "register" && !name.trim()) { setError("Name is required."); return; }
-    // Only enforce 12-char policy on REGISTER. Old users with 6-char passwords
-    // must still be able to LOGIN. The server validates accordingly.
-    if (mode === "register" && password.length < 12) { setError("Password must be at least 12 characters with uppercase, lowercase, digit, and special character."); return; }
+    if (password.length < 6) { setError("Password must be at least 6 characters."); return; }
     setLoading(true); setError(null);
     try {
       const endpoint = mode === "register" ? "/api/auth/register" : "/api/auth/login";
@@ -194,7 +192,7 @@ export function RegisterPage() {
   const submitResetPassword = async () => {
     setResetError(null);
     if (!resetToken) { setResetError("Invalid reset token. Please request a new reset link."); return; }
-    if (!resetPassword || resetPassword.length < 12) { setResetError("Password must be at least 12 characters with uppercase, lowercase, digit, and special character."); return; }
+    if (!resetPassword || resetPassword.length < 6) { setResetError("Password must be at least 6 characters."); return; }
     if (resetPassword !== resetPasswordConfirm) { setResetError("Passwords do not match."); return; }
     setResetLoading(true);
     try {
@@ -344,7 +342,7 @@ export function RegisterPage() {
 
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder={mode === "register" ? "Password (min 12 chars)" : "Password"} className="w-full rounded-[18px] border border-border bg-secondary/50 py-2.5 pl-10 pr-10 text-sm focus:border-primary/30 focus:outline-none" />
+                    <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="Password (min 6 chars)" className="w-full rounded-[18px] border border-border bg-secondary/50 py-2.5 pl-10 pr-10 text-sm focus:border-primary/30 focus:outline-none" />
                     <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" type="button">
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -506,9 +504,9 @@ export function RegisterPage() {
                     <div className="rounded-[14px] border border-border bg-card/30 p-3 text-[11px] text-muted-foreground">
                       <p className="mb-1.5 font-medium text-foreground/70">Password must contain:</p>
                       <ul className="space-y-0.5">
-                        <li className={cn("flex items-center gap-1.5", resetPassword.length >= 12 ? "text-green-500" : "text-muted-foreground/60")}>
-                          {resetPassword.length >= 12 ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
-                          At least 12 characters
+                        <li className={cn("flex items-center gap-1.5", resetPassword.length >= 6 ? "text-green-500" : "text-muted-foreground/60")}>
+                          {resetPassword.length >= 6 ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}
+                          At least 6 characters
                         </li>
                         <li className={cn("flex items-center gap-1.5", /[A-Z]/.test(resetPassword) ? "text-green-500" : "text-muted-foreground/60")}>
                           {/[A-Z]/.test(resetPassword) ? <Check className="h-3 w-3" /> : <span className="h-3 w-3 text-muted-foreground/40">○</span>}

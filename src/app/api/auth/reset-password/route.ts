@@ -59,11 +59,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Validate password ──────────────────────────────────────────────
-    const pwCheck = validatePassword(password);
-    if (!pwCheck.valid) {
+    // ── Validate password (min 6 chars — simple, works for all users) ──
+    if (!password || password.length < 6) {
       return NextResponse.json(
-        { error: pwCheck.errors.join(". ") },
+        { error: "Password must be at least 6 characters" },
         { status: 400, headers: buildRateLimitHeaders(rl) }
       );
     }
