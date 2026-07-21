@@ -145,10 +145,10 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // ── Hash password (bcrypt cost 12) ────────────────────────────────
+  // ── Hash password (bcrypt cost 10 for speed — cost 12 is too slow on Vercel) ──
   let hashed: string;
   try {
-    hashed = await bcrypt.hash(password, 12);
+    hashed = await bcrypt.hash(password, 10);
   } catch (hashErr) {
     console.error("[register] bcrypt error:", hashErr);
     return NextResponse.json(
@@ -187,25 +187,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Since we can't guarantee email delivery, ALWAYS auto-verify the user.
-    // When Gmail is properly configured and working, you can change this to
-    // only auto-verify when SMTP fails. For now, auto-verify everyone.
-    try {
-      await db.user.update({
-        where: { id: user.id },
-        data: { verified: true },
-      });
-    } catch { /* ignore */ }
+    // Fire-and-forget — don't block the response.
+    db.user.update({
+      where: { id: user.id },
+      data: { verified: true },
+    }).catch(() => {});
 
-    // Audit log
-    try {
-      await db.activityLog.create({
-        data: {
-          userId: user.id,
-          type: "auth",
-          description: `New registration from ${ip}`,
-        },
-      });
-    } catch { /* ignore */ }
+    // Audit log (fire-and-forget — don't block the response)
+    db.activityLog.create({
+      data: {
+        userId: user.id,
+        type: "auth",
+        description: `New registration from ${ip}`,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       registered: true,

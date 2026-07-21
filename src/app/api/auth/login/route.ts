@@ -156,21 +156,19 @@ export async function POST(req: NextRequest) {
       avatarColor: user.avatarColor,
     }, req);
 
-    // ── Audit successful login ────────────────────────────────────────
-    try {
-      await db.activityLog.create({
-        data: {
-          userId: user.id,
-          type: "auth",
-          description: `Successful login from ${ip}`,
-          metadata: {
-            ip,
-            userAgent: userAgent.slice(0, 200),
-            timestamp: new Date().toISOString(),
-          },
+    // ── Audit successful login (fire-and-forget) ──────────────────────
+    db.activityLog.create({
+      data: {
+        userId: user.id,
+        type: "auth",
+        description: `Successful login from ${ip}`,
+        metadata: {
+          ip,
+          userAgent: userAgent.slice(0, 200),
+          timestamp: new Date().toISOString(),
         },
-      });
-    } catch { /* ignore */ }
+      },
+    }).catch(() => {});
 
     const res = NextResponse.json({
       id: user.id,
