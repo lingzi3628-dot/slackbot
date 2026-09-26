@@ -19,6 +19,7 @@ type Project = {
 export function ProjectsPage() {
   const setView = useUIStore((state) => state.setView);
   const [projects, setProjects] = React.useState<Project[]>([]);
+  const [activeProjectId, setActiveProjectId] = React.useState<string | null>(null);
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [showForm, setShowForm] = React.useState(false);
@@ -36,7 +37,9 @@ export function ProjectsPage() {
       }
       if (!response.ok) throw new Error("Could not load projects");
       const data = await response.json();
-      setProjects(data.projects ?? []);
+      const nextProjects = data.projects ?? [];
+      setProjects(nextProjects);
+      setActiveProjectId((current) => current ?? nextProjects[0]?.id ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load projects");
     } finally {
@@ -117,7 +120,7 @@ export function ProjectsPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {projects.map((project) => (
-              <article key={project.id} className="group rounded-2xl border border-border bg-card/60 p-5 transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg">
+              <article key={project.id} onClick={() => setActiveProjectId(project.id)} className={cn("group cursor-pointer rounded-2xl border bg-card/60 p-5 transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg", activeProjectId === project.id ? "border-primary ring-1 ring-primary/30" : "border-border")}>
                 <div className="flex items-start justify-between gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl" style={{ backgroundColor: `${project.color}22`, color: project.color }}><FolderKanban className="h-5 w-5" /></span><span className="text-xs text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()}</span></div>
                 <h2 className="mt-5 font-semibold">{project.name}</h2>
                 <p className="mt-1 min-h-10 text-sm text-muted-foreground">{project.description || "No description yet"}</p>
@@ -127,8 +130,7 @@ export function ProjectsPage() {
             ))}
           </div>
         )}
-        {projects.length > 0 && <ProjectWorkspace project={projects[0]} />}
-        {projects.length > 0 && <ProjectAgentsPanel projectId={projects[0].id} />}
+        {projects.length > 0 && (() => { const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0]; return <><ProjectWorkspace project={activeProject} /><ProjectAgentsPanel projectId={activeProject.id} /></>; })()}
       </div>
     </main>
   );
