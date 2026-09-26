@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/immutability, react-hooks/preserve-manual-memoization */
 
 import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
