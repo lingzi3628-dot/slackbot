@@ -86,7 +86,10 @@ export async function GET(req: NextRequest) {
         select: { id: true, name: true, email: true },
       })
     : [];
-  const adminMap = new Map(admins.map((a) => [a.id, a]));
+  type TicketAdmin = { id: string; name: string; email: string };
+  const adminMap = new Map<string, TicketAdmin>(
+    admins.map((a) => [a.id, a] as const),
+  );
 
   const enriched = filtered.map((t) => {
     const u = userMap.get(t.userId);
