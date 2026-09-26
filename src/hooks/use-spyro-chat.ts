@@ -217,7 +217,7 @@ export function useSpyroChat() {
             "content-type": "application/json",
             "x-csrf-token": csrfToken,
           },
-          body: JSON.stringify({ messages: history, webSearch: useWebSearch, model }),
+          body: JSON.stringify({ messages: history, webSearch: useWebSearch, model, projectId: opts?.projectId ?? null }),
           signal: controller.signal,
         });
 
