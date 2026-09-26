@@ -96,7 +96,9 @@ export function IntegrationControl() {
     const stored = localStorage.getItem("spyro-reply-settings");
     if (stored) {
       try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
+        // Restore persisted integration settings after mount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
       } catch { /* ignore */ }
     }
   }, []);

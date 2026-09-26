@@ -58,7 +58,11 @@ function useRateLimiter() {
   // Load from localStorage
   React.useEffect(() => {
     const stored = localStorage.getItem("spyro-img-count");
-    if (stored) setUseCount(parseInt(stored, 10));
+    if (stored) {
+      // Restore persisted usage after the browser is available.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUseCount(parseInt(stored, 10));
+    }
   }, []);
 
   const increment = React.useCallback(() => {
