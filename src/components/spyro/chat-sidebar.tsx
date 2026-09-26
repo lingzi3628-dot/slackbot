@@ -34,12 +34,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { view: "home", label: "Home", icon: Home },
+  { view: "chat", label: "Chat", icon: MessageCircle },
   { view: "projects", label: "Projects", icon: FolderKanban },
-  { view: "chat", label: "Chats", icon: MessageCircle },
-  { view: "agents", label: "Agents", icon: Bot },
-  { view: "knowledge", label: "Knowledge", icon: BookOpen },
+  { view: "studio", label: "Studio", icon: Rocket, badge: "New" },
   { view: "communication", label: "Communication", icon: Inbox, badge: "New" },
-  { view: "studio", label: "Launch Studio", icon: Rocket, badge: "New" },
   { view: "analytics", label: "Analytics", icon: BarChart3 },
   { view: "settings", label: "Settings", icon: SettingsIcon },
   { view: "premium", label: "Premium", icon: Crown, badge: "Pro" },
