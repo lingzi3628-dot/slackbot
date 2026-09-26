@@ -1,5 +1,11 @@
 "use client";
 
+/*
+ * This dashboard contains several data-loading and form-hydration effects.
+ * They intentionally synchronize external API state into local controls.
+ */
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import * as React from "react";
 import { motion } from "framer-motion";
 import {
