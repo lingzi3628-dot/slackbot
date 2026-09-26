@@ -79,8 +79,12 @@ export default function Home() {
   const inputFocusRef = React.useRef<() => void>(() => {});
 
   // Hydration guard for persisted client state.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+    const savedProject = window.localStorage.getItem("spyro-active-project");
+    if (savedProject) setSelectedProjectId(savedProject);
+  }, []);
 
   // Restore session from cookie on first mount. If a session exists and the
   // user is still on the register screen, send them to Home.
@@ -180,7 +184,11 @@ export default function Home() {
               godMode={godMode}
               onToggleGodMode={() => setGodMode(!godMode)}
               projectId={selectedProjectId}
-              onProjectChange={setSelectedProjectId}
+              onProjectChange={(projectId) => {
+                setSelectedProjectId(projectId);
+                if (projectId) window.localStorage.setItem("spyro-active-project", projectId);
+                else window.localStorage.removeItem("spyro-active-project");
+              }}
             />
             {mounted ? (
               <ChatMessages
