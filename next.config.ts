@@ -25,7 +25,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  allowedDevOrigins: ["*.space-z.ai", "*.chatglm.cn"],
+  // Arena's live preview proxies requests through an *.e2b.app origin.
+  // Keep the existing hosted origins and allow the preview host in dev.
+  allowedDevOrigins: ["*.space-z.ai", "*.chatglm.cn", "*.e2b.app"],
   // ── Security headers (CSP, etc.) ───────────────────────────────────
   // Note: CORS is handled in src/middleware.ts with an origin allowlist
   // (V3 fix). Do NOT set Access-Control-Allow-Origin here.
@@ -35,7 +37,9 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
+          // The app is displayed inside Arena's live-preview iframe. CSP
+          // frame-ancestors below controls embedding; X-Frame-Options DENY
+          // would block the preview before CSP is evaluated.
           { key: "X-XSS-Protection", value: "1; mode=block" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },

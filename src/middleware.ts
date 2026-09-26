@@ -158,9 +158,22 @@ export async function middleware(req: NextRequest) {
 
   // ── 4. Build response with CORS + security headers ─────────────────
   const res = NextResponse.next();
-  // Apply security headers to all responses
+  // Apply security headers to all responses. Arena serves the development
+  // app inside a cross-origin iframe on an *.e2b.app host; allow that preview
+  // without weakening the production policy for normal deployments.
+  const isArenaPreview = headers.get("host")?.endsWith(".e2b.app") ?? false;
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
     res.headers.set(k, v);
+  }
+  if (isArenaPreview) {
+    res.headers.delete("X-Frame-Options");
+    res.headers.set(
+      "Content-Security-Policy",
+      SECURITY_HEADERS["Content-Security-Policy"].replace(
+        "frame-ancestors 'self' https://vercel.live",
+        "frame-ancestors 'self' https://vercel.live https://*.e2b.app",
+      ),
+    );
   }
   // CORS: only set Allow-Origin if the origin is allowlisted
   if (isAllowedOrigin(origin)) {
