@@ -63,7 +63,18 @@ export async function GET(req: NextRequest) {
         select: { id: true, name: true, email: true, plan: true, createdAt: true },
       })
     : [];
-  const userMap = new Map(users.map((u) => [u.id, u]));
+  // Keep the map value type explicit so this route remains type-safe even when
+  // Prisma's generated client is unavailable during an isolated type check.
+  type TicketUser = {
+    id: string;
+    name: string;
+    email: string;
+    plan: string;
+    createdAt: Date;
+  };
+  const userMap = new Map<string, TicketUser>(
+    users.map((u) => [u.id, u] as const),
+  );
 
   // Optionally include assignee name (Admin table)
   const adminIds = Array.from(
