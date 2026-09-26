@@ -30,17 +30,18 @@ interface NavItem {
   icon: typeof Home;
   badge?: string;
   notificationCount?: number;
+  section?: "main" | "workspace" | "account";
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { view: "home", label: "Home", icon: Home },
-  { view: "chat", label: "Chat", icon: MessageCircle },
-  { view: "projects", label: "Projects", icon: FolderKanban },
-  { view: "studio", label: "Studio", icon: Rocket, badge: "New" },
-  { view: "communication", label: "Communication", icon: Inbox, badge: "New" },
-  { view: "analytics", label: "Analytics", icon: BarChart3 },
-  { view: "settings", label: "Settings", icon: SettingsIcon },
-  { view: "premium", label: "Premium", icon: Crown, badge: "Pro" },
+  { view: "home", label: "Home", icon: Home, section: "main" },
+  { view: "chat", label: "Chat", icon: MessageCircle, section: "main" },
+  { view: "projects", label: "Projects", icon: FolderKanban, section: "main" },
+  { view: "studio", label: "Studio", icon: Rocket, badge: "New", section: "workspace" },
+  { view: "communication", label: "Communication", icon: Inbox, badge: "New", section: "workspace" },
+  { view: "analytics", label: "Analytics", icon: BarChart3, section: "account" },
+  { view: "settings", label: "Settings", icon: SettingsIcon, section: "account" },
+  { view: "premium", label: "Premium", icon: Crown, badge: "Pro", section: "account" },
 ];
 
 function timeAgo(ts: number): string {
@@ -177,9 +178,14 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
       {/* ── Primary Navigation ──────────────────────────────────────── */}
       <div className="px-2 pb-2">
         <nav className="space-y-0.5">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.map((item, index) => {
             const isActive = activeView === item.view;
+            const sectionLabel = item.section !== NAV_ITEMS[index - 1]?.section
+              ? { main: "Workspace", workspace: "Tools", account: "Account" }[item.section ?? "main"]
+              : null;
             return (
+              <React.Fragment key={item.view}>
+                {sectionLabel && <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">{sectionLabel}</div>}
               <button
                 key={item.view}
                 onClick={() => handleNav(item.view)}
@@ -209,6 +215,7 @@ export function SidebarContent({ onNavigate }: SidebarContentProps) {
                   </span>
                 )}
               </button>
+              </React.Fragment>
             );
           })}
         </nav>
