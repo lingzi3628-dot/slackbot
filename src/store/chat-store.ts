@@ -26,6 +26,7 @@ function syncToDB(conversations: any[]) {
           body: JSON.stringify({
             conversation: {
               title: conv.title,
+              projectId: conv.projectId || null,
               pinned: conv.pinned || false,
               messages: conv.messages.map((m: any) => ({
                 role: m.role,
@@ -64,6 +65,8 @@ export interface Message {
 export interface Conversation {
   id: string;
   title: string;
+  /** Optional workspace project that owns this conversation. */
+  projectId?: string;
   messages: Message[];
   createdAt: number;
   updatedAt: number;

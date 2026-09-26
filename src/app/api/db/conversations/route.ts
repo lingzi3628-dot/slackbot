@@ -46,6 +46,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Conversation data required" }, { status: 400 });
     }
 
+    // A project link is only accepted when the project belongs to this user.
+    let projectId: string | null = null;
+    if (typeof conversation.projectId === "string" && conversation.projectId.trim()) {
+      const project = await db.project.findFirst({
+        where: { id: conversation.projectId, userId: session.userId },
+        select: { id: true },
+      });
+      if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      projectId = project.id;
+    }
+
     // Try to find existing conversation by title (since client IDs differ from DB IDs)
     let dbConv = await db.conversation.findFirst({
       where: { userId: session.userId, title: conversation.title },
@@ -57,6 +68,7 @@ export async function POST(req: NextRequest) {
       dbConv = await db.conversation.create({
         data: {
           userId: session.userId,
+          projectId,
           title: conversation.title || "New chat",
           pinned: conversation.pinned || false,
         },

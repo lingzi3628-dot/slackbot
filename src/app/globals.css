@@ -306,6 +306,20 @@
   .message-enter {
     animation: message-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+  @keyframes flame-dot {
+    0%, 60%, 100% { transform: translateY(0) scale(0.75); opacity: 0.45; }
+    30% { transform: translateY(-5px) scale(1); opacity: 1; }
+  }
+
+  .flame-dot {
+    animation: flame-dot 1s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flame-dot { animation: none; opacity: 0.8; }
+  }
+
   @keyframes message-in {
     from { opacity: 0; transform: translateY(6px) scale(0.99); }
     to { opacity: 1; transform: translateY(0) scale(1); }
