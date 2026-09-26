@@ -312,8 +312,11 @@
   }
 
   .flame-dot {
-    animation: flame-dot 1s ease-in-out infinite;
+    display: inline-block;
+    background: var(--primary);
+    animation: flame-dot 0.9s ease-in-out infinite;
     will-change: transform, opacity;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--primary) 70%, transparent);
   }
 
   @media (prefers-reduced-motion: reduce) {
