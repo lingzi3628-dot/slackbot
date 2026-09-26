@@ -45,3 +45,16 @@ export async function POST(req: NextRequest, context: Context) {
   });
   return NextResponse.json({ document }, { status: 201 });
 }
+
+/** Delete one knowledge document after verifying project ownership. */
+export async function DELETE(req: NextRequest, context: Context) {
+  const session = await getSession(req);
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const { id } = await context.params;
+  if (!(await ownedProject(session.userId, id))) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  const documentId = new URL(req.url).searchParams.get("documentId");
+  if (!documentId) return NextResponse.json({ error: "Document ID required" }, { status: 400 });
+  const deleted = await db.knowledgeDoc.deleteMany({ where: { id: documentId, projectId: id, userId: session.userId } });
+  if (deleted.count === 0) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+  return NextResponse.json({ deleted: true });
+}
