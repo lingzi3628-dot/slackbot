@@ -68,15 +68,10 @@ export default function RootLayout({
               (function() {
                 try {
                   var stored = localStorage.getItem('theme');
-                  // SPYRO OS ships dark-first. Default to dark unless the user
-                  // has explicitly chosen 'light'. 'system' falls back to dark
-                  // so the premium obsidian experience is the default.
-                  var theme = stored || 'dark';
-                  if (theme === 'system') {
-                    theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-                  }
-                  if (theme === 'dark') document.documentElement.classList.add('dark');
-                  else document.documentElement.classList.remove('dark');
+                  // Keep the bootstrap in sync with next-themes: only the
+                  // explicit light/dark values are supported by the toggle.
+                  var theme = stored === 'light' ? 'light' : 'dark';
+                  document.documentElement.classList.toggle('dark', theme === 'dark');
                 } catch(e) {
                   document.documentElement.classList.add('dark');
                 }
@@ -92,6 +87,7 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="dark"
           enableSystem={false}
+          storageKey="theme"
           disableTransitionOnChange
         >
           {children}
