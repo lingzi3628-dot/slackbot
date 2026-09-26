@@ -25,7 +25,11 @@ export function SlashMenu({ open, commands, onSelect, onClose }: SlashMenuProps)
   const [activeIndex, setActiveIndex] = React.useState(0);
 
   React.useEffect(() => {
-    if (open) setActiveIndex(0);
+    if (open) {
+      // Reset selection when the menu opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveIndex(0);
+    }
   }, [open]);
 
   if (!open) return null;

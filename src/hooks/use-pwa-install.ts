@@ -32,6 +32,8 @@ export function usePwaInstall() {
       typeof window !== "undefined" &&
       window.matchMedia("(display-mode: standalone)").matches
     ) {
+      // Browser capability check runs after mount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInstalled(true);
     }
 
