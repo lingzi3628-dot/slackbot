@@ -148,6 +148,9 @@ export function useSpyroChat() {
 
       // God Mode → multi-agent pipeline
       if (godMode) {
+        // These callbacks are declared later in this hook but are initialized
+        // before the returned API can be invoked by the component.
+        // eslint-disable-next-line react-hooks/immutability
         await sendGodMode(trimmed, opts?.conversationId);
         return;
       }
@@ -158,6 +161,8 @@ export function useSpyroChat() {
       // of the chat API so the user gets a real, watermarked image.
       const imagePrompt = detectImageIntent(trimmed);
       if (imagePrompt) {
+        // See the callback-order note above.
+        // eslint-disable-next-line react-hooks/immutability
         await generateImage(imagePrompt, opts?.conversationId, trimmed);
         return;
       }
