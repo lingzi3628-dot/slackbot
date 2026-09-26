@@ -49,7 +49,7 @@ export function PremiumPage() {
       const data = await res.json();
       if (data.authorizationUrl) {
         // Redirect to Paystack payment page
-        window.location.href = data.authorizationUrl;
+        window.location.assign(data.authorizationUrl);
       } else {
         setError(data.error || "Failed to initiate payment");
       }
