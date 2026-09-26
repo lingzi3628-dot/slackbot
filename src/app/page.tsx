@@ -74,9 +74,12 @@ export default function Home() {
   const initAuth = useLocalAuth((s) => s.init);
   const isAuthed = useLocalAuth((s) => s.isAuthed);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null);
   const [mounted, setMounted] = React.useState(false);
   const inputFocusRef = React.useRef<() => void>(() => {});
 
+  // Hydration guard for persisted client state.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => setMounted(true), []);
 
   // Restore session from cookie on first mount. If a session exists and the
@@ -94,7 +97,7 @@ export default function Home() {
   }, [initAuth]);
 
   const handleSend = (text: string) => {
-    void send(text, { webSearch });
+    void send(text, { webSearch, projectId: selectedProjectId });
   };
 
   const handleNewChat = () => {
@@ -176,6 +179,8 @@ export default function Home() {
               onModelChange={setModel}
               godMode={godMode}
               onToggleGodMode={() => setGodMode(!godMode)}
+              projectId={selectedProjectId}
+              onProjectChange={setSelectedProjectId}
             />
             {mounted ? (
               <ChatMessages

@@ -9,6 +9,7 @@ import { getCsrfToken } from "@/lib/csrf-client";
 interface SendOptions {
   conversationId?: string;
   webSearch?: boolean;
+  projectId?: string | null;
 }
 
 // ── Inline image-generation intent detection ─────────────────────────
@@ -170,6 +171,16 @@ export function useSpyroChat() {
       let conversationId = opts?.conversationId ?? store.getState().activeId;
       if (!conversationId) {
         conversationId = store.getState().createConversation();
+      }
+      if (opts?.projectId !== undefined) {
+        const selectedProjectId = opts.projectId || undefined;
+        useChatStore.setState((state) => ({
+          conversations: state.conversations.map((conversation) =>
+            conversation.id === conversationId
+              ? { ...conversation, projectId: selectedProjectId }
+              : conversation,
+          ),
+        }));
       }
 
       store.getState().addMessage(conversationId, {

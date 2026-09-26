@@ -18,6 +18,8 @@ interface ChatHeaderProps {
   onModelChange?: (m: SpyroModelId) => void;
   godMode?: boolean;
   onToggleGodMode?: () => void;
+  projectId?: string | null;
+  onProjectChange?: (projectId: string | null) => void;
 }
 
 export function ChatHeader({
@@ -30,11 +32,23 @@ export function ChatHeader({
   onModelChange,
   godMode,
   onToggleGodMode,
+  projectId,
+  onProjectChange,
 }: ChatHeaderProps) {
+  const [projects, setProjects] = React.useState<Array<{ id: string; name: string }>>([]);
+  React.useEffect(() => {
+    if (!onProjectChange) return;
+    void fetch("/api/projects", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : { projects: [] })
+      .then((data) => setProjects(data.projects ?? []))
+      .catch(() => setProjects([]));
+  }, [onProjectChange]);
   const activeId = useChatStore((s) => s.activeId);
   const clearMessages = useChatStore((s) => s.clearMessages);
   const conversations = useChatStore((s) => s.conversations);
   const [mounted, setMounted] = React.useState(false);
+  // Hydration guard for persisted client state.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => setMounted(true), []);
 
   // Only read store-dependent values after mount to avoid hydration mismatch.
@@ -62,6 +76,17 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-0.5 sm:gap-1">
+        {onProjectChange && (
+          <select
+            value={projectId ?? ""}
+            onChange={(event) => onProjectChange(event.target.value || null)}
+            aria-label="Select project"
+            className="max-w-[130px] rounded-lg border border-border/50 bg-transparent px-2 py-1.5 text-xs text-muted-foreground outline-none hover:bg-muted/50"
+          >
+            <option value="">No project</option>
+            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          </select>
+        )}
         {/* Model selector — pill button */}
         {onModelChange && (
           <div className="relative">
