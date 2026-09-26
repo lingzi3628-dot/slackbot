@@ -33,3 +33,16 @@ export async function POST(req: NextRequest, context: Context) {
   const agent = await db.agent.create({ data: { userId: session.userId, projectId: id, name, description, instructions }, select: { id: true, name: true, description: true, instructions: true, avatar: true, status: true, model: true } });
   return NextResponse.json({ agent }, { status: 201 });
 }
+
+/** Remove an agent from a project. */
+export async function DELETE(req: NextRequest, context: Context) {
+  const session = await getSession(req);
+  if (!session) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const { id } = await context.params;
+  if (!(await ownsProject(session.userId, id))) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  const agentId = new URL(req.url).searchParams.get("agentId");
+  if (!agentId) return NextResponse.json({ error: "Agent ID required" }, { status: 400 });
+  const result = await db.agent.deleteMany({ where: { id: agentId, projectId: id, userId: session.userId } });
+  if (result.count === 0) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  return NextResponse.json({ deleted: true });
+}
