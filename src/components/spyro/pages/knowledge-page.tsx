@@ -22,7 +22,8 @@ export function KnowledgePage() {
     void fetch("/api/projects", { cache: "no-store" }).then((r) => r.json()).then((data) => {
       const next = data.projects ?? [];
       setProjects(next);
-      setProjectId(next[0]?.id ?? "");
+      const saved = window.localStorage.getItem("spyro-active-project");
+      setProjectId(next.some((project: Project) => project.id === saved) ? saved! : next[0]?.id ?? "");
     }).catch(() => setError("Could not load projects")).finally(() => setLoading(false));
   }, []);
 

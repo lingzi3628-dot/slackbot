@@ -120,7 +120,7 @@ export function ProjectsPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {projects.map((project) => (
-              <article key={project.id} onClick={() => setActiveProjectId(project.id)} className={cn("group cursor-pointer rounded-2xl border bg-card/60 p-5 transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg", activeProjectId === project.id ? "border-primary ring-1 ring-primary/30" : "border-border")}>
+              <article key={project.id} onClick={() => { setActiveProjectId(project.id); window.localStorage.setItem("spyro-active-project", project.id); }} className={cn("group cursor-pointer rounded-2xl border bg-card/60 p-5 transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg", activeProjectId === project.id ? "border-primary ring-1 ring-primary/30" : "border-border")}>
                 <div className="flex items-start justify-between gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl" style={{ backgroundColor: `${project.color}22`, color: project.color }}><FolderKanban className="h-5 w-5" /></span><span className="text-xs text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()}</span></div>
                 <h2 className="mt-5 font-semibold">{project.name}</h2>
                 <p className="mt-1 min-h-10 text-sm text-muted-foreground">{project.description || "No description yet"}</p>
