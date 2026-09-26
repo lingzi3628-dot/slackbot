@@ -4,6 +4,7 @@ import * as React from "react";
 import { FolderKanban, Plus, Loader2, ArrowRight } from "lucide-react";
 import { useUIStore } from "@/store/ui-store";
 import { cn } from "@/lib/utils";
+import { ProjectAgentsPanel } from "./project-agents-panel";
 
 type Project = {
   id: string;
@@ -125,6 +126,7 @@ export function ProjectsPage() {
             ))}
           </div>
         )}
+        {projects.length > 0 && <ProjectAgentsPanel projectId={projects[0].id} />}
       </div>
     </main>
   );
