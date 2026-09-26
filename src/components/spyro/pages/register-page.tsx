@@ -180,6 +180,8 @@ export function RegisterPage() {
     const params = new URLSearchParams(window.location.search);
     const reset = params.get("reset");
     if (reset) {
+      // Initialize reset flow from the URL after the client mounts.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setResetToken(reset);
       setShowResetPassword(true);
       // Clean the URL (remove ?reset=... so it doesn't persist on refresh)
