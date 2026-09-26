@@ -281,7 +281,7 @@ export function HomePage() {
         {/* ── Main column (left + center) ──────────────────────────── */}
         <div className="min-w-0 flex-1 space-y-6">
           {/* HERO */}
-          <HeroSection greeting={greeting} user={user} stats={stats} workspace={workspaceTemplate} />
+          <HeroSection greeting={greeting} user={user} stats={stats} workspace={workspaceTemplate} onStart={handleNewChat} />
 
           {/* QUICK ACTIONS — workspace-aware */}
           <QuickActions actions={workspaceActions} onAction={(v) => {
@@ -392,7 +392,7 @@ export function HomePage() {
 }
 
 // ── Hero Section ──────────────────────────────────────────────────────
-function HeroSection({ greeting, user, stats, workspace }: { greeting: { text: string; icon: string }; user: any; stats: any; workspace: any }) {
+function HeroSection({ greeting, user, stats, workspace, onStart }: { greeting: { text: string; icon: string }; user: any; stats: any; workspace: any; onStart: () => void }) {
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="ambient-mesh surface-elevated overflow-hidden">
       <div className="p-5 sm:p-6">
@@ -415,6 +415,9 @@ function HeroSection({ greeting, user, stats, workspace }: { greeting: { text: s
           {user?.name ? <>Welcome back, <span className="spyro-text-gradient">{user.name.split(" ")[0]}</span></> : <>Welcome to <span className="spyro-text-gradient">SPYRO</span></>}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">Continue where you left off.</p>
+        <button onClick={onStart} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:scale-[1.02]">
+          <MessageCircle className="h-4 w-4" /> Ask SPYRO anything
+        </button>
 
         {/* Status bar */}
         <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px]">
